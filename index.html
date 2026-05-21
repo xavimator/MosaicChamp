@@ -163,6 +163,21 @@
     window.__fbRegisterLobby = (code, host) =>
       set(ref(db, `rubitrack/lobby/${code}`), { host, ts: Date.now() });
 
+    const DB_REST = 'https://rubikrace-online-default-rtdb.europe-west1.firebasedatabase.app';
+
+    // Schedule lobby entry deletion after delay (default 2 min)
+    window.__fbScheduleLobbyDelete = (code, delayMs=120000) => {
+      setTimeout(() => {
+        set(ref(db, `rubitrack/lobby/${code}/expiresAt`), Date.now());
+      }, delayMs);
+    };
+
+    // Immediate delete via keepalive fetch (works in beforeunload)
+    window.__fbLobbyDeleteNow = (code) => {
+      fetch(`${DB_REST}/rubitrack/lobby/${code}.json`, { method:'DELETE', keepalive:true })
+        .catch(()=>{});
+    };
+
     let gamesUnsub = null;
     window.__fbListenGames = (cb) => {
       const lobbyRef = ref(db, 'rubitrack/lobby');
@@ -170,11 +185,13 @@
         const now = Date.now(), list = [];
         snap.forEach(child => {
           const d = child.val();
-          if (d?.host && d?.ts && (now - d.ts) < 7200000) // last 2h
-            list.push({ code: child.key, host: d.host, ts: d.ts });
+          if (!d?.host || !d?.ts) return;
+          if (d.expiresAt && d.expiresAt <= now) return; // expired
+          if (now - d.ts > 7200000) return;              // older than 2h
+          list.push({ code: child.key, host: d.host, ts: d.ts });
         });
         list.sort((a,b) => b.ts - a.ts);
-        cb(list.slice(0, 8)); // max 8 games
+        cb(list.slice(0, 8));
       });
     };
     window.__fbUnlistenGames = () => { if (gamesUnsub) { gamesUnsub(); gamesUnsub = null; } };
@@ -911,6 +928,13 @@
         setTutStep(1);
       };
 
+      // Delete lobby entry on browser close
+      useEffect(() => {
+        const onUnload = () => window.__fbLobbyDeleteNow?.(gameCode);
+        window.addEventListener('beforeunload', onUnload);
+        return () => window.removeEventListener('beforeunload', onUnload);
+      }, [gameCode]);
+
       // Show widget when in game
       useEffect(() => {
         document.getElementById('rr-widget').style.display = '';
@@ -972,6 +996,7 @@
             window.__fbSendFinish?.(playerName, ft, fm);
             window.__fbUpdateFinishPresence?.(SESSION_UID, playerName, ft, fm);
             window.__fbUpdateScore?.(playerName, time+1, fm);
+            window.__fbScheduleLobbyDelete?.(gameCode);
           },50);
         }
       }, [tiles, finished, rrPat, time, moves, sendPresence]);
@@ -999,6 +1024,7 @@
       const handleLeave = () => {
         clearInterval(timerRef.current); clearInterval(presenceRef.current);
         window.__fbLeaveGame?.();
+        window.__fbScheduleLobbyDelete?.(gameCode);
         window.rrPattern=[];
         onLeave();
       };
