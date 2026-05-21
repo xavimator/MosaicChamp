@@ -44,7 +44,7 @@
     ══════════════════════════════════════════════════
     */
     import { initializeApp }   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getDatabase, ref, set, push, get, onValue, onChildAdded, off,
+    import { getDatabase, ref, set, push, get, remove, onValue, onChildAdded, off,
              query, orderByChild, startAfter }
                                from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
@@ -161,7 +161,25 @@
     };
     window.__fbUnlistenScores = () => { if(scoresUnsub){scoresUnsub();scoresUnsub=null;} };
     window.__fbRegisterLobby = (code, host) =>
-      set(ref(db, `rubitrack/lobby/${code}`), { host, ts: Date.now() });
+      set(ref(db, `rubitrack/lobby/${code}`), { host, ts: Date.now(), lastMove: Date.now() });
+
+    // Update lastMove timestamp on each move
+    window.__fbUpdateLobbyActivity = (code) =>
+      set(ref(db, `rubitrack/lobby/${code}/lastMove`), Date.now()).catch(()=>{});
+
+    // Delete lobby entries inactive for 2+ minutes
+    window.__fbCleanStaleGames = async () => {
+      const now = Date.now();
+      try {
+        const snap = await get(ref(db, 'rubitrack/lobby'));
+        snap.forEach(child => {
+          const d = child.val();
+          const last = d?.lastMove || d?.ts || 0;
+          if (now - last > 120000)
+            remove(ref(db, `rubitrack/lobby/${child.key}`)).catch(()=>{});
+        });
+      } catch(e) {}
+    };
 
     const DB_REST = 'https://rubikrace-online-default-rtdb.europe-west1.firebasedatabase.app';
 
@@ -186,8 +204,10 @@
         snap.forEach(child => {
           const d = child.val();
           if (!d?.host || !d?.ts) return;
-          if (d.expiresAt && d.expiresAt <= now) return; // expired
-          if (now - d.ts > 7200000) return;              // older than 2h
+          if (d.expiresAt && d.expiresAt <= now) return;
+          const last = d.lastMove || d.ts;
+          if (now - last > 120000) return;           // 2 min inactivity
+          if (now - d.ts > 7200000) return;
           list.push({ code: child.key, host: d.host, ts: d.ts });
         });
         list.sort((a,b) => b.ts - a.ts);
@@ -411,6 +431,7 @@
     @keyframes tutDraw   { to { stroke-dashoffset: 0; } }
     @keyframes tutFadeUp { from{opacity:0;transform:translate(-50%,10px)} to{opacity:1;transform:translate(-50%,0)} }
     @keyframes tutArrow  { from{opacity:0} to{opacity:1} }
+    @keyframes countPulse { 0%{transform:scale(1.4);opacity:.5} 100%{transform:scale(1);opacity:1} }
     .help-btn {
       position:fixed; top:14px; left:14px; z-index:301;
       width:36px; height:36px; border-radius:50%;
@@ -598,12 +619,16 @@
 
       const nameOk = name.trim().length > 0;
 
-      // Listen to active games
+      // Listen to active games + periodic cleanup of stale entries
       useEffect(() => {
-        const start = () => window.__fbListenGames?.(setGames);
+        const start = () => {
+          window.__fbListenGames?.(setGames);
+          window.__fbCleanStaleGames?.();
+        };
         if (window.__fbReady) start();
         else window.addEventListener('fbReady', start, { once: true });
-        return () => window.__fbUnlistenGames?.();
+        const cleanInterval = setInterval(() => window.__fbCleanStaleGames?.(), 30000);
+        return () => { window.__fbUnlistenGames?.(); clearInterval(cleanInterval); };
       }, []);
 
       const handleNew = async () => {
@@ -907,10 +932,20 @@
       const [tutStep,     setTutStep]      = useState(0);
       const [tutHl,       setTutHl]        = useState(null);
       const [showScores,  setShowScores]   = useState(false);
+      const [countdown,   setCountdown]    = useState(null);
       const timerRef    = useRef(null);
       const finishedRef = useRef(false);
       const presenceRef = useRef(null);
       const boardRef    = useRef(null);
+      const activePlRef = useRef([]);
+
+      const startCountdown = useCallback(() => {
+        clearInterval(timerRef.current); timerRef.current = null;
+        setTime(0); setCountdown(3);
+        setTimeout(() => setCountdown(2), 1000);
+        setTimeout(() => setCountdown(1), 2000);
+        setTimeout(() => setCountdown(null), 3000);
+      }, []);
 
       const openTutorial = () => {
         const toggleEl = document.getElementById('rr-toggle');
@@ -956,17 +991,24 @@
       // Pattern sync
       useEffect(() => {
         if (window.rrPattern.length) setRrPat([...window.rrPattern]);
-        const onPat = e => { setRrPat([...e.detail]); setFinished(false); finishedRef.current=false; if(!timerRef.current) timerRef.current=setInterval(()=>setTime(t=>t+1),1000); };
+        const onPat = e => {
+          setRrPat([...e.detail]); setFinished(false); finishedRef.current=false;
+          if (activePlRef.current.length > 1) {
+            startCountdown();
+          } else {
+            if(!timerRef.current) timerRef.current=setInterval(()=>setTime(t=>t+1),1000);
+          }
+        };
         window.addEventListener('rrPatternChange', onPat);
         return () => window.removeEventListener('rrPatternChange', onPat);
-      }, []);
+      }, [startCountdown]);
 
-      // Timer
+      // Timer — paused during countdown
       useEffect(() => {
-        if (!finished) { timerRef.current=setInterval(()=>setTime(t=>t+1),1000); }
+        if (!finished && countdown === null) { timerRef.current=setInterval(()=>setTime(t=>t+1),1000); }
         else { clearInterval(timerRef.current); timerRef.current=null; }
         return () => { clearInterval(timerRef.current); timerRef.current=null; };
-      }, [finished]);
+      }, [finished, countdown]);
 
       // Global reset
       useEffect(() => {
@@ -977,18 +1019,19 @@
 
       // Presence change
       useEffect(() => {
-        const onP = e => setActivePl(e.detail||[]);
+        const onP = e => { const p=e.detail||[]; setActivePl(p); activePlRef.current=p; };
         window.addEventListener('rrPresenceChange', onP);
         return () => window.removeEventListener('rrPresenceChange', onP);
       }, []);
 
       const handleTile = useCallback((idx) => {
-        if (finished) return;
+        if (finished || countdown !== null) return;
         const ei=tiles.indexOf(null);
         if (!canMove(idx,ei)) return;
         const nt=[...tiles]; [nt[ei],nt[idx]]=[nt[idx],nt[ei]];
         setTiles(nt); setMoves(m=>m+1); setLastMoved(ei);
         sendPresence(true);
+        window.__fbUpdateLobbyActivity?.(gameCode);
         if (!finishedRef.current && checkMatch(nt,rrPat)) {
           finishedRef.current=true; setFinished(true);
           const ft=fmt(time+1), fm=moves+1;
@@ -999,7 +1042,7 @@
             window.__fbScheduleLobbyDelete?.(gameCode);
           },50);
         }
-      }, [tiles, finished, rrPat, time, moves, sendPresence]);
+      }, [tiles, finished, countdown, rrPat, time, moves, sendPresence, gameCode]);
 
       const doLocalReset = () => {
         setTiles(shuffle(buildSolved())); setMoves(0); setTime(0); setFinished(false);
@@ -1119,6 +1162,27 @@
           <button onClick={handleReset} style={{marginTop:'18px',padding:'11px 32px',borderRadius:'10px',border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.07)',color:'#fff',fontSize:'13px',fontWeight:700,letterSpacing:'.15em',cursor:'pointer',transition:'all .2s',textTransform:'uppercase'}}>
             ↺ Nuevo Juego
           </button>
+
+          {/* Countdown overlay */}
+          {countdown !== null && (
+            <div style={{position:'fixed',inset:0,zIndex:6000,display:'flex',
+                         flexDirection:'column',alignItems:'center',justifyContent:'center',
+                         background:'rgba(0,0,0,.82)',backdropFilter:'blur(4px)'}}>
+              <div style={{fontFamily:"'Pacifico',cursive",fontSize:'clamp(20px,5vw,30px)',
+                           color:'rgba(255,255,255,.85)',
+                           textShadow:'0 0 30px rgba(255,255,255,.5)',
+                           marginBottom:'20px',letterSpacing:'.06em'}}>
+                ¡Prepárate!
+              </div>
+              <div key={countdown} style={{fontFamily:"'Pacifico',cursive",
+                           fontSize:'clamp(90px,22vw,130px)',lineHeight:1,
+                           color:'#FFD700',
+                           textShadow:'0 0 60px rgba(255,215,0,.9),0 0 120px rgba(255,215,0,.4)',
+                           animation:'countPulse .55s ease'}}>
+                {countdown}
+              </div>
+            </div>
+          )}
 
           {/* Scores modal */}
           {showScores && <ScoresModal onClose={()=>setShowScores(false)}/>}
