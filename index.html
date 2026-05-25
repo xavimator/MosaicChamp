@@ -619,6 +619,16 @@
 
       const nameOk = name.trim().length > 0;
 
+      // Auto-join if URL has ?code=XXXX
+      useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const code = params.get('code')?.toUpperCase();
+        if (code && code.length === 4) {
+          setJoinCode(code);
+          setShowJoin(true);
+        }
+      }, []);
+
       // Listen to active games + periodic cleanup of stale entries
       useEffect(() => {
         const start = () => {
@@ -1104,7 +1114,7 @@
           </div>
 
           {/* Game code + name */}
-          <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:'14px',width:'100%',maxWidth:'380px',flexWrap:'wrap'}}>
+          <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:'8px',width:'100%',maxWidth:'380px',flexWrap:'wrap'}}>
             <div className="game-code-badge" onClick={copyCode} title="Copiar código">
               <div>
                 <div className="code-label">Partida</div>
@@ -1117,6 +1127,30 @@
               <label>👤</label>
               <span style={{color:'#fff',fontWeight:600,fontSize:'14px'}}>{playerName}</span>
             </div>
+          </div>
+
+          {/* Invite button */}
+          <div style={{width:'100%',maxWidth:'380px',marginBottom:'14px'}}>
+            <button onClick={()=>{
+              const url = `${location.origin}${location.pathname}?code=${gameCode}`;
+              if (navigator.share) {
+                navigator.share({ title:'RubikRace', text:`¡Únete a mi partida de RubikRace! Código: ${gameCode}`, url });
+              } else {
+                navigator.clipboard.writeText(url).then(()=>alert('¡Enlace copiado!'));
+              }
+            }} style={{
+              width:'100%', padding:'9px 16px',
+              background:'rgba(156,90,255,.12)',
+              border:'1px solid rgba(156,90,255,.35)',
+              borderRadius:'10px', color:'#c89fff',
+              fontSize:'13px', fontWeight:700, letterSpacing:'.08em',
+              cursor:'pointer', display:'flex', alignItems:'center',
+              justifyContent:'center', gap:'8px', transition:'all .2s',
+            }}
+            onMouseEnter={e=>{e.currentTarget.style.background='rgba(156,90,255,.25)';e.currentTarget.style.borderColor='rgba(156,90,255,.6)';}}
+            onMouseLeave={e=>{e.currentTarget.style.background='rgba(156,90,255,.12)';e.currentTarget.style.borderColor='rgba(156,90,255,.35)';}}>
+              <span>🔗</span> Invitar
+            </button>
           </div>
 
           {/* Stats */}
