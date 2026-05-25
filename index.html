@@ -22,27 +22,76 @@
   (function() {
     // ── Icon SVG → data URI ──────────────────────────────
     const iconSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-      <rect width="512" height="512" rx="96" fill="#0a0818"/>
-      <g transform="translate(72,72)">
-        ${[
-          ['#e74c3c','#3498db','#2ecc71','#f39c12','#9b59b6','#e74c3c','#2ecc71','#3498db','#f39c12'],
-          ['#3498db','#f39c12','#e74c3c','#9b59b6','#2ecc71','#e74c3c','#3498db','#f39c12','#9b59b6'],
-          ['#2ecc71','#9b59b6','#f39c12','#e74c3c','#3498db','#9b59b6','#2ecc71','#e74c3c','#3498db'],
-          ['#f39c12','#e74c3c','#9b59b6','#3498db','#f39c12','#2ecc71','#9b59b6','#3498db','#e74c3c'],
-          ['#9b59b6','#2ecc71','#3498db','#2ecc71','#9b59b6','#3498db','#f39c12','#2ecc71','#e74c3c'],
-        ].flatMap((row, r) => row.map((c, col) =>
-          `<rect x="${col*42}" y="${r*42}" width="38" height="38" rx="6" fill="${c}" opacity="${(r===1||r===2||r===3)&&(col>=0&&col<=2)?'1':'.45'}"/>`
-        )).join('')}
-      </g>
-      <text x="256" y="490" text-anchor="middle" font-family="Arial Black,Arial" font-weight="900"
-            font-size="52" fill="url(#g)" letter-spacing="4">RUBIKRACE</text>
       <defs>
-        <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%"   stop-color="#7BAEF5"/>
-          <stop offset="50%"  stop-color="#FFA85C"/>
-          <stop offset="100%" stop-color="#5FD98A"/>
-        </linearGradient>
+        <!-- Background glow -->
+        <radialGradient id="bg" cx="50%" cy="45%" r="60%">
+          <stop offset="0%"   stop-color="#1e0a4a"/>
+          <stop offset="100%" stop-color="#0a0618"/>
+        </radialGradient>
+        <!-- Bubble gradients (highlight top-left) -->
+        <radialGradient id="gb" cx="32%" cy="28%" r="68%">
+          <stop offset="0%"   stop-color="#5A9FF0"/>
+          <stop offset="55%"  stop-color="#1A5FC8"/>
+          <stop offset="100%" stop-color="#06194a"/>
+        </radialGradient>
+        <radialGradient id="gg" cx="32%" cy="28%" r="68%">
+          <stop offset="0%"   stop-color="#3DE87A"/>
+          <stop offset="55%"  stop-color="#13A346"/>
+          <stop offset="100%" stop-color="#053a18"/>
+        </radialGradient>
+        <radialGradient id="gr" cx="32%" cy="28%" r="68%">
+          <stop offset="0%"   stop-color="#F05050"/>
+          <stop offset="55%"  stop-color="#C41A1A"/>
+          <stop offset="100%" stop-color="#4a0505"/>
+        </radialGradient>
+        <radialGradient id="gy" cx="32%" cy="28%" r="68%">
+          <stop offset="0%"   stop-color="#FFE050"/>
+          <stop offset="55%"  stop-color="#E8B800"/>
+          <stop offset="100%" stop-color="#6b5500"/>
+        </radialGradient>
+        <radialGradient id="go" cx="32%" cy="28%" r="68%">
+          <stop offset="0%"   stop-color="#FFA050"/>
+          <stop offset="55%"  stop-color="#E86200"/>
+          <stop offset="100%" stop-color="#6b2600"/>
+        </radialGradient>
+        <radialGradient id="gw" cx="32%" cy="28%" r="68%">
+          <stop offset="0%"   stop-color="#FFFFFF"/>
+          <stop offset="55%"  stop-color="#C8C8D8"/>
+          <stop offset="100%" stop-color="#6888A0"/>
+        </radialGradient>
+        <!-- Gloss overlay -->
+        <radialGradient id="gl" cx="38%" cy="28%" r="55%">
+          <stop offset="0%"   stop-color="rgba(255,255,255,.55)"/>
+          <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+        </radialGradient>
       </defs>
+
+      <!-- Background -->
+      <rect width="512" height="512" rx="90" fill="url(#bg)"/>
+
+      <!-- Blue bubble — top-left -->
+      <circle cx="132" cy="182" r="74" fill="url(#gb)"/>
+      <circle cx="132" cy="182" r="74" fill="url(#gl)" opacity=".9"/>
+
+      <!-- Green bubble — top-center -->
+      <circle cx="272" cy="130" r="64" fill="url(#gg)"/>
+      <circle cx="272" cy="130" r="64" fill="url(#gl)" opacity=".9"/>
+
+      <!-- Red bubble — top-right -->
+      <circle cx="400" cy="188" r="70" fill="url(#gr)"/>
+      <circle cx="400" cy="188" r="70" fill="url(#gl)" opacity=".9"/>
+
+      <!-- Yellow bubble — bottom-left -->
+      <circle cx="100" cy="358" r="66" fill="url(#gy)"/>
+      <circle cx="100" cy="358" r="66" fill="url(#gl)" opacity=".9"/>
+
+      <!-- Orange bubble — bottom-center -->
+      <circle cx="310" cy="372" r="76" fill="url(#go)"/>
+      <circle cx="310" cy="372" r="76" fill="url(#gl)" opacity=".9"/>
+
+      <!-- White bubble — bottom-right -->
+      <circle cx="446" cy="346" r="58" fill="url(#gw)"/>
+      <circle cx="446" cy="346" r="58" fill="url(#gl)" opacity=".9"/>
     </svg>`;
     const iconURI = 'data:image/svg+xml,' + encodeURIComponent(iconSVG);
     document.getElementById('pwa-icon').href = iconURI;
