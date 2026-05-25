@@ -780,6 +780,7 @@
     /* ─── ScoresModal ─── */
     function ScoresModal({ onClose }) {
       const [scores, setScores] = useState([]);
+      const [showInfo, setShowInfo] = useState(false);
       const fmtSec = s => { if(s==null) return '–'; const m=Math.floor(s/60); return `${m}:${String(s%60).padStart(2,'0')}`; };
       useEffect(() => {
         window.__fbListenScores?.(setScores);
@@ -794,7 +795,32 @@
                        boxShadow:'0 30px 80px rgba(0,0,0,.7)'}}
                onClick={e=>e.stopPropagation()}>
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'18px'}}>
-              <div style={{color:'#fff',fontSize:'18px',fontWeight:800}}>🏆 Mejores jugadores</div>
+              <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                <div style={{color:'#fff',fontSize:'18px',fontWeight:800}}>🏆 Mejores jugadores</div>
+                {/* ? criteria button */}
+                <div style={{position:'relative'}}>
+                  <button onClick={()=>setShowInfo(v=>!v)}
+                          style={{width:'20px',height:'20px',borderRadius:'50%',
+                                  border:'1px solid rgba(255,255,255,.25)',background:'rgba(255,255,255,.08)',
+                                  color:'rgba(255,255,255,.5)',fontSize:'11px',fontWeight:700,
+                                  cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',
+                                  flexShrink:0}}>?</button>
+                  {showInfo && (
+                    <div style={{position:'absolute',left:0,top:'26px',zIndex:10,
+                                 background:'rgba(20,14,50,.98)',border:'1px solid rgba(156,90,255,.3)',
+                                 borderRadius:'12px',padding:'12px 14px',width:'210px',
+                                 fontSize:'12px',color:'rgba(255,255,255,.7)',lineHeight:1.6,
+                                 boxShadow:'0 12px 40px rgba(0,0,0,.6)'}}>
+                      <div style={{fontWeight:700,color:'#c89fff',marginBottom:'6px'}}>Criterios de ranking</div>
+                      <div>🥇 Primero: más <b style={{color:'#fff'}}>victorias</b></div>
+                      <div>🥈 Empate: mejor <b style={{color:'#fff'}}>tiempo</b></div>
+                      <div style={{marginTop:'8px',fontSize:'11px',color:'rgba(255,255,255,.35)'}}>
+                        Las victorias son el criterio principal. Si dos jugadores tienen las mismas, gana el de menor tiempo récord.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
               <button onClick={onClose} style={{background:'none',border:'none',color:'rgba(255,255,255,.4)',fontSize:'22px',cursor:'pointer',lineHeight:1}}>×</button>
             </div>
             {scores.length === 0
@@ -1113,39 +1139,45 @@
             <button className="leave-btn" onClick={handleLeave}>✕ Salir</button>
           </div>
 
-          {/* Game code + invite + name — una sola fila */}
-          <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',width:'100%',maxWidth:'380px'}}>
+          {/* Game code + invite + nombre — una fila, tamaños iguales */}
+          <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'14px',
+                       width:'100%',maxWidth:'380px'}}>
 
             {/* Código */}
-            <div className="game-code-badge" onClick={copyCode} title="Copiar código">
+            <div className="game-code-badge" onClick={copyCode} title="Copiar"
+                 style={{alignSelf:'stretch',flexShrink:0}}>
               <div>
                 <div className="code-label">Partida</div>
-                <div className="code-value">{copied ? '✓ OK' : gameCode}</div>
+                <div className="code-value" style={{color:copied?'#22c55e':'#c89fff'}}>
+                  {copied ? '✓ OK' : gameCode}
+                </div>
               </div>
               <div className="copy-icon">⧉</div>
             </div>
 
-            {/* Invitar */}
-            <div className="game-code-badge" title="Invitar" onClick={()=>{
-              const url = `${location.origin}${location.pathname}?code=${gameCode}`;
-              if (navigator.share) {
-                navigator.share({ title:'RubikRace', text:`¡Únete a mi partida! Código: ${gameCode}`, url });
-              } else {
-                navigator.clipboard.writeText(url).then(()=>alert('¡Enlace copiado!'));
-              }
-            }}>
+            {/* Invitar — mismo badge */}
+            <div className="game-code-badge" title="Invitar"
+                 style={{alignSelf:'stretch',flexShrink:0,cursor:'pointer'}}
+                 onClick={()=>{
+                   const url=`${location.origin}${location.pathname}?code=${gameCode}`;
+                   if(navigator.share) navigator.share({title:'RubikRace',text:`¡Únete! Código: ${gameCode}`,url});
+                   else navigator.clipboard.writeText(url).then(()=>alert('¡Enlace copiado!'));
+                 }}>
               <div>
                 <div className="code-label">Invitar</div>
                 <div className="code-value" style={{fontSize:'15px',letterSpacing:'.05em'}}>🔗 Link</div>
               </div>
             </div>
 
-            {/* Nombre — ajustado al texto */}
-            <div className="name-input-wrap" style={{margin:0,flexShrink:0,maxWidth:'50%'}}>
-              <label>👤</label>
-              <span style={{color:'#fff',fontWeight:600,fontSize:'14px',
+            {/* Nombre — ajustado al texto, sin width:100% */}
+            <div style={{display:'flex',alignItems:'center',gap:'6px',
+                         background:'rgba(255,255,255,.05)',borderRadius:'10px',
+                         padding:'7px 12px',border:'1px solid rgba(255,255,255,.1)',
+                         flexShrink:1,minWidth:0}}>
+              <span style={{fontSize:'13px',flexShrink:0}}>👤</span>
+              <span style={{color:'#fff',fontWeight:600,fontSize:'13px',
                             whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',
-                            maxWidth:'100px',display:'inline-block',verticalAlign:'middle'}}>
+                            maxWidth:'90px'}}>
                 {playerName}
               </span>
             </div>
