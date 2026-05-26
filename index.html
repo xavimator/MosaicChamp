@@ -315,6 +315,7 @@
     // ── Scores (all-time) ──
     const safeKey = n => n.toLowerCase().replace(/[^a-z0-9]/g,'_').slice(0,20);
     window.__fbUpdateScore = async (name, timeSec, moves) => {
+      if (name.trim().toLowerCase() === 'rubiking') return; // cuenta de test
       const key = safeKey(name);
       const sRef = ref(db, `rubitrack/scores/${key}`);
       const snap = await get(sRef);
@@ -332,7 +333,7 @@
       const sRef = ref(db, 'rubitrack/scores');
       scoresUnsub = onValue(sRef, snap => {
         const list = [];
-        snap.forEach(c => { const v=c.val(); if(v?.name) list.push(v); });
+        snap.forEach(c => { const v=c.val(); if(v?.name && v.name.toLowerCase() !== 'rubiking') list.push(v); });
         list.sort((a,b)=> b.wins-a.wins || a.bestSec-b.bestSec);
         cb(list);
       });
