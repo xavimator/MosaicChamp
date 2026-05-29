@@ -185,6 +185,50 @@
     }
   })();
   </script>
+  <script>
+  /* ── Sonidos y hápticos ── */
+  (() => {
+    let _ctx = null;
+    const ctx = () => {
+      if (!_ctx) _ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (_ctx.state === 'suspended') _ctx.resume();
+      return _ctx;
+    };
+
+    window.playClack = () => {
+      try {
+        const c = ctx(), t = c.currentTime;
+        const osc = c.createOscillator(), g = c.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(950, t);
+        osc.frequency.exponentialRampToValueAtTime(180, t + 0.04);
+        g.gain.setValueAtTime(0.18, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + 0.048);
+        osc.connect(g); g.connect(c.destination);
+        osc.start(t); osc.stop(t + 0.055);
+      } catch(e) {}
+    };
+
+    window.playWood = () => {
+      try {
+        const c = ctx(), t = c.currentTime;
+        const sr = c.sampleRate, sz = Math.floor(sr * 0.2);
+        const buf = c.createBuffer(1, sz, sr);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < sz; i++) d[i] = Math.random() * 2 - 1;
+        const src = c.createBufferSource(); src.buffer = buf;
+        const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 300; bp.Q.value = 5;
+        const gn = c.createGain();
+        gn.gain.setValueAtTime(0.65, t); gn.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+        src.connect(bp); bp.connect(gn); gn.connect(c.destination); src.start(t);
+        const osc = c.createOscillator(), go = c.createGain();
+        osc.frequency.setValueAtTime(210, t); osc.frequency.exponentialRampToValueAtTime(170, t + 0.12);
+        go.gain.setValueAtTime(0.22, t); go.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+        osc.connect(go); go.connect(c.destination); osc.start(t); osc.stop(t + 0.18);
+      } catch(e) {}
+    };
+  })();
+  </script></script>
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -1244,10 +1288,24 @@
         if (finished || countdown !== null) return;
         const ei=tiles.indexOf(null);
         if (!canMove(idx,ei)) return;
+        const movedTile = tiles[idx];
         const nt=[...tiles]; [nt[ei],nt[idx]]=[nt[idx],nt[ei]];
         setTiles(nt); setMoves(m=>m+1); setLastMoved(ei);
         sendPresence(true);
         window.__fbUpdateLobbyActivity?.(gameCode);
+
+        // Sonido y háptico
+        const centerIdx = CENTER.indexOf(ei);
+        const correctPos = centerIdx !== -1 && rrPat.length === 9 && movedTile &&
+          movedTile.colorId === RR_IDS[rrPat[centerIdx]];
+        if (correctPos) {
+          window.playWood?.();
+          navigator.vibrate?.([60, 25, 60, 25, 60]);
+        } else {
+          window.playClack?.();
+          navigator.vibrate?.(18);
+        }
+
         if (!finishedRef.current && checkMatch(nt,rrPat)) {
           finishedRef.current=true; setFinished(true);
           const ft=fmt(time+1), fm=moves+1;
