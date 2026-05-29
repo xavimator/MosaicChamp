@@ -208,14 +208,29 @@
         const c = getCtx();
         if (c.state === 'suspended') c.resume();
         const t = c.currentTime;
-        const osc = c.createOscillator(), g = c.createGain();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(1100, t);
-        osc.frequency.exponentialRampToValueAtTime(280, t + 0.05);
-        g.gain.setValueAtTime(0.4, t);
-        g.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
-        osc.connect(g); g.connect(c.destination);
-        osc.start(t); osc.stop(t + 0.07);
+
+        // Clic mecánico: ruido corto filtrado en agudos
+        const sz = Math.floor(c.sampleRate * 0.014);
+        const buf = c.createBuffer(1, sz, c.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < sz; i++) d[i] = Math.random() * 2 - 1;
+        const click = c.createBufferSource(); click.buffer = buf;
+        const hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 2800;
+        const cg = c.createGain();
+        cg.gain.setValueAtTime(1.0, t);
+        cg.gain.exponentialRampToValueAtTime(0.001, t + 0.014);
+        click.connect(hp); hp.connect(cg); cg.connect(c.destination);
+        click.start(t);
+
+        // Golpe grave: tecla chocando con el fondo
+        const osc = c.createOscillator(), og = c.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(180, t);
+        osc.frequency.exponentialRampToValueAtTime(70, t + 0.045);
+        og.gain.setValueAtTime(0.55, t);
+        og.gain.exponentialRampToValueAtTime(0.001, t + 0.055);
+        osc.connect(og); og.connect(c.destination);
+        osc.start(t); osc.stop(t + 0.06);
       } catch(e) { console.warn('clack:', e); }
     };
 
