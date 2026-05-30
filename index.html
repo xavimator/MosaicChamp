@@ -195,11 +195,15 @@
       return _ctx;
     };
 
-    // Usa resume().then() — única forma fiable en Safari
+    // Chrome: ejecutar directo si ya running. Safari: resume().then()
     const play = (fn) => {
       try {
         const c = getCtx();
-        c.resume().then(() => { try { fn(c); } catch(e) { console.warn('audio:', e); } });
+        if (c.state === 'running') {
+          fn(c);
+        } else {
+          c.resume().then(() => { try { fn(c); } catch(e) { console.warn('audio:', e); } });
+        }
       } catch(e) { console.warn('audio init:', e); }
     };
 
@@ -378,20 +382,14 @@
       const notifQuery = query(notifRef, orderByChild('ts'), startAfter(Date.now()));
       unsubs.push(onChildAdded(notifQuery, snap => {
         const item = snap.val();
-        if (item) window.__fbNotifReceived?.(item);
+        if (!item) return;
+        if (item.type === 'nearWin') window.__fbNearWinReceived?.(item);
+        else                         window.__fbNotifReceived?.(item);
       }));
       window.__fbSendFinish = (name, time, moves) =>
         push(notifRef, { name, time, moves, ts: Date.now() });
-
-      // Near-win signal (1 ficha por colocar)
-      const nearWinRef = ref(db, `${base}/nearWin`);
-      let lastNearWinTs = 0;
-      unsubs.push(onValue(nearWinRef, snap => {
-        const v = snap.val();
-        if (v?.ts && v.ts > lastNearWinTs) { lastNearWinTs = v.ts; window.__fbNearWinReceived?.(v); }
-      }));
       window.__fbSendNearWin = (playerName) =>
-        set(nearWinRef, { player: playerName, ts: Date.now() });
+        push(notifRef, { type: 'nearWin', player: playerName, ts: Date.now() });
 
       // Presence
       const presRef = ref(db, `${base}/presence`);
