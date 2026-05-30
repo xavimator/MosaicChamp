@@ -186,7 +186,7 @@
   })();
   </script>
   <script>
-  /* ── Sonidos — Safari/iOS compatible ── */
+  /* ── Sonidos — Chrome + Safari/iOS ── */
   (() => {
     let _ctx = null;
 
@@ -195,13 +195,35 @@
       return _ctx;
     };
 
-    // Chrome: ejecutar directo si ya running. Safari: resume().then()
+    // Desbloqueo: buffer silencioso (necesario en Safari) + resume
+    const unlock = () => {
+      try {
+        const c = getCtx();
+        if (c.state === 'suspended') {
+          // Buffer silencioso: desbloquea Safari
+          const buf = c.createBuffer(1, 1, 22050);
+          const src = c.createBufferSource();
+          src.buffer = buf;
+          src.connect(c.destination);
+          src.start(0);
+          c.resume();
+        }
+      } catch(e) {}
+    };
+
+    // Desbloquear en cualquier interacción del usuario
+    ['touchstart', 'touchend', 'mousedown', 'click'].forEach(ev =>
+      document.addEventListener(ev, unlock, { capture: true, passive: true })
+    );
+
+    // Reproducir: directo si running (Chrome), resume().then si suspended (Safari)
     const play = (fn) => {
       try {
         const c = getCtx();
         if (c.state === 'running') {
           fn(c);
         } else {
+          unlock();
           c.resume().then(() => { try { fn(c); } catch(e) { console.warn('audio:', e); } });
         }
       } catch(e) { console.warn('audio init:', e); }
@@ -209,7 +231,6 @@
 
     window.playClack = () => play(c => {
       const t = c.currentTime;
-      // Clic agudo (mecanismo)
       const sz = Math.floor(c.sampleRate * 0.014);
       const buf = c.createBuffer(1, sz, c.sampleRate);
       const d = buf.getChannelData(0);
@@ -221,7 +242,6 @@
       cg.gain.exponentialRampToValueAtTime(0.001, t + 0.014);
       click.connect(hp); hp.connect(cg); cg.connect(c.destination);
       click.start(t);
-      // Golpe grave (tecla al fondo)
       const osc = c.createOscillator(), og = c.createGain();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(180, t);
@@ -230,48 +250,6 @@
       og.gain.exponentialRampToValueAtTime(0.001, t + 0.055);
       osc.connect(og); og.connect(c.destination);
       osc.start(t); osc.stop(t + 0.06);
-    });
-
-    window.playTickTock = () => play(c => {
-      const t = c.currentTime;
-      // 4 ticks alternados: tick (agudo) / tock (grave)
-      for (let i = 0; i < 4; i++) {
-        const when = t + i * 0.38;
-        const freq = i % 2 === 0 ? 820 : 560;
-        const osc = c.createOscillator(), g = c.createGain();
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        g.gain.setValueAtTime(0, when);
-        g.gain.linearRampToValueAtTime(0.45, when + 0.004);
-        g.gain.exponentialRampToValueAtTime(0.001, when + 0.07);
-        osc.connect(g); g.connect(c.destination);
-        osc.start(when); osc.stop(when + 0.08);
-      }
-    });
-
-    window.playWhoosh = () => play(c => {
-      const t = c.currentTime;
-      // Barrido ascendente (velocidad)
-      const osc1 = c.createOscillator(), g1 = c.createGain();
-      osc1.type = 'sine';
-      osc1.frequency.setValueAtTime(180, t);
-      osc1.frequency.exponentialRampToValueAtTime(1400, t + 0.18);
-      g1.gain.setValueAtTime(0.28, t);
-      g1.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
-      osc1.connect(g1); g1.connect(c.destination);
-      osc1.start(t); osc1.stop(t + 0.22);
-      // Ding final satisfactorio
-      [880, 1320, 1760].forEach((freq, i) => {
-        const when = t + 0.15 + i * 0.04;
-        const osc = c.createOscillator(), g = c.createGain();
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        g.gain.setValueAtTime(0, when);
-        g.gain.linearRampToValueAtTime(0.3 - i * 0.06, when + 0.01);
-        g.gain.exponentialRampToValueAtTime(0.001, when + 0.35);
-        osc.connect(g); g.connect(c.destination);
-        osc.start(when); osc.stop(when + 0.38);
-      });
     });
 
     window.playWood = () => play(c => {
@@ -295,6 +273,45 @@
       go.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
       osc.connect(go); go.connect(c.destination);
       osc.start(t); osc.stop(t + 0.2);
+    });
+
+    window.playTickTock = () => play(c => {
+      const t = c.currentTime;
+      for (let i = 0; i < 4; i++) {
+        const when = t + i * 0.38;
+        const freq = i % 2 === 0 ? 820 : 560;
+        const osc = c.createOscillator(), g = c.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        g.gain.setValueAtTime(0, when);
+        g.gain.linearRampToValueAtTime(0.45, when + 0.004);
+        g.gain.exponentialRampToValueAtTime(0.001, when + 0.07);
+        osc.connect(g); g.connect(c.destination);
+        osc.start(when); osc.stop(when + 0.08);
+      }
+    });
+
+    window.playWhoosh = () => play(c => {
+      const t = c.currentTime;
+      const osc1 = c.createOscillator(), g1 = c.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(180, t);
+      osc1.frequency.exponentialRampToValueAtTime(1400, t + 0.18);
+      g1.gain.setValueAtTime(0.28, t);
+      g1.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+      osc1.connect(g1); g1.connect(c.destination);
+      osc1.start(t); osc1.stop(t + 0.22);
+      [880, 1320, 1760].forEach((freq, i) => {
+        const when = t + 0.15 + i * 0.04;
+        const osc = c.createOscillator(), g = c.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        g.gain.setValueAtTime(0, when);
+        g.gain.linearRampToValueAtTime(0.3 - i * 0.06, when + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.001, when + 0.35);
+        osc.connect(g); g.connect(c.destination);
+        osc.start(when); osc.stop(when + 0.38);
+      });
     });
   })();
   </script>
@@ -383,7 +400,7 @@
       unsubs.push(onChildAdded(notifQuery, snap => {
         const item = snap.val();
         if (!item) return;
-        if (item.type === 'nearWin') window.__fbNearWinReceived?.(item);
+        if (item.type === 'nearWin') window.dispatchEvent(new CustomEvent('rrNearWin', { detail: item }));
         else                         window.__fbNotifReceived?.(item);
       }));
       window.__fbSendFinish = (name, time, moves) =>
@@ -1310,10 +1327,12 @@
 
       // Near-win listener: tick-tock para todos excepto el que tiene 1 ficha
       useEffect(() => {
-        window.__fbNearWinReceived = (v) => {
+        const handler = (e) => {
+          const v = e.detail;
           if (v?.player && v.player !== playerName) window.playTickTock?.();
         };
-        return () => { window.__fbNearWinReceived = null; };
+        window.addEventListener('rrNearWin', handler);
+        return () => window.removeEventListener('rrNearWin', handler);
       }, [playerName]);
 
       // Show widget when in game
