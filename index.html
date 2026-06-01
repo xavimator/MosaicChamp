@@ -216,6 +216,11 @@
       document.addEventListener(ev, unlock, { capture: true, passive: true })
     );
 
+    // Reanudar cuando la pestaña vuelve a primer plano
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') unlock();
+    });
+
     // Reproducir: directo si running (Chrome), resume().then si suspended (Safari)
     const play = (fn) => {
       try {
@@ -448,20 +453,42 @@
 
     // ── Scores (all-time) ──
     const safeKey = n => n.toLowerCase().replace(/[^a-z0-9]/g,'_').slice(0,20);
+
+    // ID único por dispositivo — permite mismos nombres en distintos dispositivos
+    const getDeviceId = () => {
+      let id = localStorage.getItem('rr-device-id');
+      if (!id) { id = Date.now().toString(36) + Math.random().toString(36).slice(2,8); localStorage.setItem('rr-device-id', id); }
+      return id;
+    };
+
     window.__fbUpdateScore = async (name, timeSec, moves) => {
-      if (name.trim().toLowerCase() === 'rubiking') return; // cuenta de test
-      const key = safeKey(name);
-      const sRef = ref(db, `rubitrack/scores/${key}`);
+      if (name.trim().toLowerCase() === 'rubiking') return;
+      const deviceId = getDeviceId();
+      const sRef = ref(db, `rubitrack/scores/${deviceId}`);
       const snap = await get(sRef);
       const prev = snap.val() || {};
-      const update = {
+      return set(sRef, {
         name,
         wins:      (prev.wins||0) + 1,
-        bestSec:   prev.bestSec  != null ? Math.min(prev.bestSec,  timeSec) : timeSec,
-        bestMoves: prev.bestMoves != null ? Math.min(prev.bestMoves, moves)  : moves,
-      };
-      return set(sRef, update);
+        bestSec:   prev.bestSec   != null ? Math.min(prev.bestSec,   timeSec) : timeSec,
+        bestMoves: prev.bestMoves != null ? Math.min(prev.bestMoves, moves)   : moves,
+      });
     };
+
+    // Comprueba cuántos jugadores distintos usan el mismo nombre → devuelve el sufijo (#N)
+    window.__fbCheckName = async (name) => {
+      try {
+        const deviceId = getDeviceId();
+        const snap = await get(ref(db, 'rubitrack/scores'));
+        let count = 0;
+        snap.forEach(child => {
+          const v = child.val();
+          if (v?.name?.toLowerCase() === name.trim().toLowerCase() && child.key !== deviceId) count++;
+        });
+        return count; // 0 = sin conflicto, 1 = aparecerá como #2, etc.
+      } catch(e) { return 0; }
+    };
+
     let scoresUnsub = null;
     window.__fbListenScores = (cb) => {
       const sRef = ref(db, 'rubitrack/scores');
@@ -469,6 +496,13 @@
         const list = [];
         snap.forEach(c => { const v=c.val(); if(v?.name && v.name.toLowerCase() !== 'rubiking') list.push(v); });
         list.sort((a,b)=> b.wins-a.wins || a.bestSec-b.bestSec);
+        // Añadir sufijo #N a nombres duplicados
+        const seen = {};
+        list.forEach(s => {
+          const key = s.name.toLowerCase();
+          seen[key] = (seen[key]||0) + 1;
+          s.displayName = seen[key] > 1 ? `${s.name} #${seen[key]}` : s.name;
+        });
         cb(list);
       });
     };
@@ -936,6 +970,18 @@
       const [games,    setGames]    = useState([]);
 
       const nameOk = name.trim().length > 0;
+      const [rankName, setRankName] = useState('');
+
+      // Comprobar conflicto de nombre (debounced)
+      useEffect(() => {
+        if (!nameOk) { setRankName(''); return; }
+        const t = setTimeout(async () => {
+          if (!window.__fbReady) return;
+          const count = await window.__fbCheckName?.(name.trim()) ?? 0;
+          setRankName(count > 0 ? `${name.trim()} #${count + 1}` : '');
+        }, 600);
+        return () => clearTimeout(t);
+      }, [name, nameOk]);
 
       // Auto-join if URL has ?code=XXXX
       useEffect(() => {
@@ -1020,10 +1066,33 @@
             {/* Name */}
             <div>
               <div className="lobby-label">Tu nombre</div>
-              <input className="lobby-input" maxLength={20} placeholder="Cómo te llamas…"
+              <input id="lobby-name-input" className="lobby-input" maxLength={20} placeholder="Cómo te llamas…"
                 value={name} onChange={e=>setName(e.target.value)}
                 onKeyDown={e=>{ if(e.key==='Enter'&&nameOk&&!showJoin) handleNew(); }}
               />
+              {rankName && (
+                <div style={{marginTop:'8px',background:'rgba(255,180,0,.07)',
+                             border:'1px solid rgba(255,180,0,.2)',borderRadius:'8px',
+                             padding:'8px 10px',fontSize:'11px'}}>
+                  <div style={{color:'rgba(255,200,80,.9)',marginBottom:'6px'}}>
+                    ⚠️ Ya existe otro <b>"{name.trim()}"</b>. Aparecerás como <b style={{color:'#FFD700'}}>{rankName}</b>
+                  </div>
+                  <div style={{display:'flex',gap:'6px'}}>
+                    <button onClick={()=>{ setName(''); setRankName(''); document.getElementById('lobby-name-input')?.focus(); }}
+                            style={{flex:1,padding:'5px 8px',borderRadius:'6px',border:'1px solid rgba(255,200,80,.4)',
+                                   background:'rgba(255,180,0,.12)',color:'#FFD700',fontSize:'11px',
+                                   fontWeight:700,cursor:'pointer',letterSpacing:'.05em'}}>
+                      ✏️ Cambiar nombre
+                    </button>
+                    <button onClick={()=>setRankName('')}
+                            style={{padding:'5px 8px',borderRadius:'6px',border:'1px solid rgba(255,255,255,.1)',
+                                   background:'rgba(255,255,255,.05)',color:'rgba(255,255,255,.4)',
+                                   fontSize:'11px',cursor:'pointer'}}>
+                      Continuar así
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="lobby-divider"/>
@@ -1097,32 +1166,49 @@
     }
     /* ─── ScoresModal ─── */
     function ScoresModal({ onClose }) {
-      const [scores, setScores] = useState([]);
+      const [scores,   setScores]   = useState([]);
       const [showInfo, setShowInfo] = useState(false);
-      const fmtSec = s => { if(s==null) return '–'; const m=Math.floor(s/60); return `${m}:${String(s%60).padStart(2,'0')}`; };
+      const [search,   setSearch]   = useState('');
+
+      const fmtSec = s => {
+        if (s == null) return '–';
+        const m = Math.floor(s / 60);
+        return `${m}:${String(s % 60).padStart(2,'0')}`;
+      };
+
       useEffect(() => {
         window.__fbListenScores?.(setScores);
         return () => window.__fbUnlistenScores?.();
       }, []);
+
+      const top9  = scores.slice(0, 9);
+      const query = search.trim().toLowerCase();
+      const found = query
+        ? scores.reduce((acc, s, i) => {
+            if (s.name.toLowerCase().includes(query)) acc.push({ ...s, pos: i + 1 });
+            return acc;
+          }, [])
+        : [];
+
       return (
         <div style={{position:'fixed',inset:0,zIndex:7000,display:'flex',alignItems:'center',
                      justifyContent:'center',background:'rgba(0,0,0,.75)',backdropFilter:'blur(8px)'}}
              onClick={onClose}>
           <div style={{background:'rgba(15,10,35,.97)',border:'1px solid rgba(156,90,255,.3)',
-                       borderRadius:'20px',padding:'24px',width:'min(94vw,400px)',
-                       boxShadow:'0 30px 80px rgba(0,0,0,.7)'}}
+                       borderRadius:'20px',padding:'24px',width:'min(94vw,400px)',maxHeight:'90vh',
+                       overflowY:'auto',boxShadow:'0 30px 80px rgba(0,0,0,.7)'}}
                onClick={e=>e.stopPropagation()}>
+
+            {/* Header */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'18px'}}>
               <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
                 <div style={{color:'#fff',fontSize:'18px',fontWeight:800}}>🏆 Mejores jugadores</div>
-                {/* ? criteria button */}
                 <div style={{position:'relative'}}>
                   <button onClick={()=>setShowInfo(v=>!v)}
                           style={{width:'20px',height:'20px',borderRadius:'50%',
                                   border:'1px solid rgba(255,255,255,.25)',background:'rgba(255,255,255,.08)',
                                   color:'rgba(255,255,255,.5)',fontSize:'11px',fontWeight:700,
-                                  cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',
-                                  flexShrink:0}}>?</button>
+                                  cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>?</button>
                   {showInfo && (
                     <div style={{position:'absolute',left:0,top:'26px',zIndex:10,
                                  background:'rgba(20,14,50,.98)',border:'1px solid rgba(156,90,255,.3)',
@@ -1141,6 +1227,8 @@
               </div>
               <button onClick={onClose} style={{background:'none',border:'none',color:'rgba(255,255,255,.4)',fontSize:'22px',cursor:'pointer',lineHeight:1}}>×</button>
             </div>
+
+            {/* Top 9 */}
             {scores.length === 0
               ? <div style={{color:'rgba(255,255,255,.3)',textAlign:'center',padding:'24px',fontSize:'14px'}}>Aún no hay scores 🎮</div>
               : <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
@@ -1154,25 +1242,71 @@
                     </tr>
                   </thead>
                   <tbody>
-                    {scores.map((s,i)=>(
+                    {top9.map((s,i)=>(
                       <tr key={s.name} style={{borderTop:'1px solid rgba(255,255,255,.06)',background:i===0?'rgba(255,215,0,.05)':''}}>
-                        <td style={{padding:'10px 6px',color:['#FFD700','#C0C0C0','#CD7F32'][i]||'rgba(255,255,255,.3)',fontWeight:700}}>
+                        <td style={{padding:'9px 6px',color:['#FFD700','#C0C0C0','#CD7F32'][i]||'rgba(255,255,255,.3)',fontWeight:700}}>
                           {['🥇','🥈','🥉'][i]||i+1}
                         </td>
-                        <td style={{padding:'10px 6px',color:'#fff',fontWeight:600,maxWidth:'110px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.name}</td>
-                        <td style={{padding:'10px 6px',textAlign:'center',color:'#c89fff',fontWeight:700}}>{s.wins}</td>
-                        <td style={{padding:'10px 6px',textAlign:'center',color:'rgba(255,255,255,.7)',fontFamily:'monospace'}}>{fmtSec(s.bestSec)}</td>
-                        <td style={{padding:'10px 6px',textAlign:'center',color:'rgba(255,255,255,.7)',fontFamily:'monospace'}}>{s.bestMoves??'–'}</td>
+                        <td style={{padding:'9px 6px',color:'#fff',fontWeight:600,maxWidth:'110px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.displayName||s.name}</td>
+                        <td style={{padding:'9px 6px',textAlign:'center',color:'#c89fff',fontWeight:700}}>{s.wins}</td>
+                        <td style={{padding:'9px 6px',textAlign:'center',color:'rgba(255,255,255,.7)',fontFamily:'monospace'}}>{fmtSec(s.bestSec)}</td>
+                        <td style={{padding:'9px 6px',textAlign:'center',color:'rgba(255,255,255,.7)',fontFamily:'monospace'}}>{s.bestMoves??'–'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
             }
+
+            {/* Buscador */}
+            {scores.length > 0 && (
+              <div style={{marginTop:'18px'}}>
+                <div style={{position:'relative'}}>
+                  <span style={{position:'absolute',left:'10px',top:'50%',transform:'translateY(-50%)',fontSize:'13px',opacity:.4}}>🔍</span>
+                  <input value={search} onChange={e=>setSearch(e.target.value)}
+                         onClick={e=>e.stopPropagation()}
+                         placeholder="Buscar jugador..."
+                         style={{width:'100%',boxSizing:'border-box',
+                                 padding:'9px 12px 9px 32px',
+                                 background:'rgba(255,255,255,.06)',
+                                 border:'1px solid rgba(156,90,255,.25)',
+                                 borderRadius:'10px',color:'#fff',fontSize:'13px',
+                                 outline:'none',WebkitUserSelect:'text',userSelect:'text'}}/>
+                </div>
+                {query && (
+                  <div style={{marginTop:'10px'}}>
+                    {found.length === 0
+                      ? <div style={{color:'rgba(255,255,255,.3)',fontSize:'12px',textAlign:'center',padding:'12px'}}>
+                          Sin resultados para "{search}"
+                        </div>
+                      : found.map(s=>(
+                          <div key={s.name+s.pos}
+                               style={{display:'flex',alignItems:'center',justifyContent:'space-between',
+                                       padding:'10px 12px',borderRadius:'10px',marginBottom:'6px',
+                                       background:'rgba(156,90,255,.1)',
+                                       border:'1px solid rgba(156,90,255,.3)'}}>
+                            <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+                              <span style={{color:'#c89fff',fontWeight:900,fontSize:'16px',minWidth:'32px'}}>#{s.pos}</span>
+                              <span style={{color:'#fff',fontWeight:700,fontSize:'13px'}}>{s.displayName||s.name}</span>
+                            </div>
+                            <div style={{display:'flex',gap:'10px',fontSize:'12px',
+                                         color:'rgba(255,255,255,.65)',fontFamily:'monospace'}}>
+                              <span title="Victorias">🏅{s.wins}</span>
+                              <span title="Mejor tiempo">⏱{fmtSec(s.bestSec)}</span>
+                              <span title="Menos movimientos">↔{s.bestMoves??'–'}</span>
+                            </div>
+                          </div>
+                        ))
+                    }
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
         </div>
       );
     }
-    function TutorialOverlay({ step, hl, onNext, onClose }) {
+        function TutorialOverlay({ step, hl, onNext, onClose }) {
       if (!step || !hl) return null;
       const { pat, ctr } = hl;
       const pad = 10;
