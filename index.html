@@ -1662,10 +1662,9 @@
       );
     }
     /* ─── ScoresModal ─── */
-    function ScoresModal({ onClose }) {
+    function ScoresModal({ onClose, playerName }) {
       const [scores,   setScores]   = useState([]);
       const [showInfo, setShowInfo] = useState(false);
-      const [search,   setSearch]   = useState('');
 
       const fmtSec = s => {
         if (s == null) return '–';
@@ -1678,14 +1677,31 @@
         return () => window.__fbUnlistenScores?.();
       }, []);
 
-      const top9  = scores.slice(0, 9);
-      const query = search.trim().toLowerCase();
-      const found = query
-        ? scores.reduce((acc, s, i) => {
-            if (s.name.toLowerCase().includes(query)) acc.push({ ...s, pos: i + 1 });
-            return acc;
-          }, [])
-        : [];
+      const top9 = scores.slice(0, 9);
+
+      // Find own position (match by name or displayName)
+      const ownIdx  = scores.findIndex(s => (s.displayName || s.name) === playerName || s.name === playerName);
+      const ownPos  = ownIdx + 1; // 1-based, 0 if not found
+      const ownData = ownIdx >= 0 ? scores[ownIdx] : null;
+      const ownInTop9 = ownIdx >= 0 && ownIdx < 9;
+
+      const ScoreRow = ({ s, i, pos, highlight }) => (
+        <tr key={s.name} style={{
+          borderTop:'1px solid rgba(255,255,255,.06)',
+          background: highlight ? 'rgba(156,90,255,.12)' : i===0 ? 'rgba(255,215,0,.05)' : '',
+          outline: highlight ? '1px solid rgba(156,90,255,.4)' : 'none',
+        }}>
+          <td style={{padding:'9px 6px',color:pos===1?'#FFD700':pos===2?'#C0C0C0':pos===3?'#CD7F32':'rgba(255,255,255,.3)',fontWeight:700}}>
+            {pos<=3 ? ['🥇','🥈','🥉'][pos-1] : pos}
+          </td>
+          <td style={{padding:'9px 6px',color: highlight?'#c89fff':'#fff',fontWeight: highlight?700:600,maxWidth:'110px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+            {highlight ? '👤 ' : ''}{s.displayName||s.name}
+          </td>
+          <td style={{padding:'9px 6px',textAlign:'center',color:'#c89fff',fontWeight:700}}>{s.wins}</td>
+          <td style={{padding:'9px 6px',textAlign:'center',color:'rgba(255,255,255,.7)',fontFamily:'monospace'}}>{fmtSec(s.bestSec)}</td>
+          <td style={{padding:'9px 6px',textAlign:'center',color:'rgba(255,255,255,.7)',fontFamily:'monospace'}}>{s.bestMoves??'–'}</td>
+        </tr>
+      );
 
       return (
         <div style={{position:'fixed',inset:0,zIndex:7000,display:'flex',alignItems:'center',
@@ -1725,7 +1741,7 @@
               <button onClick={onClose} style={{background:'none',border:'none',color:'rgba(255,255,255,.4)',fontSize:'22px',cursor:'pointer',lineHeight:1}}>×</button>
             </div>
 
-            {/* Top 9 */}
+            {/* Table */}
             {scores.length === 0
               ? <div style={{color:'rgba(255,255,255,.3)',textAlign:'center',padding:'24px',fontSize:'14px'}}>{window.T.noScores}</div>
               : <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
@@ -1739,65 +1755,17 @@
                     </tr>
                   </thead>
                   <tbody>
-                    {top9.map((s,i)=>(
-                      <tr key={s.name} style={{borderTop:'1px solid rgba(255,255,255,.06)',background:i===0?'rgba(255,215,0,.05)':''}}>
-                        <td style={{padding:'9px 6px',color:['#FFD700','#C0C0C0','#CD7F32'][i]||'rgba(255,255,255,.3)',fontWeight:700}}>
-                          {['🥇','🥈','🥉'][i]||i+1}
-                        </td>
-                        <td style={{padding:'9px 6px',color:'#fff',fontWeight:600,maxWidth:'110px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.displayName||s.name}</td>
-                        <td style={{padding:'9px 6px',textAlign:'center',color:'#c89fff',fontWeight:700}}>{s.wins}</td>
-                        <td style={{padding:'9px 6px',textAlign:'center',color:'rgba(255,255,255,.7)',fontFamily:'monospace'}}>{fmtSec(s.bestSec)}</td>
-                        <td style={{padding:'9px 6px',textAlign:'center',color:'rgba(255,255,255,.7)',fontFamily:'monospace'}}>{s.bestMoves??'–'}</td>
-                      </tr>
+                    {top9.map((s,i) => (
+                      <ScoreRow key={s.name} s={s} i={i} pos={i+1} highlight={!ownInTop9 ? false : (s.displayName||s.name)===playerName||s.name===playerName} />
                     ))}
+                    {/* Separator + own row if outside top 9 */}
+                    {ownData && !ownInTop9 && (<>
+                      <tr><td colSpan={5} style={{padding:'4px 6px',textAlign:'center',color:'rgba(255,255,255,.15)',fontSize:'11px',letterSpacing:'.1em'}}>· · ·</td></tr>
+                      <ScoreRow s={ownData} i={ownPos-1} pos={ownPos} highlight={true} />
+                    </>)}
                   </tbody>
                 </table>
             }
-
-            {/* Buscador */}
-            {scores.length > 0 && (
-              <div style={{marginTop:'18px'}}>
-                <div style={{position:'relative'}}>
-                  <span style={{position:'absolute',left:'10px',top:'50%',transform:'translateY(-50%)',fontSize:'13px',opacity:.4}}>🔍</span>
-                  <input value={search} onChange={e=>setSearch(e.target.value)}
-                         onClick={e=>e.stopPropagation()}
-                         placeholder={window.T.searchPlaceholder}
-                         style={{width:'100%',boxSizing:'border-box',
-                                 padding:'9px 12px 9px 32px',
-                                 background:'rgba(255,255,255,.06)',
-                                 border:'1px solid rgba(156,90,255,.25)',
-                                 borderRadius:'10px',color:'#fff',fontSize:'13px',
-                                 outline:'none',WebkitUserSelect:'text',userSelect:'text'}}/>
-                </div>
-                {query && (
-                  <div style={{marginTop:'10px'}}>
-                    {found.length === 0
-                      ? <div style={{color:'rgba(255,255,255,.3)',fontSize:'12px',textAlign:'center',padding:'12px'}}>
-                          {window.T.noResults(search)}
-                        </div>
-                      : found.map(s=>(
-                          <div key={s.name+s.pos}
-                               style={{display:'flex',alignItems:'center',justifyContent:'space-between',
-                                       padding:'10px 12px',borderRadius:'10px',marginBottom:'6px',
-                                       background:'rgba(156,90,255,.1)',
-                                       border:'1px solid rgba(156,90,255,.3)'}}>
-                            <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
-                              <span style={{color:'#c89fff',fontWeight:900,fontSize:'16px',minWidth:'32px'}}>#{s.pos}</span>
-                              <span style={{color:'#fff',fontWeight:700,fontSize:'13px'}}>{s.displayName||s.name}</span>
-                            </div>
-                            <div style={{display:'flex',gap:'10px',fontSize:'12px',
-                                         color:'rgba(255,255,255,.65)',fontFamily:'monospace'}}>
-                              <span title="Victorias">🏅{s.wins}</span>
-                              <span title="Mejor tiempo">⏱{fmtSec(s.bestSec)}</span>
-                              <span title="Menos movimientos">↔{s.bestMoves??'–'}</span>
-                            </div>
-                          </div>
-                        ))
-                    }
-                  </div>
-                )}
-              </div>
-            )}
 
           </div>
         </div>
@@ -2230,7 +2198,7 @@
           )}
 
           {/* Scores modal */}
-          {showScores && <ScoresModal onClose={()=>setShowScores(false)}/>}
+          {showScores && <ScoresModal onClose={()=>setShowScores(false)} playerName={playerName}/>}
 
           {/* Tutorial */}
           <TutorialOverlay step={tutStep} hl={tutHl}
