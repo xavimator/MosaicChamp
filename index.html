@@ -568,6 +568,493 @@
     window.dispatchEvent(new Event('fbReady'));
   </script>
 
+  <script>
+  /* ══ i18n — auto-detect device language ══════════════════════════════════
+     Supported: es, ca, en, fr, de, pt, it  (fallback → en)
+  ═══════════════════════════════════════════════════════════════════════════ */
+  (function(){
+    const LANGS = {
+      es: {
+        // Lobby
+        lobbySubtitle: '5 × 5 · SLIDING PUZZLE',
+        yourName: 'Tu nombre',
+        namePlaceholder: 'Cómo te llamas…',
+        newGame: '🎮 Nueva partida',
+        joinWithCode: '🔗 Unirse con código',
+        gameCode: 'Código de partida',
+        codePlaceholder: 'XXXX',
+        activeGames: 'Partidas en curso',
+        nameWarning: (name, rank) => `⚠️ Ya existe otro "${name}". Aparecerás como`,
+        changeName: '✏️ Cambiar nombre',
+        continueAnyway: 'Continuar así',
+        // Errors
+        errCode4: 'El código debe tener 4 caracteres',
+        errNotFound: 'Partida no encontrada. Comprueba el código.',
+        errCreate: 'Error al crear la partida. Comprueba tu conexión.',
+        errJoin: 'Error al unirse. Comprueba tu conexión.',
+        errJoinShort: 'Error al unirse.',
+        errWriteName: 'Escribe tu nombre primero',
+        errFirebase: 'Firebase no disponible. Comprueba tu conexión.',
+        // Game UI
+        moves: 'MOVIMIENTOS',
+        time: 'TIEMPO',
+        newGameBtn: '↺ Nuevo Juego',
+        getReady: '¡Prepárate!',
+        finished: 'Finished!!',
+        exitBtn: '✕ Salir',
+        gameLabel: 'Partida',
+        inviteLabel: 'Invitar',
+        inviteLink: '🔗 Link',
+        inviteText: (code) => `¡Únete! Código: ${code}`,
+        copiedOk: '✓ OK',
+        copyTitle: 'Copiar',
+        inviteTitle: 'Invitar',
+        helpTitle: 'Ayuda',
+        scoresTitle: 'Scores',
+        // Confirm modal
+        confirmTitle: '¿Nuevo juego?',
+        confirmBody: (n) => `Hay <strong style="color:#c89fff">${n} jugadores</strong> conectados.<br/>Esto reiniciará el tiempo y el patrón para todos.`,
+        confirmCancel: 'Cancelar',
+        confirmYes: '¡Sí, reiniciar!',
+        // Scores modal
+        bestPlayers: '🏆 Mejores jugadores',
+        rankCriteria: 'Criterios de ranking',
+        rankFirst: '🥇 Primero: más',
+        rankWins: 'victorias',
+        rankTie: '🥈 Empate: mejor',
+        rankTime: 'tiempo',
+        rankNote: 'Las victorias son el criterio principal. Si dos jugadores tienen las mismas, gana el de menor tiempo récord.',
+        noScores: 'Aún no hay scores 🎮',
+        colPlayer: 'Jugador',
+        searchPlaceholder: 'Buscar jugador...',
+        noResults: (s) => `Sin resultados para "${s}"`,
+        // Widget
+        patternLabel: 'Pattern',
+        shuffleBtn: 'Shuffle',
+        connecting: 'Conectando…',
+        synced: '● Sincronizado en tiempo real',
+        noConn: '● Sin conexión',
+        // Presence toasts
+        connected: (n) => `${n} se ha conectado`,
+        disconnected: (n) => `${n} se ha desconectado`,
+        moving: '${window.T.moving}',
+        finishToast: (n) => `${n} ha terminado!`,
+        finishToastSub: 'Ha completado el patrón',
+        // Tutorial
+        tutStep1: 'Crea este patrón',
+        tutStep2: 'En estas 9 fichas centrales.<br/>¡Suerte!',
+        tutContinue: 'TOCA PARA CONTINUAR ›',
+        tutClose: 'TOCA PARA CERRAR ×',
+        // Alert
+        linkCopied: '¡Enlace copiado!',
+      },
+      ca: {
+        lobbySubtitle: '5 × 5 · SLIDING PUZZLE',
+        yourName: 'El teu nom',
+        namePlaceholder: 'Com et dius…',
+        newGame: '🎮 Nova partida',
+        joinWithCode: '🔗 Unir-se amb codi',
+        gameCode: 'Codi de partida',
+        codePlaceholder: 'XXXX',
+        activeGames: 'Partides en curs',
+        nameWarning: (name, rank) => `⚠️ Ja existeix un altre "${name}". Apareixeràs com a`,
+        changeName: '✏️ Canvia el nom',
+        continueAnyway: 'Continuar així',
+        errCode4: 'El codi ha de tenir 4 caràcters',
+        errNotFound: 'Partida no trobada. Comprova el codi.',
+        errCreate: 'Error en crear la partida. Comprova la connexió.',
+        errJoin: 'Error en unir-se. Comprova la connexió.',
+        errJoinShort: 'Error en unir-se.',
+        errWriteName: 'Escriu primer el teu nom',
+        errFirebase: 'Firebase no disponible. Comprova la connexió.',
+        moves: 'MOVIMENTS',
+        time: 'TEMPS',
+        newGameBtn: '↺ Nova Partida',
+        getReady: 'Prepara\'t!',
+        finished: 'Finished!!',
+        exitBtn: '✕ Sortir',
+        gameLabel: 'Partida',
+        inviteLabel: 'Convidar',
+        inviteLink: '🔗 Enllaç',
+        inviteText: (code) => `Uneix-te! Codi: ${code}`,
+        copiedOk: '✓ OK',
+        copyTitle: 'Copiar',
+        inviteTitle: 'Convidar',
+        helpTitle: 'Ajuda',
+        scoresTitle: 'Puntuacions',
+        confirmTitle: 'Nova partida?',
+        confirmBody: (n) => `Hi ha <strong style="color:#c89fff">${n} jugadors</strong> connectats.<br/>Això reiniciarà el temps i el patró per a tothom.`,
+        confirmCancel: 'Cancel·lar',
+        confirmYes: 'Sí, reinicia!',
+        bestPlayers: '🏆 Millors jugadors',
+        rankCriteria: 'Criteris de classificació',
+        rankFirst: '🥇 Primer: més',
+        rankWins: 'victòries',
+        rankTie: '🥈 Empat: millor',
+        rankTime: 'temps',
+        rankNote: 'Les victòries són el criteri principal. Si dos jugadors en tenen les mateixes, guanya el de menor temps rècord.',
+        noScores: 'Encara no hi ha puntuacions 🎮',
+        colPlayer: 'Jugador',
+        searchPlaceholder: 'Cerca jugador...',
+        noResults: (s) => `Sense resultats per a "${s}"`,
+        patternLabel: 'Patró',
+        shuffleBtn: 'Barreja',
+        connecting: 'Connectant…',
+        synced: '● Sincronitzat en temps real',
+        noConn: '● Sense connexió',
+        connected: (n) => `${n} s'ha connectat`,
+        disconnected: (n) => `${n} s'ha desconnectat`,
+        moving: 'movent…',
+        finishToast: (n) => `${n} ha acabat!`,
+        finishToastSub: 'Ha completat el patró',
+        tutStep1: 'Crea aquest patró',
+        tutStep2: 'En aquestes 9 fitxes centrals.<br/>Bona sort!',
+        tutContinue: 'TOCA PER CONTINUAR ›',
+        tutClose: 'TOCA PER TANCAR ×',
+        linkCopied: 'Enllaç copiat!',
+      },
+      en: {
+        lobbySubtitle: '5 × 5 · SLIDING PUZZLE',
+        yourName: 'Your name',
+        namePlaceholder: 'What\'s your name…',
+        newGame: '🎮 New game',
+        joinWithCode: '🔗 Join with code',
+        gameCode: 'Game code',
+        codePlaceholder: 'XXXX',
+        activeGames: 'Games in progress',
+        nameWarning: (name, rank) => `⚠️ Another "${name}" already exists. You'll appear as`,
+        changeName: '✏️ Change name',
+        continueAnyway: 'Keep this name',
+        errCode4: 'Code must be 4 characters',
+        errNotFound: 'Game not found. Check the code.',
+        errCreate: 'Error creating game. Check your connection.',
+        errJoin: 'Error joining. Check your connection.',
+        errJoinShort: 'Error joining.',
+        errWriteName: 'Enter your name first',
+        errFirebase: 'Firebase unavailable. Check your connection.',
+        moves: 'MOVES',
+        time: 'TIME',
+        newGameBtn: '↺ New Game',
+        getReady: 'Get Ready!',
+        finished: 'Finished!!',
+        exitBtn: '✕ Leave',
+        gameLabel: 'Game',
+        inviteLabel: 'Invite',
+        inviteLink: '🔗 Link',
+        inviteText: (code) => `Join me! Code: ${code}`,
+        copiedOk: '✓ OK',
+        copyTitle: 'Copy',
+        inviteTitle: 'Invite',
+        helpTitle: 'Help',
+        scoresTitle: 'Scores',
+        confirmTitle: 'New game?',
+        confirmBody: (n) => `There are <strong style="color:#c89fff">${n} players</strong> connected.<br/>This will reset the timer and pattern for everyone.`,
+        confirmCancel: 'Cancel',
+        confirmYes: 'Yes, restart!',
+        bestPlayers: '🏆 Best players',
+        rankCriteria: 'Ranking criteria',
+        rankFirst: '🥇 First: most',
+        rankWins: 'wins',
+        rankTie: '🥈 Tie: best',
+        rankTime: 'time',
+        rankNote: 'Wins are the main criterion. If two players are tied, the one with the best record time wins.',
+        noScores: 'No scores yet 🎮',
+        colPlayer: 'Player',
+        searchPlaceholder: 'Search player...',
+        noResults: (s) => `No results for "${s}"`,
+        patternLabel: 'Pattern',
+        shuffleBtn: 'Shuffle',
+        connecting: 'Connecting…',
+        synced: '● Synced in real time',
+        noConn: '● Disconnected',
+        connected: (n) => `${n} has joined`,
+        disconnected: (n) => `${n} has left`,
+        moving: 'moving…',
+        finishToast: (n) => `${n} has finished!`,
+        finishToastSub: 'Completed the pattern',
+        tutStep1: 'Create this pattern',
+        tutStep2: 'In these 9 central tiles.<br/>Good luck!',
+        tutContinue: 'TAP TO CONTINUE ›',
+        tutClose: 'TAP TO CLOSE ×',
+        linkCopied: 'Link copied!',
+      },
+      fr: {
+        lobbySubtitle: '5 × 5 · PUZZLE COULISSANT',
+        yourName: 'Ton nom',
+        namePlaceholder: 'Comment tu t\'appelles…',
+        newGame: '🎮 Nouvelle partie',
+        joinWithCode: '🔗 Rejoindre avec un code',
+        gameCode: 'Code de partie',
+        codePlaceholder: 'XXXX',
+        activeGames: 'Parties en cours',
+        nameWarning: (name, rank) => `⚠️ Un autre "${name}" existe déjà. Tu apparaîtras comme`,
+        changeName: '✏️ Changer de nom',
+        continueAnyway: 'Continuer ainsi',
+        errCode4: 'Le code doit avoir 4 caractères',
+        errNotFound: 'Partie introuvable. Vérifie le code.',
+        errCreate: 'Erreur lors de la création. Vérifie ta connexion.',
+        errJoin: 'Erreur pour rejoindre. Vérifie ta connexion.',
+        errJoinShort: 'Erreur pour rejoindre.',
+        errWriteName: 'Saisis d\'abord ton nom',
+        errFirebase: 'Firebase indisponible. Vérifie ta connexion.',
+        moves: 'MOUVEMENTS',
+        time: 'TEMPS',
+        newGameBtn: '↺ Nouvelle Partie',
+        getReady: 'Prêt ?',
+        finished: 'Finished!!',
+        exitBtn: '✕ Quitter',
+        gameLabel: 'Partie',
+        inviteLabel: 'Inviter',
+        inviteLink: '🔗 Lien',
+        inviteText: (code) => `Rejoins-moi ! Code : ${code}`,
+        copiedOk: '✓ OK',
+        copyTitle: 'Copier',
+        inviteTitle: 'Inviter',
+        helpTitle: 'Aide',
+        scoresTitle: 'Scores',
+        confirmTitle: 'Nouvelle partie ?',
+        confirmBody: (n) => `Il y a <strong style="color:#c89fff">${n} joueurs</strong> connectés.<br/>Cela réinitialisera le chrono et le motif pour tous.`,
+        confirmCancel: 'Annuler',
+        confirmYes: 'Oui, recommencer !',
+        bestPlayers: '🏆 Meilleurs joueurs',
+        rankCriteria: 'Critères de classement',
+        rankFirst: '🥇 Premier : plus de',
+        rankWins: 'victoires',
+        rankTie: '🥈 Égalité : meilleur',
+        rankTime: 'temps',
+        rankNote: 'Les victoires sont le critère principal. En cas d\'égalité, le meilleur temps record l\'emporte.',
+        noScores: 'Pas encore de scores 🎮',
+        colPlayer: 'Joueur',
+        searchPlaceholder: 'Chercher un joueur...',
+        noResults: (s) => `Aucun résultat pour "${s}"`,
+        patternLabel: 'Motif',
+        shuffleBtn: 'Mélanger',
+        connecting: 'Connexion…',
+        synced: '● Synchronisé en temps réel',
+        noConn: '● Hors ligne',
+        connected: (n) => `${n} a rejoint`,
+        disconnected: (n) => `${n} est parti`,
+        moving: 'en mouvement…',
+        finishToast: (n) => `${n} a terminé !`,
+        finishToastSub: 'A complété le motif',
+        tutStep1: 'Crée ce motif',
+        tutStep2: 'Dans ces 9 cases centrales.<br/>Bonne chance !',
+        tutContinue: 'APPUIE POUR CONTINUER ›',
+        tutClose: 'APPUIE POUR FERMER ×',
+        linkCopied: 'Lien copié !',
+      },
+      de: {
+        lobbySubtitle: '5 × 5 · SCHIEBEPUZZLE',
+        yourName: 'Dein Name',
+        namePlaceholder: 'Wie heißt du…',
+        newGame: '🎮 Neues Spiel',
+        joinWithCode: '🔗 Mit Code beitreten',
+        gameCode: 'Spielcode',
+        codePlaceholder: 'XXXX',
+        activeGames: 'Laufende Spiele',
+        nameWarning: (name, rank) => `⚠️ Ein "${name}" existiert bereits. Du erscheinst als`,
+        changeName: '✏️ Namen ändern',
+        continueAnyway: 'So weitermachen',
+        errCode4: 'Der Code muss 4 Zeichen haben',
+        errNotFound: 'Spiel nicht gefunden. Code prüfen.',
+        errCreate: 'Fehler beim Erstellen. Verbindung prüfen.',
+        errJoin: 'Fehler beim Beitreten. Verbindung prüfen.',
+        errJoinShort: 'Fehler beim Beitreten.',
+        errWriteName: 'Bitte zuerst Namen eingeben',
+        errFirebase: 'Firebase nicht verfügbar. Verbindung prüfen.',
+        moves: 'ZÜGE',
+        time: 'ZEIT',
+        newGameBtn: '↺ Neues Spiel',
+        getReady: 'Fertig machen!',
+        finished: 'Finished!!',
+        exitBtn: '✕ Verlassen',
+        gameLabel: 'Spiel',
+        inviteLabel: 'Einladen',
+        inviteLink: '🔗 Link',
+        inviteText: (code) => `Mach mit! Code: ${code}`,
+        copiedOk: '✓ OK',
+        copyTitle: 'Kopieren',
+        inviteTitle: 'Einladen',
+        helpTitle: 'Hilfe',
+        scoresTitle: 'Punkte',
+        confirmTitle: 'Neues Spiel?',
+        confirmBody: (n) => `Es sind <strong style="color:#c89fff">${n} Spieler</strong> verbunden.<br/>Dies setzt Timer und Muster für alle zurück.`,
+        confirmCancel: 'Abbrechen',
+        confirmYes: 'Ja, neu starten!',
+        bestPlayers: '🏆 Beste Spieler',
+        rankCriteria: 'Ranking-Kriterien',
+        rankFirst: '🥇 Erste: meiste',
+        rankWins: 'Siege',
+        rankTie: '🥈 Gleichstand: beste',
+        rankTime: 'Zeit',
+        rankNote: 'Siege sind das Hauptkriterium. Bei Gleichstand gewinnt die beste Rekordzeit.',
+        noScores: 'Noch keine Punkte 🎮',
+        colPlayer: 'Spieler',
+        searchPlaceholder: 'Spieler suchen...',
+        noResults: (s) => `Keine Ergebnisse für "${s}"`,
+        patternLabel: 'Muster',
+        shuffleBtn: 'Mischen',
+        connecting: 'Verbinde…',
+        synced: '● Echtzeit synchronisiert',
+        noConn: '● Keine Verbindung',
+        connected: (n) => `${n} ist beigetreten`,
+        disconnected: (n) => `${n} hat verlassen`,
+        moving: 'am Spielen…',
+        finishToast: (n) => `${n} hat fertig!`,
+        finishToastSub: 'Hat das Muster vervollständigt',
+        tutStep1: 'Erstelle dieses Muster',
+        tutStep2: 'In diesen 9 mittleren Feldern.<br/>Viel Glück!',
+        tutContinue: 'TIPPE UM FORTZUFAHREN ›',
+        tutClose: 'TIPPE UM ZU SCHLIEẞEN ×',
+        linkCopied: 'Link kopiert!',
+      },
+      pt: {
+        lobbySubtitle: '5 × 5 · PUZZLE DESLIZANTE',
+        yourName: 'Teu nome',
+        namePlaceholder: 'Como te chamas…',
+        newGame: '🎮 Nova partida',
+        joinWithCode: '🔗 Entrar com código',
+        gameCode: 'Código da partida',
+        codePlaceholder: 'XXXX',
+        activeGames: 'Partidas em curso',
+        nameWarning: (name, rank) => `⚠️ Já existe outro "${name}". Aparecerás como`,
+        changeName: '✏️ Mudar nome',
+        continueAnyway: 'Continuar assim',
+        errCode4: 'O código deve ter 4 caracteres',
+        errNotFound: 'Partida não encontrada. Verifica o código.',
+        errCreate: 'Erro ao criar a partida. Verifica a ligação.',
+        errJoin: 'Erro ao entrar. Verifica a ligação.',
+        errJoinShort: 'Erro ao entrar.',
+        errWriteName: 'Escreve primeiro o teu nome',
+        errFirebase: 'Firebase indisponível. Verifica a ligação.',
+        moves: 'MOVIMENTOS',
+        time: 'TEMPO',
+        newGameBtn: '↺ Novo Jogo',
+        getReady: 'Prepara-te!',
+        finished: 'Finished!!',
+        exitBtn: '✕ Sair',
+        gameLabel: 'Partida',
+        inviteLabel: 'Convidar',
+        inviteLink: '🔗 Link',
+        inviteText: (code) => `Junta-te! Código: ${code}`,
+        copiedOk: '✓ OK',
+        copyTitle: 'Copiar',
+        inviteTitle: 'Convidar',
+        helpTitle: 'Ajuda',
+        scoresTitle: 'Pontuações',
+        confirmTitle: 'Novo jogo?',
+        confirmBody: (n) => `Há <strong style="color:#c89fff">${n} jogadores</strong> ligados.<br/>Isto vai reiniciar o tempo e o padrão para todos.`,
+        confirmCancel: 'Cancelar',
+        confirmYes: 'Sim, reiniciar!',
+        bestPlayers: '🏆 Melhores jogadores',
+        rankCriteria: 'Critérios de ranking',
+        rankFirst: '🥇 Primeiro: mais',
+        rankWins: 'vitórias',
+        rankTie: '🥈 Empate: melhor',
+        rankTime: 'tempo',
+        rankNote: 'As vitórias são o critério principal. Em caso de empate, ganha o menor tempo recorde.',
+        noScores: 'Ainda não há pontuações 🎮',
+        colPlayer: 'Jogador',
+        searchPlaceholder: 'Procurar jogador...',
+        noResults: (s) => `Sem resultados para "${s}"`,
+        patternLabel: 'Padrão',
+        shuffleBtn: 'Baralhar',
+        connecting: 'A ligar…',
+        synced: '● Sincronizado em tempo real',
+        noConn: '● Sem ligação',
+        connected: (n) => `${n} ligou-se`,
+        disconnected: (n) => `${n} desligou-se`,
+        moving: 'a mover…',
+        finishToast: (n) => `${n} terminou!`,
+        finishToastSub: 'Completou o padrão',
+        tutStep1: 'Cria este padrão',
+        tutStep2: 'Nestas 9 peças centrais.<br/>Boa sorte!',
+        tutContinue: 'TOCA PARA CONTINUAR ›',
+        tutClose: 'TOCA PARA FECHAR ×',
+        linkCopied: 'Link copiado!',
+      },
+      it: {
+        lobbySubtitle: '5 × 5 · PUZZLE SCORREVOLE',
+        yourName: 'Il tuo nome',
+        namePlaceholder: 'Come ti chiami…',
+        newGame: '🎮 Nuova partita',
+        joinWithCode: '🔗 Unisciti con codice',
+        gameCode: 'Codice partita',
+        codePlaceholder: 'XXXX',
+        activeGames: 'Partite in corso',
+        nameWarning: (name, rank) => `⚠️ Esiste già un altro "${name}". Apparirai come`,
+        changeName: '✏️ Cambia nome',
+        continueAnyway: 'Continua così',
+        errCode4: 'Il codice deve avere 4 caratteri',
+        errNotFound: 'Partita non trovata. Controlla il codice.',
+        errCreate: 'Errore nella creazione. Controlla la connessione.',
+        errJoin: 'Errore nell\'unirsi. Controlla la connessione.',
+        errJoinShort: 'Errore nell\'unirsi.',
+        errWriteName: 'Inserisci prima il tuo nome',
+        errFirebase: 'Firebase non disponibile. Controlla la connessione.',
+        moves: 'MOSSE',
+        time: 'TEMPO',
+        newGameBtn: '↺ Nuova Partita',
+        getReady: 'Pronti!',
+        finished: 'Finished!!',
+        exitBtn: '✕ Esci',
+        gameLabel: 'Partita',
+        inviteLabel: 'Invita',
+        inviteLink: '🔗 Link',
+        inviteText: (code) => `Unisciti! Codice: ${code}`,
+        copiedOk: '✓ OK',
+        copyTitle: 'Copia',
+        inviteTitle: 'Invita',
+        helpTitle: 'Aiuto',
+        scoresTitle: 'Punteggi',
+        confirmTitle: 'Nuova partita?',
+        confirmBody: (n) => `Ci sono <strong style="color:#c89fff">${n} giocatori</strong> connessi.<br/>Questo azzererà il tempo e il pattern per tutti.`,
+        confirmCancel: 'Annulla',
+        confirmYes: 'Sì, ricomincia!',
+        bestPlayers: '🏆 Migliori giocatori',
+        rankCriteria: 'Criteri di classifica',
+        rankFirst: '🥇 Primo: più',
+        rankWins: 'vittorie',
+        rankTie: '🥈 Pareggio: miglior',
+        rankTime: 'tempo',
+        rankNote: 'Le vittorie sono il criterio principale. In caso di parità, vince il miglior tempo record.',
+        noScores: 'Ancora nessun punteggio 🎮',
+        colPlayer: 'Giocatore',
+        searchPlaceholder: 'Cerca giocatore...',
+        noResults: (s) => `Nessun risultato per "${s}"`,
+        patternLabel: 'Pattern',
+        shuffleBtn: 'Mescola',
+        connecting: 'Connessione…',
+        synced: '● Sincronizzato in tempo reale',
+        noConn: '● Nessuna connessione',
+        connected: (n) => `${n} si è connesso`,
+        disconnected: (n) => `${n} si è disconnesso`,
+        moving: 'in movimento…',
+        finishToast: (n) => `${n} ha finito!`,
+        finishToastSub: 'Ha completato il pattern',
+        tutStep1: 'Crea questo pattern',
+        tutStep2: 'In queste 9 tessere centrali.<br/>Buona fortuna!',
+        tutContinue: 'TOCCA PER CONTINUARE ›',
+        tutClose: 'TOCCA PER CHIUDERE ×',
+        linkCopied: 'Link copiato!',
+      },
+    };
+
+    function detectLang() {
+      const nav = navigator.language || navigator.userLanguage || 'en';
+      const code = nav.toLowerCase().split('-')[0];
+      if (LANGS[code]) return code;
+      // Regional fallbacks
+      if (code === 'gl') return 'pt'; // galician → portuguese
+      if (code === 'eu') return 'es'; // basque → spanish
+      return 'en';
+    }
+
+    window.T = LANGS[detectLang()];
+    window.RR_LANG = detectLang();
+  })();
+  </script>
+
   <style>
     *, *::before, *::after { box-sizing:border-box; margin:0; padding:0;
         -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
@@ -808,23 +1295,33 @@
         <span></span><span></span><span></span>
         <span></span><span></span><span></span>
       </div>
-      Pattern
+      <span id="rr-toggle-label">Pattern</span>
       <div id="rr-sync-dot" class="connecting"></div>
     </div>
     <div id="rr-panel" class="hidden">
       <div id="rr-panel-header">
-        <h3>Pattern</h3>
+        <h3 id="rr-panel-title">Pattern</h3>
         <div id="rr-sync-dot-panel" style="width:7px;height:7px;border-radius:50%;background:#444;transition:background .4s;"></div>
       </div>
       <p class="rr-tm">Xavimator™</p>
-      <div id="rr-status-text">Conectando…</div>
+      <div id="rr-status-text"></div>
       <div id="rr-players"></div>
       <div id="rr-grid"></div>
-      <button id="rr-shuffle" onclick="rrShuffle()" disabled>Shuffle</button>
+      <button id="rr-shuffle" onclick="rrShuffle()" disabled></button>
     </div>
   </div>
 
   <script>
+    // Apply i18n to static HTML elements
+    (function applyI18n(){
+      const t = window.T;
+      const el = id => document.getElementById(id);
+      if(el('rr-toggle-label'))  el('rr-toggle-label').textContent  = t.patternLabel;
+      if(el('rr-panel-title'))   el('rr-panel-title').textContent   = t.patternLabel;
+      if(el('rr-status-text'))   el('rr-status-text').textContent   = t.connecting;
+      if(el('rr-shuffle'))       el('rr-shuffle').textContent       = t.shuffleBtn;
+    })();
+
     const RR_COLORS = [
       { bg:'#C8C8D8', border:'#8888A0', puzzleId:'white'  },
       { bg:'#1b5e20', border:'#0a3d0a', puzzleId:'green'  },
@@ -862,13 +1359,13 @@
     }
     window.__fbPresenceReceived = function(players) {
       const cur=new Set(players.map(p=>p.name));
-      cur.forEach(n=>{ if(!_prevNames.has(n)&&_prevNames.size>0) showDiscreteToast('🟢',`${n} se ha conectado`,'#22c55e'); });
-      _prevNames.forEach(n=>{ if(!cur.has(n)) showDiscreteToast('⚪',`${n} se ha desconectado`,'#6b7280'); });
+      cur.forEach(n=>{ if(!_prevNames.has(n)&&_prevNames.size>0) showDiscreteToast('🟢', window.T.connected(n),'#22c55e'); });
+      _prevNames.forEach(n=>{ if(!cur.has(n)) showDiscreteToast('⚪', window.T.disconnected(n),'#6b7280'); });
       _prevNames=cur;
       const c=document.getElementById('rr-players');
       c.innerHTML=players.length ? players.map(p=>{
         const dc=p.finished?'finished':p.moving?'moving':'';
-        const sl=p.finished?`<div class="rr-chip-time">🏁 ${p.time} · ${p.moves} mov</div>`:p.moving?`<div class="rr-chip-status">moviendo…</div>`:'';
+        const sl=p.finished?`<div class="rr-chip-time">🏁 ${p.time} · ${p.moves} mov</div>`:p.moving?`<div class="rr-chip-status">${window.T.moving}</div>`:'';
         return `<div class="rr-player-chip"><div class="rr-player-chip-row"><span class="dot ${dc}"></span><span class="rr-chip-name">${p.name}</span></div>${sl}</div>`;
       }).join('') : '';
       window.dispatchEvent(new CustomEvent('rrPresenceChange',{detail:players}));
@@ -882,7 +1379,7 @@
     window.__fbNotifReceived = item => {
       window.playWhoosh?.();
       const el=document.createElement('div'); el.className='toast';
-      el.innerHTML=`<div class="toast-row"><div class="toast-emoji">🏁</div><div><div class="toast-title">${item.name} ha terminado!</div><div class="toast-msg">Ha completado el patrón</div><div class="toast-meta">⏱ ${item.time} · ${item.moves} movimientos</div></div></div>`;
+      el.innerHTML=`<div class="toast-row"><div class="toast-emoji">🏁</div><div><div class="toast-title">${window.T.finishToast(item.name)}</div><div class="toast-msg">${window.T.finishToastSub}</div><div class="toast-meta">⏱ ${item.time} · ${item.moves} mov</div></div></div>`;
       document.getElementById('toast-container').appendChild(el);
       setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(),400); },5000);
     };
@@ -896,7 +1393,7 @@
       dot.className=ok?'connected':'disconnected';
       dotp.style.background=ok?'#22c55e':'#ef4444';
       dotp.style.boxShadow=ok?'0 0 6px #22c55e':'none';
-      status.textContent=ok?'● Sincronizado en tiempo real':'● Sin conexión';
+      status.textContent=ok?window.T.synced:window.T.noConn;
       status.style.color=ok?'rgba(34,197,94,.8)':'rgba(239,68,68,.7)';
       document.getElementById('rr-shuffle').disabled=!ok;
     };
@@ -936,7 +1433,7 @@
     function waitForFb(timeout=8000) {
       return new Promise((resolve, reject) => {
         if (window.__fbReady) { resolve(); return; }
-        const timer = setTimeout(() => reject(new Error('Firebase no disponible. Comprueba tu conexión.')), timeout);
+        const timer = setTimeout(() => reject(new Error(window.T.errFirebase)), timeout);
         window.addEventListener('fbReady', () => { clearTimeout(timer); resolve(); }, { once: true });
       });
     }
@@ -1019,31 +1516,31 @@
           onJoin(name.trim(), code);
         } catch(e) {
           console.error('handleNew error:', e);
-          setError(e.message || 'Error al crear la partida. Comprueba tu conexión.');
+          setError(e.message || window.T.errCreate);
           setLoading(false);
         }
       };
 
       const handleJoin = async () => {
         const code = joinCode.trim().toUpperCase();
-        if (code.length !== 4) { setError('El código debe tener 4 caracteres'); return; }
+        if (code.length !== 4) { setError(window.T.errCode4); return; }
         setLoading(true); setError('');
         try {
           await waitForFb();
           const exists = await window.__fbGameExists(code);
-          if (!exists) { setError('Partida no encontrada. Comprueba el código.'); setLoading(false); return; }
+          if (!exists) { setError(window.T.errNotFound); setLoading(false); return; }
           localStorage.setItem('rr-player-name', name.trim());
           await window.__fbJoinGame(code);
           onJoin(name.trim(), code);
         } catch(e) {
           console.error('handleJoin error:', e);
-          setError(e.message || 'Error al unirse. Comprueba tu conexión.');
+          setError(e.message || window.T.errJoin);
           setLoading(false);
         }
       };
 
       const handleJoinGame = async (code) => {
-        if (!nameOk) { setError('Escribe tu nombre primero'); return; }
+        if (!nameOk) { setError(window.T.errWriteName); return; }
         setLoading(true); setError('');
         try {
           await waitForFb();
@@ -1052,7 +1549,7 @@
           onJoin(name.trim(), code);
         } catch(e) {
           console.error('handleJoinGame error:', e);
-          setError(e.message || 'Error al unirse.');
+          setError(e.message || window.T.errJoinShort);
           setLoading(false);
         }
       };
@@ -1061,12 +1558,12 @@
         <div className="lobby-wrap">
           <Stars/>
           <div className="lobby-title">RubikRace</div>
-          <div className="lobby-sub">5 × 5 · SLIDING PUZZLE</div>
+          <div className="lobby-sub">{window.T.lobbySubtitle}</div>
           <div className="lobby-card">
             {/* Name */}
             <div>
-              <div className="lobby-label">Tu nombre</div>
-              <input id="lobby-name-input" className="lobby-input" maxLength={20} placeholder="Cómo te llamas…"
+              <div className="lobby-label">{window.T.yourName}</div>
+              <input id="lobby-name-input" className="lobby-input" maxLength={20} placeholder={window.T.namePlaceholder}
                 value={name} onChange={e=>setName(e.target.value)}
                 onKeyDown={e=>{ if(e.key==='Enter'&&nameOk&&!showJoin) handleNew(); }}
               />
@@ -1075,20 +1572,20 @@
                              border:'1px solid rgba(255,180,0,.2)',borderRadius:'8px',
                              padding:'8px 10px',fontSize:'11px'}}>
                   <div style={{color:'rgba(255,200,80,.9)',marginBottom:'6px'}}>
-                    ⚠️ Ya existe otro <b>"{name.trim()}"</b>. Aparecerás como <b style={{color:'#FFD700'}}>{rankName}</b>
+                    {window.T.nameWarning(name.trim(), rankName)} <b style={{color:'#FFD700'}}>{rankName}</b>
                   </div>
                   <div style={{display:'flex',gap:'6px'}}>
                     <button onClick={()=>{ setName(''); setRankName(''); document.getElementById('lobby-name-input')?.focus(); }}
                             style={{flex:1,padding:'5px 8px',borderRadius:'6px',border:'1px solid rgba(255,200,80,.4)',
                                    background:'rgba(255,180,0,.12)',color:'#FFD700',fontSize:'11px',
                                    fontWeight:700,cursor:'pointer',letterSpacing:'.05em'}}>
-                      ✏️ Cambiar nombre
+                      {window.T.changeName}
                     </button>
                     <button onClick={()=>setRankName('')}
                             style={{padding:'5px 8px',borderRadius:'6px',border:'1px solid rgba(255,255,255,.1)',
                                    background:'rgba(255,255,255,.05)',color:'rgba(255,255,255,.4)',
                                    fontSize:'11px',cursor:'pointer'}}>
-                      Continuar así
+                      {window.T.continueAnyway}
                     </button>
                   </div>
                 </div>
@@ -1099,18 +1596,18 @@
 
             {/* New game */}
             <button className="lobby-btn primary" disabled={!nameOk||loading} onClick={handleNew}>
-              🎮 Nueva partida
+              {window.T.newGame}
             </button>
 
             {/* Join */}
             {!showJoin
               ? <button className="lobby-btn secondary" disabled={!nameOk} onClick={()=>{ setShowJoin(true); setError(''); }}>
-                  🔗 Unirse con código
+                  {window.T.joinWithCode}
                 </button>
               : <div>
-                  <div className="lobby-label" style={{marginBottom:'8px'}}>Código de partida</div>
+                  <div className="lobby-label" style={{marginBottom:'8px'}}>{window.T.gameCode}</div>
                   <div className="join-row">
-                    <input className="code-input" maxLength={4} placeholder="XXXX"
+                    <input className="code-input" maxLength={4} placeholder={window.T.codePlaceholder}
                       value={joinCode} onChange={e=>setJoinCode(e.target.value.toUpperCase())}
                       onKeyDown={e=>{ if(e.key==='Enter') handleJoin(); }}
                       autoFocus
@@ -1130,7 +1627,7 @@
             <div style={{width:'100%',maxWidth:'360px',marginTop:'20px'}}>
               <div style={{fontSize:'10px',color:'rgba(255,255,255,.3)',letterSpacing:'.15em',
                            textTransform:'uppercase',textAlign:'center',marginBottom:'10px'}}>
-                Partidas en curso
+                {window.T.activeGames}
               </div>
               <div style={{display:'flex',flexDirection:'column',gap:'7px'}}>
                 {games.map(g=>(
@@ -1202,7 +1699,7 @@
             {/* Header */}
             <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'18px'}}>
               <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-                <div style={{color:'#fff',fontSize:'18px',fontWeight:800}}>🏆 Mejores jugadores</div>
+                <div style={{color:'#fff',fontSize:'18px',fontWeight:800}}>{window.T.bestPlayers}</div>
                 <div style={{position:'relative'}}>
                   <button onClick={()=>setShowInfo(v=>!v)}
                           style={{width:'20px',height:'20px',borderRadius:'50%',
@@ -1215,11 +1712,11 @@
                                  borderRadius:'12px',padding:'12px 14px',width:'210px',
                                  fontSize:'12px',color:'rgba(255,255,255,.7)',lineHeight:1.6,
                                  boxShadow:'0 12px 40px rgba(0,0,0,.6)'}}>
-                      <div style={{fontWeight:700,color:'#c89fff',marginBottom:'6px'}}>Criterios de ranking</div>
-                      <div>🥇 Primero: más <b style={{color:'#fff'}}>victorias</b></div>
-                      <div>🥈 Empate: mejor <b style={{color:'#fff'}}>tiempo</b></div>
+                      <div style={{fontWeight:700,color:'#c89fff',marginBottom:'6px'}}>{window.T.rankCriteria}</div>
+                      <div>{window.T.rankFirst} <b style={{color:'#fff'}}>{window.T.rankWins}</b></div>
+                      <div>{window.T.rankTie} <b style={{color:'#fff'}}>{window.T.rankTime}</b></div>
                       <div style={{marginTop:'8px',fontSize:'11px',color:'rgba(255,255,255,.35)'}}>
-                        Las victorias son el criterio principal. Si dos jugadores tienen las mismas, gana el de menor tiempo récord.
+                        {window.T.rankNote}
                       </div>
                     </div>
                   )}
@@ -1230,12 +1727,12 @@
 
             {/* Top 9 */}
             {scores.length === 0
-              ? <div style={{color:'rgba(255,255,255,.3)',textAlign:'center',padding:'24px',fontSize:'14px'}}>Aún no hay scores 🎮</div>
+              ? <div style={{color:'rgba(255,255,255,.3)',textAlign:'center',padding:'24px',fontSize:'14px'}}>{window.T.noScores}</div>
               : <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
                   <thead>
                     <tr style={{color:'rgba(255,255,255,.35)',fontSize:'10px',letterSpacing:'.1em',textTransform:'uppercase'}}>
                       <th style={{textAlign:'left',padding:'6px 6px'}}>#</th>
-                      <th style={{textAlign:'left',padding:'6px 6px'}}>Jugador</th>
+                      <th style={{textAlign:'left',padding:'6px 6px'}}>{window.T.colPlayer}</th>
                       <th style={{textAlign:'center',padding:'6px 6px'}}>🏅</th>
                       <th style={{textAlign:'center',padding:'6px 6px'}}>⏱</th>
                       <th style={{textAlign:'center',padding:'6px 6px'}}>↔</th>
@@ -1264,7 +1761,7 @@
                   <span style={{position:'absolute',left:'10px',top:'50%',transform:'translateY(-50%)',fontSize:'13px',opacity:.4}}>🔍</span>
                   <input value={search} onChange={e=>setSearch(e.target.value)}
                          onClick={e=>e.stopPropagation()}
-                         placeholder="Buscar jugador..."
+                         placeholder={window.T.searchPlaceholder}
                          style={{width:'100%',boxSizing:'border-box',
                                  padding:'9px 12px 9px 32px',
                                  background:'rgba(255,255,255,.06)',
@@ -1276,7 +1773,7 @@
                   <div style={{marginTop:'10px'}}>
                     {found.length === 0
                       ? <div style={{color:'rgba(255,255,255,.3)',fontSize:'12px',textAlign:'center',padding:'12px'}}>
-                          Sin resultados para "{search}"
+                          {window.T.noResults(search)}
                         </div>
                       : found.map(s=>(
                           <div key={s.name+s.pos}
@@ -1380,7 +1877,7 @@
                          textShadow:'0 0 30px rgba(255,215,0,.95),0 2px 10px rgba(0,0,0,.9)',
                          letterSpacing:'.04em',textAlign:'center',whiteSpace:'nowrap',
                          animation:'tutFadeUp .45s ease 1s both'}}>
-              Crea este patrón
+              {window.T.tutStep1}
             </div>
           )}
 
@@ -1392,7 +1889,7 @@
                          textShadow:'0 0 30px rgba(255,215,0,.95),0 2px 10px rgba(0,0,0,.9)',
                          letterSpacing:'.03em',textAlign:'center',
                          animation:'tutFadeUp .45s ease 1.1s both'}}>
-              En estas 9 fichas centrales.<br/>¡Suerte!
+              <span dangerouslySetInnerHTML={{__html: window.T.tutStep2}}/>
             </div>
           )}
 
@@ -1400,7 +1897,7 @@
           <div style={{position:'absolute',bottom:22,left:'50%',transform:'translateX(-50%)',
                        color:'rgba(255,255,255,.28)',fontSize:'11px',letterSpacing:'.14em',
                        pointerEvents:'none'}}>
-            {step===1 ? 'TOCA PARA CONTINUAR ›' : 'TOCA PARA CERRAR ×'}
+            {step===1 ? window.T.tutContinue : window.T.tutClose}
           </div>
         </div>
       );
@@ -1600,9 +2097,9 @@
           <Stars/>
 
           {/* Help button */}
-          <button className="help-btn" onClick={openTutorial} title="Ayuda">?</button>
+          <button className="help-btn" onClick={openTutorial} title={window.T.helpTitle}>?</button>
           {/* Scores button */}
-          <button className="help-btn" onClick={()=>setShowScores(true)} title="Scores"
+          <button className="help-btn" onClick={()=>setShowScores(true)} title={window.T.scoresTitle}
                   style={{left:'58px',fontSize:'17px'}}>🏆</button>
 
           {/* Top row: title + leave */}
@@ -1614,9 +2111,9 @@
                 backgroundSize:'300% auto',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent',
                 animation:'shimmer 4s linear infinite',
               }}>RubikRace</h1>
-              <p style={{margin:'2px 0 0',color:'rgba(255,255,255,.3)',fontSize:'11px',letterSpacing:'.15em'}}>5 × 5 · SLIDING PUZZLE</p>
+              <p style={{margin:'2px 0 0',color:'rgba(255,255,255,.3)',fontSize:'11px',letterSpacing:'.15em'}}>{window.T.lobbySubtitle}</p>
             </div>
-            <button className="leave-btn" onClick={handleLeave}>✕ Salir</button>
+            <button className="leave-btn" onClick={handleLeave}>{window.T.exitBtn}</button>
           </div>
 
           {/* Game code + invite + nombre — una fila, tamaños iguales */}
@@ -1624,28 +2121,28 @@
                        width:'100%',maxWidth:'380px'}}>
 
             {/* Código */}
-            <div className="game-code-badge" onClick={copyCode} title="Copiar"
+            <div className="game-code-badge" onClick={copyCode} title={window.T.copyTitle}
                  style={{alignSelf:'stretch',flexShrink:0}}>
               <div>
-                <div className="code-label">Partida</div>
+                <div className="code-label">{window.T.gameLabel}</div>
                 <div className="code-value" style={{color:copied?'#22c55e':'#c89fff'}}>
-                  {copied ? '✓ OK' : gameCode}
+                  {copied ? window.T.copiedOk : gameCode}
                 </div>
               </div>
               <div className="copy-icon">⧉</div>
             </div>
 
             {/* Invitar — mismo badge */}
-            <div className="game-code-badge" title="Invitar"
+            <div className="game-code-badge" title={window.T.inviteTitle}
                  style={{alignSelf:'stretch',flexShrink:0,cursor:'pointer'}}
                  onClick={()=>{
                    const url=`${location.origin}${location.pathname}?code=${gameCode}`;
-                   if(navigator.share) navigator.share({title:'RubikRace',text:`¡Únete! Código: ${gameCode}`,url});
-                   else navigator.clipboard.writeText(url).then(()=>alert('¡Enlace copiado!'));
+                   if(navigator.share) navigator.share({title:'RubikRace',text:window.T.inviteText(gameCode),url});
+                   else navigator.clipboard.writeText(url).then(()=>alert(window.T.linkCopied));
                  }}>
               <div>
-                <div className="code-label">Invitar</div>
-                <div className="code-value" style={{fontSize:'15px',letterSpacing:'.05em'}}>🔗 Link</div>
+                <div className="code-label">{window.T.inviteLabel}</div>
+                <div className="code-value" style={{fontSize:'15px',letterSpacing:'.05em'}}>{window.T.inviteLink}</div>
               </div>
             </div>
 
@@ -1666,7 +2163,7 @@
 
           {/* Stats */}
           <div style={{display:'flex',gap:'28px',marginBottom:'16px',background:'rgba(255,255,255,.06)',borderRadius:'12px',padding:'10px 28px',border:'1px solid rgba(255,255,255,.1)',backdropFilter:'blur(8px)'}}>
-            {[{label:'MOVIMIENTOS',value:moves},{label:'TIEMPO',value:fmt(time)}].map(s=>(
+            {[{label:window.T.moves,value:moves},{label:window.T.time,value:fmt(time)}].map(s=>(
               <div key={s.label} style={{textAlign:'center'}}>
                 <div style={{fontSize:'22px',fontWeight:800,color:'#fff',lineHeight:1}}>{s.value}</div>
                 <div style={{fontSize:'10px',color:'rgba(255,255,255,.4)',letterSpacing:'.12em',marginTop:'2px'}}>{s.label}</div>
@@ -1703,12 +2200,12 @@
                 );
               })}
             </div>
-            {finished && <div className="finished-frame"><div className="finished-text">Finished!!</div></div>}
+            {finished && <div className="finished-frame"><div className="finished-text">{window.T.finished}</div></div>}
           </div>
 
           {/* Reset */}
           <button onClick={handleReset} style={{marginTop:'18px',padding:'11px 32px',borderRadius:'10px',border:'1px solid rgba(255,255,255,.15)',background:'rgba(255,255,255,.07)',color:'#fff',fontSize:'13px',fontWeight:700,letterSpacing:'.15em',cursor:'pointer',transition:'all .2s',textTransform:'uppercase'}}>
-            ↺ Nuevo Juego
+            {window.T.newGameBtn}
           </button>
 
           {/* Countdown overlay */}
@@ -1720,7 +2217,7 @@
                            color:'rgba(255,255,255,.85)',
                            textShadow:'0 0 30px rgba(255,255,255,.5)',
                            marginBottom:'20px',letterSpacing:'.06em'}}>
-                ¡Prepárate!
+                {window.T.getReady}
               </div>
               <div key={countdown} style={{fontFamily:"'Pacifico',cursive",
                            fontSize:'clamp(90px,22vw,130px)',lineHeight:1,
@@ -1744,11 +2241,11 @@
             <div className="confirm-backdrop" onClick={()=>setShowConfirm(false)}>
               <div className="confirm-box" onClick={e=>e.stopPropagation()}>
                 <div className="icon">🎮</div>
-                <h4>¿Nuevo juego?</h4>
-                <p>Hay <strong style={{color:'#c89fff'}}>{activePl.length} jugadores</strong> conectados.<br/>Esto reiniciará el tiempo y el patrón para todos.</p>
+                <h4>{window.T.confirmTitle}</h4>
+                <p dangerouslySetInnerHTML={{__html: window.T.confirmBody(activePl.length)}}/>
                 <div className="confirm-btns">
-                  <button className="confirm-btn-no"  onClick={()=>setShowConfirm(false)}>Cancelar</button>
-                  <button className="confirm-btn-yes" onClick={doReset}>¡Sí, reiniciar!</button>
+                  <button className="confirm-btn-no"  onClick={()=>setShowConfirm(false)}>{window.T.confirmCancel}</button>
+                  <button className="confirm-btn-yes" onClick={doReset}>{window.T.confirmYes}</button>
                 </div>
               </div>
             </div>
