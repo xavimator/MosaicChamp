@@ -491,27 +491,24 @@
 
     let scoresUnsub = null;
     window.__fbListenScores = (cb) => {
+      if (scoresUnsub) { scoresUnsub(); scoresUnsub = null; }
       const sRef = ref(db, 'rubitrack/scores');
       scoresUnsub = onValue(sRef, snap => {
-        // 1. Collect all entries (exclude test player)
         const raw = [];
-        snap.forEach(c => { const v=c.val(); if(v?.name && v.name.toLowerCase() !== 'rubiking') raw.push(v); });
-        // 2. Merge by name: keep highest wins, best time, best moves
+        snap.forEach(c => { const v=c.val(); if(v?.name && v.name.toLowerCase()!=='rubiking') raw.push(v); });
+        // Merge by name
         const byName = {};
         raw.forEach(s => {
-          const key = s.name.toLowerCase();
-          if (!byName[key]) {
-            byName[key] = { ...s };
-          } else {
-            const cur = byName[key];
-            cur.wins = Math.max(cur.wins||0, s.wins||0);
-            if (s.bestSec != null && (cur.bestSec == null || s.bestSec < cur.bestSec)) cur.bestSec = s.bestSec;
-            if (s.bestMoves != null && (cur.bestMoves == null || s.bestMoves < cur.bestMoves)) cur.bestMoves = s.bestMoves;
+          const k = s.name.toLowerCase();
+          if (!byName[k]) { byName[k]={...s}; }
+          else {
+            const c = byName[k];
+            c.wins = Math.max(c.wins||0, s.wins||0);
+            if (s.bestSec!=null && (c.bestSec==null||s.bestSec<c.bestSec)) c.bestSec=s.bestSec;
+            if (s.bestMoves!=null && (c.bestMoves==null||s.bestMoves<c.bestMoves)) c.bestMoves=s.bestMoves;
           }
         });
-        const list = Object.values(byName);
-        // 3. Sort by wins desc, then bestSec asc
-        list.sort((a,b) => (b.wins||0)-(a.wins||0) || (a.bestSec??Infinity)-(b.bestSec??Infinity));
+        const list = Object.values(byName).sort((a,b)=>(b.wins||0)-(a.wins||0)||((a.bestSec??1e9)-(b.bestSec??1e9)));
         cb(list);
       });
     };
@@ -1697,21 +1694,14 @@
       const [showInfo, setShowInfo] = useState(false);
 
       useEffect(() => {
-        window.__fbListenScores?.(setScores);
+        window.__fbUnlistenScores?.();
+        window.__fbListenScores?.(list => setScores([...list]));
         return () => window.__fbUnlistenScores?.();
       }, []);
 
-      // Deduplicate: keep first occurrence of each name (already sorted by wins/time)
-      const seen = new Set();
-      const deduped = scores.filter(s => {
-        const k = (s.name||'').toLowerCase();
-        if (seen.has(k)) return false;
-        seen.add(k); return true;
-      });
-      const top9 = deduped.slice(0, 9);
-      const ownIdx  = scores.findIndex(s => s.name === playerName || s.displayName === playerName);
-      const ownData = ownIdx >= 0 ? scores[ownIdx] : null;
-      const ownInTop9 = ownIdx >= 0 && ownIdx < 9;
+      const top9     = scores.slice(0, 9);
+      const ownIdx   = scores.findIndex(s => s.name === playerName);
+      const ownData  = ownIdx >= 9 ? scores[ownIdx] : null;
 
       return (
         <div style={{position:'fixed',inset:0,zIndex:7000,display:'flex',alignItems:'center',
@@ -1767,9 +1757,9 @@
                   <tbody>
                     {top9.map((s, i) => (
                       <ScoreRow key={s.name} s={s} pos={i+1}
-                        highlight={ownInTop9 && (s.name===playerName||s.displayName===playerName)} />
+                        highlight={s.name===playerName} />
                     ))}
-                    {ownData && !ownInTop9 && (
+                    {ownData && (
                       <React.Fragment>
                         <tr><td colSpan={5} style={{padding:'4px 6px',textAlign:'center',color:'rgba(255,255,255,.15)',fontSize:'11px',letterSpacing:'.1em'}}>· · ·</td></tr>
                         <ScoreRow key={'own'} s={ownData} pos={ownIdx+1} highlight={true} />
