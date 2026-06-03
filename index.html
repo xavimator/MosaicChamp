@@ -1662,39 +1662,18 @@
       );
     }
     /* ─── ScoresModal ─── */
-    function ScoresModal({ onClose, playerName }) {
-      const [scores,   setScores]   = useState([]);
-      const [showInfo, setShowInfo] = useState(false);
-
-      const fmtSec = s => {
-        if (s == null) return '–';
-        const m = Math.floor(s / 60);
-        return `${m}:${String(s % 60).padStart(2,'0')}`;
-      };
-
-      useEffect(() => {
-        window.__fbListenScores?.(setScores);
-        return () => window.__fbUnlistenScores?.();
-      }, []);
-
-      const top9 = scores.slice(0, 9);
-
-      // Find own position (match by name or displayName)
-      const ownIdx  = scores.findIndex(s => (s.displayName || s.name) === playerName || s.name === playerName);
-      const ownPos  = ownIdx + 1; // 1-based, 0 if not found
-      const ownData = ownIdx >= 0 ? scores[ownIdx] : null;
-      const ownInTop9 = ownIdx >= 0 && ownIdx < 9;
-
-      const ScoreRow = ({ s, i, pos, highlight }) => (
-        <tr key={s.name} style={{
+    function ScoreRow({ s, pos, highlight }) {
+      const fmtSec = s => { if(s==null)return'–'; const m=Math.floor(s/60); return `${m}:${String(s%60).padStart(2,'0')}`; };
+      return (
+        <tr style={{
           borderTop:'1px solid rgba(255,255,255,.06)',
-          background: highlight ? 'rgba(156,90,255,.12)' : i===0 ? 'rgba(255,215,0,.05)' : '',
+          background: highlight ? 'rgba(156,90,255,.12)' : pos===1 ? 'rgba(255,215,0,.05)' : '',
           outline: highlight ? '1px solid rgba(156,90,255,.4)' : 'none',
         }}>
           <td style={{padding:'9px 6px',color:pos===1?'#FFD700':pos===2?'#C0C0C0':pos===3?'#CD7F32':'rgba(255,255,255,.3)',fontWeight:700}}>
             {pos<=3 ? ['🥇','🥈','🥉'][pos-1] : pos}
           </td>
-          <td style={{padding:'9px 6px',color: highlight?'#c89fff':'#fff',fontWeight: highlight?700:600,maxWidth:'110px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+          <td style={{padding:'9px 6px',color:highlight?'#c89fff':'#fff',fontWeight:highlight?700:600,maxWidth:'110px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
             {highlight ? '👤 ' : ''}{s.displayName||s.name}
           </td>
           <td style={{padding:'9px 6px',textAlign:'center',color:'#c89fff',fontWeight:700}}>{s.wins}</td>
@@ -1702,6 +1681,21 @@
           <td style={{padding:'9px 6px',textAlign:'center',color:'rgba(255,255,255,.7)',fontFamily:'monospace'}}>{s.bestMoves??'–'}</td>
         </tr>
       );
+    }
+
+    function ScoresModal({ onClose, playerName }) {
+      const [scores, setScores] = useState([]);
+      const [showInfo, setShowInfo] = useState(false);
+
+      useEffect(() => {
+        window.__fbListenScores?.(setScores);
+        return () => window.__fbUnlistenScores?.();
+      }, []);
+
+      const top9    = scores.slice(0, 9);
+      const ownIdx  = scores.findIndex(s => s.name === playerName || s.displayName === playerName);
+      const ownData = ownIdx >= 0 ? scores[ownIdx] : null;
+      const ownInTop9 = ownIdx >= 0 && ownIdx < 9;
 
       return (
         <div style={{position:'fixed',inset:0,zIndex:7000,display:'flex',alignItems:'center',
@@ -1755,18 +1749,19 @@
                     </tr>
                   </thead>
                   <tbody>
-                    {top9.map((s,i) => (
-                      <ScoreRow key={s.name} s={s} i={i} pos={i+1} highlight={!ownInTop9 ? false : (s.displayName||s.name)===playerName||s.name===playerName} />
+                    {top9.map((s, i) => (
+                      <ScoreRow key={s.name} s={s} pos={i+1}
+                        highlight={ownInTop9 && (s.name===playerName||s.displayName===playerName)} />
                     ))}
-                    {/* Separator + own row if outside top 9 */}
-                    {ownData && !ownInTop9 && (<>
-                      <tr><td colSpan={5} style={{padding:'4px 6px',textAlign:'center',color:'rgba(255,255,255,.15)',fontSize:'11px',letterSpacing:'.1em'}}>· · ·</td></tr>
-                      <ScoreRow s={ownData} i={ownPos-1} pos={ownPos} highlight={true} />
-                    </>)}
+                    {ownData && !ownInTop9 && (
+                      <React.Fragment>
+                        <tr><td colSpan={5} style={{padding:'4px 6px',textAlign:'center',color:'rgba(255,255,255,.15)',fontSize:'11px',letterSpacing:'.1em'}}>· · ·</td></tr>
+                        <ScoreRow key={'own'} s={ownData} pos={ownIdx+1} highlight={true} />
+                      </React.Fragment>
+                    )}
                   </tbody>
                 </table>
             }
-
           </div>
         </div>
       );
