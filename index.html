@@ -493,16 +493,25 @@
     window.__fbListenScores = (cb) => {
       const sRef = ref(db, 'rubitrack/scores');
       scoresUnsub = onValue(sRef, snap => {
-        const list = [];
-        snap.forEach(c => { const v=c.val(); if(v?.name && v.name.toLowerCase() !== 'rubiking') list.push(v); });
-        list.sort((a,b)=> b.wins-a.wins || a.bestSec-b.bestSec);
-        // Añadir sufijo #N a nombres duplicados
-        const seen = {};
-        list.forEach(s => {
+        // 1. Collect all entries (exclude test player)
+        const raw = [];
+        snap.forEach(c => { const v=c.val(); if(v?.name && v.name.toLowerCase() !== 'rubiking') raw.push(v); });
+        // 2. Merge by name: keep highest wins, best time, best moves
+        const byName = {};
+        raw.forEach(s => {
           const key = s.name.toLowerCase();
-          seen[key] = (seen[key]||0) + 1;
-          s.displayName = seen[key] > 1 ? `${s.name} #${seen[key]}` : s.name;
+          if (!byName[key]) {
+            byName[key] = { ...s };
+          } else {
+            const cur = byName[key];
+            cur.wins = Math.max(cur.wins||0, s.wins||0);
+            if (s.bestSec != null && (cur.bestSec == null || s.bestSec < cur.bestSec)) cur.bestSec = s.bestSec;
+            if (s.bestMoves != null && (cur.bestMoves == null || s.bestMoves < cur.bestMoves)) cur.bestMoves = s.bestMoves;
+          }
         });
+        const list = Object.values(byName);
+        // 3. Sort by wins desc, then bestSec asc
+        list.sort((a,b) => (b.wins||0)-(a.wins||0) || (a.bestSec??Infinity)-(b.bestSec??Infinity));
         cb(list);
       });
     };
@@ -1692,7 +1701,14 @@
         return () => window.__fbUnlistenScores?.();
       }, []);
 
-      const top9    = scores.slice(0, 9);
+      // Deduplicate: keep first occurrence of each name (already sorted by wins/time)
+      const seen = new Set();
+      const deduped = scores.filter(s => {
+        const k = (s.name||'').toLowerCase();
+        if (seen.has(k)) return false;
+        seen.add(k); return true;
+      });
+      const top9 = deduped.slice(0, 9);
       const ownIdx  = scores.findIndex(s => s.name === playerName || s.displayName === playerName);
       const ownData = ownIdx >= 0 ? scores[ownIdx] : null;
       const ownInTop9 = ownIdx >= 0 && ownIdx < 9;
