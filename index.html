@@ -1668,28 +1668,6 @@
       );
     }
     /* ─── ScoresModal ─── */
-    function ScoreRow({ s, pos, highlight }) {
-      const fmtSec = s => { if(s==null)return'–'; const m=Math.floor(s/60); return `${m}:${String(s%60).padStart(2,'0')}`; };
-      return (
-        <tr style={{
-          borderTop:'1px solid rgba(255,255,255,.06)',
-          background: highlight ? 'rgba(156,90,255,.12)' : pos===1 ? 'rgba(255,215,0,.05)' : '',
-          outline: highlight ? '1px solid rgba(156,90,255,.4)' : 'none',
-        }}>
-          <td style={{padding:'9px 6px',color:pos===1?'#FFD700':pos===2?'#C0C0C0':pos===3?'#CD7F32':'rgba(255,255,255,.3)',fontWeight:700}}>
-            {pos<=3 ? ['🥇','🥈','🥉'][pos-1] : pos}
-          </td>
-          <td style={{padding:'9px 6px',color:highlight?'#c89fff':'#fff',fontWeight:highlight?700:600,maxWidth:'110px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
-            {highlight ? '👤 ' : ''}{s.displayName||s.name}
-          </td>
-          <td style={{padding:'9px 6px',textAlign:'center',color:'#c89fff',fontWeight:700}}>{s.wins}</td>
-          <td style={{padding:'9px 6px',textAlign:'center',color:'rgba(255,255,255,.7)',fontFamily:'monospace'}}>{fmtSec(s.bestSec)}</td>
-          <td style={{padding:'9px 6px',textAlign:'center',color:'rgba(255,255,255,.7)',fontFamily:'monospace'}}>{s.bestMoves??'–'}</td>
-        </tr>
-      );
-    }
-
-    function ScoresModal({ onClose, playerName }) {
       const [scores, setScores] = useState([]);
       const [showInfo, setShowInfo] = useState(false);
 
@@ -1755,16 +1733,36 @@
                     </tr>
                   </thead>
                   <tbody>
-                    {top9.map((s, i) => (
-                      <ScoreRow key={s.name} s={s} pos={i+1}
-                        highlight={s.name===playerName} />
-                    ))}
-                    {ownData && (
-                      <React.Fragment>
-                        <tr><td colSpan={5} style={{padding:'4px 6px',textAlign:'center',color:'rgba(255,255,255,.15)',fontSize:'11px',letterSpacing:'.1em'}}>· · ·</td></tr>
-                        <ScoreRow key={'own'} s={ownData} pos={ownIdx+1} highlight={true} />
-                      </React.Fragment>
-                    )}
+                    {top9.map((s, i) => {
+                      const hl = s.name===playerName;
+                      const pos = i+1;
+                      const fmtS = v => v==null?'–':`${Math.floor(v/60)}:${String(v%60).padStart(2,'0')}`;
+                      return (
+                        <tr key={s.name} style={{borderTop:'1px solid rgba(255,255,255,.06)',background:hl?'rgba(156,90,255,.12)':pos===1?'rgba(255,215,0,.05)':'',outline:hl?'1px solid rgba(156,90,255,.4)':'none'}}>
+                          <td style={{padding:'9px 6px',color:pos===1?'#FFD700':pos===2?'#C0C0C0':pos===3?'#CD7F32':'rgba(255,255,255,.3)',fontWeight:700}}>{pos<=3?['🥇','🥈','🥉'][pos-1]:pos}</td>
+                          <td style={{padding:'9px 6px',color:hl?'#c89fff':'#fff',fontWeight:hl?700:600,maxWidth:'110px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{hl?'👤 ':''}{s.name}</td>
+                          <td style={{padding:'9px 6px',textAlign:'center',color:'#c89fff',fontWeight:700}}>{s.wins}</td>
+                          <td style={{padding:'9px 6px',textAlign:'center',color:'rgba(255,255,255,.7)',fontFamily:'monospace'}}>{fmtS(s.bestSec)}</td>
+                          <td style={{padding:'9px 6px',textAlign:'center',color:'rgba(255,255,255,.7)',fontFamily:'monospace'}}>{s.bestMoves??'–'}</td>
+                        </tr>
+                      );
+                    })}
+                    {ownData && (() => {
+                      const pos = ownIdx+1;
+                      const fmtS = v => v==null?'–':`${Math.floor(v/60)}:${String(v%60).padStart(2,'0')}`;
+                      return (
+                        <React.Fragment>
+                          <tr><td colSpan={5} style={{padding:'4px 6px',textAlign:'center',color:'rgba(255,255,255,.15)',fontSize:'11px',letterSpacing:'.1em'}}>· · ·</td></tr>
+                          <tr style={{borderTop:'1px solid rgba(255,255,255,.06)',background:'rgba(156,90,255,.12)',outline:'1px solid rgba(156,90,255,.4)'}}>
+                            <td style={{padding:'9px 6px',color:'rgba(255,255,255,.3)',fontWeight:700}}>{pos}</td>
+                            <td style={{padding:'9px 6px',color:'#c89fff',fontWeight:700,maxWidth:'110px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>👤 {ownData.name}</td>
+                            <td style={{padding:'9px 6px',textAlign:'center',color:'#c89fff',fontWeight:700}}>{ownData.wins}</td>
+                            <td style={{padding:'9px 6px',textAlign:'center',color:'rgba(255,255,255,.7)',fontFamily:'monospace'}}>{fmtS(ownData.bestSec)}</td>
+                            <td style={{padding:'9px 6px',textAlign:'center',color:'rgba(255,255,255,.7)',fontFamily:'monospace'}}>{ownData.bestMoves??'–'}</td>
+                          </tr>
+                        </React.Fragment>
+                      );
+                    })()}
                   </tbody>
                 </table>
             }
