@@ -498,44 +498,6 @@
       } catch(e) { return 0; }
     };
 
-    let scoresUnsub = null;
-    window.__fbListenScores = (cb) => {
-      if (scoresUnsub) { scoresUnsub(); scoresUnsub = null; }
-      const sRef = ref(db, 'rubitrack/scores');
-      scoresUnsub = onValue(sRef, snap => {
-        const raw = [];
-        snap.forEach(c => { const v=c.val(); if(v?.name && v.name.toLowerCase()!=='rubiking') raw.push(v); });
-        // Merge by name
-        const byName = {};
-        raw.forEach(s => {
-          const k = s.name.toLowerCase();
-          if (!byName[k]) { byName[k] = {...s}; }
-          else {
-            const c = byName[k];
-            // combined
-            c.wins      = Math.max(c.wins||0, s.wins||0);
-            if (s.bestSec  !=null&&(c.bestSec ==null||s.bestSec <c.bestSec))  c.bestSec=s.bestSec;
-            if (s.bestMoves!=null&&(c.bestMoves==null||s.bestMoves<c.bestMoves)) c.bestMoves=s.bestMoves;
-            // solo
-            c.winsSolo      = Math.max(c.winsSolo||0, s.winsSolo||0);
-            if (s.bestSecSolo  !=null&&(c.bestSecSolo ==null||s.bestSecSolo <c.bestSecSolo))  c.bestSecSolo=s.bestSecSolo;
-            if (s.bestMovesSolo!=null&&(c.bestMovesSolo==null||s.bestMovesSolo<c.bestMovesSolo)) c.bestMovesSolo=s.bestMovesSolo;
-            // multi
-            c.winsMulti      = Math.max(c.winsMulti||0, s.winsMulti||0);
-            if (s.bestSecMulti  !=null&&(c.bestSecMulti ==null||s.bestSecMulti <c.bestSecMulti))  c.bestSecMulti=s.bestSecMulti;
-            if (s.bestMovesMulti!=null&&(c.bestMovesMulti==null||s.bestMovesMulti<c.bestMovesMulti)) c.bestMovesMulti=s.bestMovesMulti;
-          }
-        });
-        const all  = Object.values(byName);
-        const sort = (arr, wKey, tKey) => [...arr].filter(s=>(s[wKey]||0)>0).sort((a,b)=>(b[wKey]||0)-(a[wKey]||0)||((a[tKey]??1e9)-(b[tKey]??1e9)));
-        cb({
-          combined: sort(all, 'wins',      'bestSec'),
-          multi:    sort(all, 'winsMulti', 'bestSecMulti'),
-          solo:     sort(all, 'winsSolo',  'bestSecSolo'),
-        });
-      });
-    };
-    window.__fbUnlistenScores = () => { if(scoresUnsub){scoresUnsub();scoresUnsub=null;} };
     window.__fbRegisterLobby = (code, host) =>
       set(ref(db, `rubitrack/lobby/${code}`), { host, ts: Date.now(), lastMove: Date.now() });
 
@@ -639,24 +601,12 @@
         copyTitle: 'Copiar',
         inviteTitle: 'Invitar',
         helpTitle: 'Ayuda',
-        scoresTitle: 'Scores', multiLabel: 'Multijugador', soloLabel: 'Solo',
         // Confirm modal
         confirmTitle: '¿Nuevo juego?',
         confirmBody: (n) => `Hay <strong style="color:#c89fff">${n} jugadores</strong> conectados.<br/>Esto reiniciará el tiempo y el patrón para todos.`,
         confirmCancel: 'Cancelar',
         confirmYes: '¡Sí, reiniciar!',
         // Scores modal
-        bestPlayers: '🏆 Mejores jugadores',
-        rankCriteria: 'Criterios de ranking',
-        rankFirst: '🥇 Primero: más',
-        rankWins: 'victorias',
-        rankTie: '🥈 Empate: mejor',
-        rankTime: 'tiempo',
-        rankNote: 'Las victorias son el criterio principal. Si dos jugadores tienen las mismas, gana el de menor tiempo récord.',
-        noScores: 'Aún no hay scores 🎮',
-        colPlayer: 'Jugador',
-        searchPlaceholder: 'Buscar jugador...',
-        noResults: (s) => `Sin resultados para "${s}"`,
         // Widget
         patternLabel: 'Pattern',
         shuffleBtn: 'Shuffle',
@@ -710,22 +660,10 @@
         copyTitle: 'Copiar',
         inviteTitle: 'Convidar',
         helpTitle: 'Ajuda',
-        scoresTitle: 'Puntuacions', multiLabel: 'Multijugador', soloLabel: 'Sol',
         confirmTitle: 'Nova partida?',
         confirmBody: (n) => `Hi ha <strong style="color:#c89fff">${n} jugadors</strong> connectats.<br/>Això reiniciarà el temps i el patró per a tothom.`,
         confirmCancel: 'Cancel·lar',
         confirmYes: 'Sí, reinicia!',
-        bestPlayers: '🏆 Millors jugadors',
-        rankCriteria: 'Criteris de classificació',
-        rankFirst: '🥇 Primer: més',
-        rankWins: 'victòries',
-        rankTie: '🥈 Empat: millor',
-        rankTime: 'temps',
-        rankNote: 'Les victòries són el criteri principal. Si dos jugadors en tenen les mateixes, guanya el de menor temps rècord.',
-        noScores: 'Encara no hi ha puntuacions 🎮',
-        colPlayer: 'Jugador',
-        searchPlaceholder: 'Cerca jugador...',
-        noResults: (s) => `Sense resultats per a "${s}"`,
         patternLabel: 'Patró',
         shuffleBtn: 'Barreja',
         connecting: 'Connectant…',
@@ -775,22 +713,10 @@
         copyTitle: 'Copy',
         inviteTitle: 'Invite',
         helpTitle: 'Help',
-        scoresTitle: 'Scores', multiLabel: 'Multiplayer', soloLabel: 'Solo',
         confirmTitle: 'New game?',
         confirmBody: (n) => `There are <strong style="color:#c89fff">${n} players</strong> connected.<br/>This will reset the timer and pattern for everyone.`,
         confirmCancel: 'Cancel',
         confirmYes: 'Yes, restart!',
-        bestPlayers: '🏆 Best players',
-        rankCriteria: 'Ranking criteria',
-        rankFirst: '🥇 First: most',
-        rankWins: 'wins',
-        rankTie: '🥈 Tie: best',
-        rankTime: 'time',
-        rankNote: 'Wins are the main criterion. If two players are tied, the one with the best record time wins.',
-        noScores: 'No scores yet 🎮',
-        colPlayer: 'Player',
-        searchPlaceholder: 'Search player...',
-        noResults: (s) => `No results for "${s}"`,
         patternLabel: 'Pattern',
         shuffleBtn: 'Shuffle',
         connecting: 'Connecting…',
@@ -840,22 +766,10 @@
         copyTitle: 'Copier',
         inviteTitle: 'Inviter',
         helpTitle: 'Aide',
-        scoresTitle: 'Scores', multiLabel: 'Multijoueur', soloLabel: 'Solo',
         confirmTitle: 'Nouvelle partie ?',
         confirmBody: (n) => `Il y a <strong style="color:#c89fff">${n} joueurs</strong> connectés.<br/>Cela réinitialisera le chrono et le motif pour tous.`,
         confirmCancel: 'Annuler',
         confirmYes: 'Oui, recommencer !',
-        bestPlayers: '🏆 Meilleurs joueurs',
-        rankCriteria: 'Critères de classement',
-        rankFirst: '🥇 Premier : plus de',
-        rankWins: 'victoires',
-        rankTie: '🥈 Égalité : meilleur',
-        rankTime: 'temps',
-        rankNote: 'Les victoires sont le critère principal. En cas d\'égalité, le meilleur temps record l\'emporte.',
-        noScores: 'Pas encore de scores 🎮',
-        colPlayer: 'Joueur',
-        searchPlaceholder: 'Chercher un joueur...',
-        noResults: (s) => `Aucun résultat pour "${s}"`,
         patternLabel: 'Motif',
         shuffleBtn: 'Mélanger',
         connecting: 'Connexion…',
@@ -905,22 +819,10 @@
         copyTitle: 'Kopieren',
         inviteTitle: 'Einladen',
         helpTitle: 'Hilfe',
-        scoresTitle: 'Punkte', multiLabel: 'Mehrspieler', soloLabel: 'Solo',
         confirmTitle: 'Neues Spiel?',
         confirmBody: (n) => `Es sind <strong style="color:#c89fff">${n} Spieler</strong> verbunden.<br/>Dies setzt Timer und Muster für alle zurück.`,
         confirmCancel: 'Abbrechen',
         confirmYes: 'Ja, neu starten!',
-        bestPlayers: '🏆 Beste Spieler',
-        rankCriteria: 'Ranking-Kriterien',
-        rankFirst: '🥇 Erste: meiste',
-        rankWins: 'Siege',
-        rankTie: '🥈 Gleichstand: beste',
-        rankTime: 'Zeit',
-        rankNote: 'Siege sind das Hauptkriterium. Bei Gleichstand gewinnt die beste Rekordzeit.',
-        noScores: 'Noch keine Punkte 🎮',
-        colPlayer: 'Spieler',
-        searchPlaceholder: 'Spieler suchen...',
-        noResults: (s) => `Keine Ergebnisse für "${s}"`,
         patternLabel: 'Muster',
         shuffleBtn: 'Mischen',
         connecting: 'Verbinde…',
@@ -970,22 +872,10 @@
         copyTitle: 'Copiar',
         inviteTitle: 'Convidar',
         helpTitle: 'Ajuda',
-        scoresTitle: 'Pontuações', multiLabel: 'Multijogador', soloLabel: 'Solo',
         confirmTitle: 'Novo jogo?',
         confirmBody: (n) => `Há <strong style="color:#c89fff">${n} jogadores</strong> ligados.<br/>Isto vai reiniciar o tempo e o padrão para todos.`,
         confirmCancel: 'Cancelar',
         confirmYes: 'Sim, reiniciar!',
-        bestPlayers: '🏆 Melhores jogadores',
-        rankCriteria: 'Critérios de ranking',
-        rankFirst: '🥇 Primeiro: mais',
-        rankWins: 'vitórias',
-        rankTie: '🥈 Empate: melhor',
-        rankTime: 'tempo',
-        rankNote: 'As vitórias são o critério principal. Em caso de empate, ganha o menor tempo recorde.',
-        noScores: 'Ainda não há pontuações 🎮',
-        colPlayer: 'Jogador',
-        searchPlaceholder: 'Procurar jogador...',
-        noResults: (s) => `Sem resultados para "${s}"`,
         patternLabel: 'Padrão',
         shuffleBtn: 'Baralhar',
         connecting: 'A ligar…',
@@ -1035,22 +925,10 @@
         copyTitle: 'Copia',
         inviteTitle: 'Invita',
         helpTitle: 'Aiuto',
-        scoresTitle: 'Punteggi', multiLabel: 'Multigiocatore', soloLabel: 'Solo',
         confirmTitle: 'Nuova partita?',
         confirmBody: (n) => `Ci sono <strong style="color:#c89fff">${n} giocatori</strong> connessi.<br/>Questo azzererà il tempo e il pattern per tutti.`,
         confirmCancel: 'Annulla',
         confirmYes: 'Sì, ricomincia!',
-        bestPlayers: '🏆 Migliori giocatori',
-        rankCriteria: 'Criteri di classifica',
-        rankFirst: '🥇 Primo: più',
-        rankWins: 'vittorie',
-        rankTie: '🥈 Pareggio: miglior',
-        rankTime: 'tempo',
-        rankNote: 'Le vittorie sono il criterio principale. In caso di parità, vince il miglior tempo record.',
-        noScores: 'Ancora nessun punteggio 🎮',
-        colPlayer: 'Giocatore',
-        searchPlaceholder: 'Cerca giocatore...',
-        noResults: (s) => `Nessun risultato per "${s}"`,
         patternLabel: 'Pattern',
         shuffleBtn: 'Mescola',
         connecting: 'Connessione…',
@@ -1984,8 +1862,6 @@
 
           {/* Help button */}
           <button className="help-btn" onClick={openTutorial} title={window.T.helpTitle}>?</button>
-          <button className="help-btn" onClick={()=>setShowScores(true)} title={window.T.scoresTitle}
-                  style={{left:'58px',fontSize:'17px'}}>🏆</button>{/* Scores button */}
           
 
           {/* Top row: title + leave */}
