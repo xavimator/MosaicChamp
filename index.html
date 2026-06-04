@@ -1667,109 +1667,6 @@
         </div>
       );
     }
-    /* ─── ScoresModal ─── */
-      const [scores, setScores] = useState([]);
-      const [showInfo, setShowInfo] = useState(false);
-
-      useEffect(() => {
-        window.__fbUnlistenScores?.();
-        window.__fbListenScores?.(list => setScores([...list]));
-        return () => window.__fbUnlistenScores?.();
-      }, []);
-
-      const top9     = scores.slice(0, 9);
-      const ownIdx   = scores.findIndex(s => s.name === playerName);
-      const ownData  = ownIdx >= 9 ? scores[ownIdx] : null;
-
-      return (
-        <div style={{position:'fixed',inset:0,zIndex:7000,display:'flex',alignItems:'center',
-                     justifyContent:'center',background:'rgba(0,0,0,.75)',backdropFilter:'blur(8px)'}}
-             onClick={onClose}>
-          <div style={{background:'rgba(15,10,35,.97)',border:'1px solid rgba(156,90,255,.3)',
-                       borderRadius:'20px',padding:'24px',width:'min(94vw,400px)',maxHeight:'90vh',
-                       overflowY:'auto',boxShadow:'0 30px 80px rgba(0,0,0,.7)'}}
-               onClick={e=>e.stopPropagation()}>
-
-            {/* Header */}
-            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'18px'}}>
-              <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-                <div style={{color:'#fff',fontSize:'18px',fontWeight:800}}>{window.T.bestPlayers}</div>
-                <div style={{position:'relative'}}>
-                  <button onClick={()=>setShowInfo(v=>!v)}
-                          style={{width:'20px',height:'20px',borderRadius:'50%',
-                                  border:'1px solid rgba(255,255,255,.25)',background:'rgba(255,255,255,.08)',
-                                  color:'rgba(255,255,255,.5)',fontSize:'11px',fontWeight:700,
-                                  cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>?</button>
-                  {showInfo && (
-                    <div style={{position:'absolute',left:0,top:'26px',zIndex:10,
-                                 background:'rgba(20,14,50,.98)',border:'1px solid rgba(156,90,255,.3)',
-                                 borderRadius:'12px',padding:'12px 14px',width:'210px',
-                                 fontSize:'12px',color:'rgba(255,255,255,.7)',lineHeight:1.6,
-                                 boxShadow:'0 12px 40px rgba(0,0,0,.6)'}}>
-                      <div style={{fontWeight:700,color:'#c89fff',marginBottom:'6px'}}>{window.T.rankCriteria}</div>
-                      <div>{window.T.rankFirst} <b style={{color:'#fff'}}>{window.T.rankWins}</b></div>
-                      <div>{window.T.rankTie} <b style={{color:'#fff'}}>{window.T.rankTime}</b></div>
-                      <div style={{marginTop:'8px',fontSize:'11px',color:'rgba(255,255,255,.35)'}}>
-                        {window.T.rankNote}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <button onClick={onClose} style={{background:'none',border:'none',color:'rgba(255,255,255,.4)',fontSize:'22px',cursor:'pointer',lineHeight:1}}>×</button>
-            </div>
-
-            {/* Table */}
-            {scores.length === 0
-              ? <div style={{color:'rgba(255,255,255,.3)',textAlign:'center',padding:'24px',fontSize:'14px'}}>{window.T.noScores}</div>
-              : <table style={{width:'100%',borderCollapse:'collapse',fontSize:'13px'}}>
-                  <thead>
-                    <tr style={{color:'rgba(255,255,255,.35)',fontSize:'10px',letterSpacing:'.1em',textTransform:'uppercase'}}>
-                      <th style={{textAlign:'left',padding:'6px 6px'}}>#</th>
-                      <th style={{textAlign:'left',padding:'6px 6px'}}>{window.T.colPlayer}</th>
-                      <th style={{textAlign:'center',padding:'6px 6px'}}>🏅</th>
-                      <th style={{textAlign:'center',padding:'6px 6px'}}>⏱</th>
-                      <th style={{textAlign:'center',padding:'6px 6px'}}>↔</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {top9.map((s, i) => {
-                      const hl = s.name===playerName;
-                      const pos = i+1;
-                      const fmtS = v => v==null?'–':`${Math.floor(v/60)}:${String(v%60).padStart(2,'0')}`;
-                      return (
-                        <tr key={s.name} style={{borderTop:'1px solid rgba(255,255,255,.06)',background:hl?'rgba(156,90,255,.12)':pos===1?'rgba(255,215,0,.05)':'',outline:hl?'1px solid rgba(156,90,255,.4)':'none'}}>
-                          <td style={{padding:'9px 6px',color:pos===1?'#FFD700':pos===2?'#C0C0C0':pos===3?'#CD7F32':'rgba(255,255,255,.3)',fontWeight:700}}>{pos<=3?['🥇','🥈','🥉'][pos-1]:pos}</td>
-                          <td style={{padding:'9px 6px',color:hl?'#c89fff':'#fff',fontWeight:hl?700:600,maxWidth:'110px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{hl?'👤 ':''}{s.name}</td>
-                          <td style={{padding:'9px 6px',textAlign:'center',color:'#c89fff',fontWeight:700}}>{s.wins}</td>
-                          <td style={{padding:'9px 6px',textAlign:'center',color:'rgba(255,255,255,.7)',fontFamily:'monospace'}}>{fmtS(s.bestSec)}</td>
-                          <td style={{padding:'9px 6px',textAlign:'center',color:'rgba(255,255,255,.7)',fontFamily:'monospace'}}>{s.bestMoves??'–'}</td>
-                        </tr>
-                      );
-                    })}
-                    {ownData && (() => {
-                      const pos = ownIdx+1;
-                      const fmtS = v => v==null?'–':`${Math.floor(v/60)}:${String(v%60).padStart(2,'0')}`;
-                      return (
-                        <React.Fragment>
-                          <tr><td colSpan={5} style={{padding:'4px 6px',textAlign:'center',color:'rgba(255,255,255,.15)',fontSize:'11px',letterSpacing:'.1em'}}>· · ·</td></tr>
-                          <tr style={{borderTop:'1px solid rgba(255,255,255,.06)',background:'rgba(156,90,255,.12)',outline:'1px solid rgba(156,90,255,.4)'}}>
-                            <td style={{padding:'9px 6px',color:'rgba(255,255,255,.3)',fontWeight:700}}>{pos}</td>
-                            <td style={{padding:'9px 6px',color:'#c89fff',fontWeight:700,maxWidth:'110px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>👤 {ownData.name}</td>
-                            <td style={{padding:'9px 6px',textAlign:'center',color:'#c89fff',fontWeight:700}}>{ownData.wins}</td>
-                            <td style={{padding:'9px 6px',textAlign:'center',color:'rgba(255,255,255,.7)',fontFamily:'monospace'}}>{fmtS(ownData.bestSec)}</td>
-                            <td style={{padding:'9px 6px',textAlign:'center',color:'rgba(255,255,255,.7)',fontFamily:'monospace'}}>{ownData.bestMoves??'–'}</td>
-                          </tr>
-                        </React.Fragment>
-                      );
-                    })()}
-                  </tbody>
-                </table>
-            }
-          </div>
-        </div>
-      );
-    }
         function TutorialOverlay({ step, hl, onNext, onClose }) {
       if (!step || !hl) return null;
       const { pat, ctr } = hl;
@@ -1883,7 +1780,6 @@
       const [copied,      setCopied]       = useState(false);
       const [tutStep,     setTutStep]      = useState(0);
       const [tutHl,       setTutHl]        = useState(null);
-      const [showScores,  setShowScores]   = useState(false);
       const [countdown,   setCountdown]    = useState(null);
       const timerRef    = useRef(null);
       const finishedRef = useRef(false);
@@ -2066,8 +1962,7 @@
           {/* Help button */}
           <button className="help-btn" onClick={openTutorial} title={window.T.helpTitle}>?</button>
           {/* Scores button */}
-          <button className="help-btn" onClick={()=>setShowScores(true)} title={window.T.scoresTitle}
-                  style={{left:'58px',fontSize:'17px'}}>🏆</button>
+          
 
           {/* Top row: title + leave */}
           <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',width:'100%',maxWidth:'380px',marginBottom:'16px'}}>
@@ -2197,7 +2092,6 @@
           )}
 
           {/* Scores modal */}
-          {showScores && <ScoresModal onClose={()=>setShowScores(false)} playerName={playerName}/>}
 
           {/* Tutorial */}
           <TutorialOverlay step={tutStep} hl={tutHl}
