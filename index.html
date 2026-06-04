@@ -1690,121 +1690,6 @@
         </div>
       );
     }
-    /* ─── ScoresModal helpers (defined outside to avoid Babel remount bug) ─── */
-    const _fmt = v => v==null ? '–' : `${Math.floor(v/60)}:${String(v%60).padStart(2,'0')}`;
-
-    function MiniRow({s, pos, icon, wKey, tKey, playerName}) {
-      if (!s) return <tr><td colSpan={3} style={{padding:'5px 4px',color:'rgba(255,255,255,.15)',fontSize:'11px'}}>–</td></tr>;
-      const hl = s.name === playerName;
-      return (
-        <tr style={{borderTop:'1px solid rgba(255,255,255,.06)',background:hl?'rgba(156,90,255,.12)':''}}>
-          <td style={{padding:'5px 4px',width:'22px',color:'rgba(255,255,255,.35)',fontSize:'11px',fontWeight:700}}>{pos<=3?icon:pos}</td>
-          <td style={{padding:'5px 4px',color:hl?'#c89fff':'#fff',fontSize:'12px',fontWeight:hl?700:500,maxWidth:'80px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{hl?'👤 ':''}{s.name}</td>
-          <td style={{padding:'5px 4px',textAlign:'right',color:'#c89fff',fontSize:'11px',fontWeight:700,whiteSpace:'nowrap'}}>{s[wKey]} <span style={{color:'rgba(255,255,255,.3)',fontWeight:400}}>{_fmt(s[tKey])}</span></td>
-        </tr>
-      );
-    }
-
-    function ColTable({list, icons, wKey, tKey, playerName}) {
-      const top9   = list.slice(0,9);
-      const ownIdx = list.findIndex(s=>s.name===playerName);
-      const ownOut = ownIdx >= 9 ? list[ownIdx] : null;
-      return (
-        <table style={{width:'100%',borderCollapse:'collapse'}}>
-          <tbody>
-            {top9.map((s,i) => <MiniRow key={s.name} s={s} pos={i+1} icon={icons[i]||i+1} wKey={wKey} tKey={tKey} playerName={playerName}/>)}
-            {ownOut && <React.Fragment>
-              <tr><td colSpan={3} style={{textAlign:'center',color:'rgba(255,255,255,.15)',fontSize:'10px',padding:'2px'}}>···</td></tr>
-              <MiniRow s={ownOut} pos={ownIdx+1} icon={ownIdx+1} wKey={wKey} tKey={tKey} playerName={playerName}/>
-            </React.Fragment>}
-          </tbody>
-        </table>
-      );
-    }
-
-    /* ─── ScoresModal ─── */
-    function ScoresModal({ onClose, playerName }) {
-      const [data, setData] = useState({combined:[], multi:[], solo:[]});
-
-      useEffect(() => {
-        window.__fbUnlistenScores?.();
-        window.__fbListenScores?.(d => setData({...d}));
-        return () => window.__fbUnlistenScores?.();
-      }, []);
-
-      const isMine = s => s.name === playerName;
-      const top3        = data.combined.slice(0,3);
-      const podiumOrder = top3.length >= 2 ? [top3[1], top3[0], top3[2]].filter(Boolean) : top3;
-      const podiumPos   = top3.length >= 2 ? [2,1,3] : [1,2,3];
-      const podiumHeights = [70, 90, 55];
-
-      return (
-        <div style={{position:'fixed',inset:0,zIndex:7000,display:'flex',alignItems:'center',justifyContent:'center',
-                     background:'rgba(0,0,0,.8)',backdropFilter:'blur(8px)'}} onClick={onClose}>
-          <div style={{background:'rgba(15,10,35,.97)',border:'1px solid rgba(156,90,255,.3)',borderRadius:'20px',
-                       padding:'20px',width:'min(96vw,480px)',maxHeight:'92vh',overflowY:'auto',
-                       boxShadow:'0 30px 80px rgba(0,0,0,.7)'}} onClick={e=>e.stopPropagation()}>
-
-            {/* Header */}
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
-              <div style={{color:'#fff',fontSize:'17px',fontWeight:800}}>👑 {window.T.bestPlayers}</div>
-              <button onClick={onClose} style={{background:'none',border:'none',color:'rgba(255,255,255,.4)',fontSize:'22px',cursor:'pointer'}}>×</button>
-            </div>
-
-            {/* Podium top 3 combined */}
-            {top3.length > 0 && (
-              <div style={{display:'flex',alignItems:'flex-end',justifyContent:'center',gap:'8px',marginBottom:'20px'}}>
-                {podiumOrder.map((s,i) => s && (
-                  <div key={s.name} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:'4px'}}>
-                    <div style={{fontSize:'11px',color:isMine(s)?'#c89fff':'rgba(255,255,255,.6)',fontWeight:isMine(s)?700:500,
-                                 maxWidth:'100%',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',textAlign:'center'}}>
-                      {isMine(s)?'👤 ':''}{s.name}
-                    </div>
-                    <div style={{fontSize:'10px',color:'rgba(255,255,255,.4)'}}>{s.wins}W · {_fmt(s.bestSec)}</div>
-                    <div style={{fontSize:i===1?'28px':'22px'}}>👑</div>
-                    <div style={{width:'100%',background:i===1?'rgba(255,215,0,.25)':i===0?'rgba(192,192,192,.15)':'rgba(205,127,50,.15)',
-                                 border:`1px solid ${i===1?'rgba(255,215,0,.4)':i===0?'rgba(192,192,192,.3)':'rgba(205,127,50,.3)'}`,
-                                 borderRadius:'8px 8px 0 0',height:`${podiumHeights[i]}px`,
-                                 display:'flex',alignItems:'center',justifyContent:'center',
-                                 color:i===1?'#FFD700':i===0?'#C0C0C0':'#CD7F32',fontSize:'22px',fontWeight:900}}>
-                      {podiumPos[i]}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Two columns: multi + solo */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'12px'}}>
-              {/* Multi */}
-              <div>
-                <div style={{color:'rgba(255,255,255,.5)',fontSize:'10px',letterSpacing:'.1em',textTransform:'uppercase',
-                             marginBottom:'6px',display:'flex',alignItems:'center',gap:'4px'}}>
-                  🥇 {window.T.multiLabel||'Multijugador'}
-                </div>
-                {data.multi.length === 0
-                  ? <div style={{color:'rgba(255,255,255,.2)',fontSize:'11px',padding:'8px 0'}}>{window.T.noScores}</div>
-                  : <ColTable list={data.multi} icons={['🥇','🥈','🥉']} wKey="winsMulti" tKey="bestSecMulti" playerName={playerName}/>
-                }
-              </div>
-              {/* Solo */}
-              <div>
-                <div style={{color:'rgba(255,255,255,.5)',fontSize:'10px',letterSpacing:'.1em',textTransform:'uppercase',
-                             marginBottom:'6px',display:'flex',alignItems:'center',gap:'4px'}}>
-                  ⚔️ {window.T.soloLabel||'Solo'}
-                </div>
-                {data.solo.length === 0
-                  ? <div style={{color:'rgba(255,255,255,.2)',fontSize:'11px',padding:'8px 0'}}>{window.T.noScores}</div>
-                  : <ColTable list={data.solo} icons={['⚔️','⚔️','⚔️']} wKey="winsSolo" tKey="bestSecSolo" playerName={playerName}/>
-                }
-              </div>
-            </div>
-
-          </div>
-        </div>
-      );
-    }
-
         function TutorialOverlay({ step, hl, onNext, onClose }) {
       if (!step || !hl) return null;
       const { pat, ctr } = hl;
@@ -1914,7 +1799,6 @@
       const [lastMoved,   setLastMoved]    = useState(null);
       const [rrPat,       setRrPat]        = useState([]);
       const [activePl,    setActivePl]     = useState([]);
-      const [showScores,   setShowScores]   = useState(false);
       const [showConfirm, setShowConfirm]  = useState(false);
       const [copied,      setCopied]       = useState(false);
       const [tutStep,     setTutStep]      = useState(0);
@@ -2238,7 +2122,6 @@
             onNext={()=>setTutStep(2)} onClose={()=>setTutStep(0)}/>
 
           {/* Confirm modal */}
-          {showScores && <ScoresModal onClose={()=>setShowScores(false)} playerName={playerName}/>}
           {showConfirm && (
             <div className="confirm-backdrop" onClick={()=>setShowConfirm(false)}>
               <div className="confirm-box" onClick={e=>e.stopPropagation()}>
