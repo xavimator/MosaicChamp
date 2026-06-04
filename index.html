@@ -477,10 +477,6 @@
         [`wins${mode}`]:      prevWins + 1,
         [`bestSec${mode}`]:   prevSec  != null ? Math.min(prevSec,  timeSec) : timeSec,
         [`bestMoves${mode}`]: prevMov  != null ? Math.min(prevMov,  moves)   : moves,
-        // legacy combined (kept for compatibility)
-        wins:      (prev.wins||0) + 1,
-        bestSec:   prev.bestSec   != null ? Math.min(prev.bestSec,   timeSec) : timeSec,
-        bestMoves: prev.bestMoves != null ? Math.min(prev.bestMoves, moves)   : moves,
       });
     };
 
@@ -606,7 +602,6 @@
         confirmBody: (n) => `Hay <strong style="color:#c89fff">${n} jugadores</strong> conectados.<br/>Esto reiniciará el tiempo y el patrón para todos.`,
         confirmCancel: 'Cancelar',
         confirmYes: '¡Sí, reiniciar!',
-        // Scores modal
         // Widget
         patternLabel: 'Pattern',
         shuffleBtn: 'Shuffle',
@@ -1991,7 +1986,6 @@
             </div>
           )}
 
-          {/* Scores modal */}
 
           {/* Tutorial */}
           <TutorialOverlay step={tutStep} hl={tutHl}
