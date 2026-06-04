@@ -494,6 +494,37 @@
       } catch(e) { return 0; }
     };
 
+    let scoresUnsub = null;
+    window.__fbListenScores = (cb) => {
+      if (scoresUnsub) { scoresUnsub(); scoresUnsub = null; }
+      scoresUnsub = onValue(ref(db, 'rubitrack/scores'), snap => {
+        const raw = [];
+        snap.forEach(c => { const v=c.val(); if(v?.name && v.name.toLowerCase()!=='rubiking') raw.push(v); });
+        const byName = {};
+        raw.forEach(s => {
+          const k = s.name.toLowerCase();
+          if (!byName[k]) { byName[k]={...s}; return; }
+          const b = byName[k];
+          const merge = (fW,fS,fM) => {
+            b[fW] = Math.max(b[fW]||0, s[fW]||0);
+            if (s[fS]!=null && (b[fS]==null||s[fS]<b[fS])) b[fS]=s[fS];
+            if (s[fM]!=null && (b[fM]==null||s[fM]<b[fM])) b[fM]=s[fM];
+          };
+          merge('winsSolo','bestSecSolo','bestMovesSolo');
+          merge('winsMulti','bestSecMulti','bestMovesMulti');
+        });
+        const all = Object.values(byName);
+        const srt = (w,t) => [...all].filter(s=>(s[w]||0)>0).sort((a,b)=>(b[w]||0)-(a[w]||0)||((a[t]??1e9)-(b[t]??1e9)));
+        const combined = [...all].filter(s=>((s.winsSolo||0)+(s.winsMulti||0))>0).map(s=>({
+          ...s,
+          winsTotal: (s.winsSolo||0)+(s.winsMulti||0),
+          bestSecTotal: [s.bestSecSolo,s.bestSecMulti].filter(x=>x!=null).reduce((a,b)=>Math.min(a,b), Infinity),
+        })).sort((a,b)=>b.winsTotal-a.winsTotal||(a.bestSecTotal-b.bestSecTotal));
+        cb({ combined, multi: srt('winsMulti','bestSecMulti'), solo: srt('winsSolo','bestSecSolo') });
+      });
+    };
+    window.__fbUnlistenScores = () => { if(scoresUnsub){scoresUnsub();scoresUnsub=null;} };
+
     window.__fbRegisterLobby = (code, host) =>
       set(ref(db, `rubitrack/lobby/${code}`), { host, ts: Date.now(), lastMove: Date.now() });
 
@@ -597,6 +628,7 @@
         copyTitle: 'Copiar',
         inviteTitle: 'Invitar',
         helpTitle: 'Ayuda',
+        scoresTitle: 'Scores', combinedLabel: 'Top combinado', multiLabel: 'Multijugador', soloLabel: 'Solo', noScores: 'Sin partidas aún 🎮',
         // Confirm modal
         confirmTitle: '¿Nuevo juego?',
         confirmBody: (n) => `Hay <strong style="color:#c89fff">${n} jugadores</strong> conectados.<br/>Esto reiniciará el tiempo y el patrón para todos.`,
@@ -655,6 +687,7 @@
         copyTitle: 'Copiar',
         inviteTitle: 'Convidar',
         helpTitle: 'Ajuda',
+        scoresTitle: 'Puntuacions', combinedLabel: 'Top combinat', multiLabel: 'Multijugador', soloLabel: 'Sol', noScores: 'Sense partides encara 🎮',
         confirmTitle: 'Nova partida?',
         confirmBody: (n) => `Hi ha <strong style="color:#c89fff">${n} jugadors</strong> connectats.<br/>Això reiniciarà el temps i el patró per a tothom.`,
         confirmCancel: 'Cancel·lar',
@@ -708,6 +741,7 @@
         copyTitle: 'Copy',
         inviteTitle: 'Invite',
         helpTitle: 'Help',
+        scoresTitle: 'Scores', combinedLabel: 'Combined top', multiLabel: 'Multiplayer', soloLabel: 'Solo', noScores: 'No games yet 🎮',
         confirmTitle: 'New game?',
         confirmBody: (n) => `There are <strong style="color:#c89fff">${n} players</strong> connected.<br/>This will reset the timer and pattern for everyone.`,
         confirmCancel: 'Cancel',
@@ -761,6 +795,7 @@
         copyTitle: 'Copier',
         inviteTitle: 'Inviter',
         helpTitle: 'Aide',
+        scoresTitle: 'Scores', combinedLabel: 'Top combiné', multiLabel: 'Multijoueur', soloLabel: 'Solo', noScores: 'Pas encore de parties 🎮',
         confirmTitle: 'Nouvelle partie ?',
         confirmBody: (n) => `Il y a <strong style="color:#c89fff">${n} joueurs</strong> connectés.<br/>Cela réinitialisera le chrono et le motif pour tous.`,
         confirmCancel: 'Annuler',
@@ -814,6 +849,7 @@
         copyTitle: 'Kopieren',
         inviteTitle: 'Einladen',
         helpTitle: 'Hilfe',
+        scoresTitle: 'Punkte', combinedLabel: 'Kombiniertes Top', multiLabel: 'Mehrspieler', soloLabel: 'Solo', noScores: 'Noch keine Spiele 🎮',
         confirmTitle: 'Neues Spiel?',
         confirmBody: (n) => `Es sind <strong style="color:#c89fff">${n} Spieler</strong> verbunden.<br/>Dies setzt Timer und Muster für alle zurück.`,
         confirmCancel: 'Abbrechen',
@@ -867,6 +903,7 @@
         copyTitle: 'Copiar',
         inviteTitle: 'Convidar',
         helpTitle: 'Ajuda',
+        scoresTitle: 'Pontuações', combinedLabel: 'Top combinado', multiLabel: 'Multijogador', soloLabel: 'Solo', noScores: 'Ainda sem partidas 🎮',
         confirmTitle: 'Novo jogo?',
         confirmBody: (n) => `Há <strong style="color:#c89fff">${n} jogadores</strong> ligados.<br/>Isto vai reiniciar o tempo e o padrão para todos.`,
         confirmCancel: 'Cancelar',
@@ -920,6 +957,7 @@
         copyTitle: 'Copia',
         inviteTitle: 'Invita',
         helpTitle: 'Aiuto',
+        scoresTitle: 'Punteggi', combinedLabel: 'Top combinato', multiLabel: 'Multigiocatore', soloLabel: 'Solo', noScores: 'Nessuna partita ancora 🎮',
         confirmTitle: 'Nuova partita?',
         confirmBody: (n) => `Ci sono <strong style="color:#c89fff">${n} giocatori</strong> connessi.<br/>Questo azzererà il tempo e il pattern per tutti.`,
         confirmCancel: 'Annulla',
@@ -1563,6 +1601,119 @@
         </div>
       );
     }
+    function ScoresModal({ onClose, playerName }) {
+      const [d, setD] = useState({combined:[],multi:[],solo:[]});
+      useEffect(()=>{
+        window.__fbUnlistenScores?.();
+        window.__fbListenScores?.(x=>setD({...x}));
+        return ()=>window.__fbUnlistenScores?.();
+      },[]);
+
+      const f = v => v==null||v===Infinity ? '–' : `${Math.floor(v/60)}:${String(v%60).padStart(2,'0')}`;
+      const mine = s => s.name===playerName;
+
+      // ── Podium (top 3 combined, order: 2nd · 1st · 3rd) ──
+      const c3 = d.combined.slice(0,3);
+      const podOrd = c3.length>=2 ? [c3[1],c3[0],c3[2]].filter(Boolean) : c3;
+      const podPos = c3.length>=2 ? [2,1,3] : [1];
+      const podH   = [68,90,52];
+      const podCol = ['rgba(192,192,192,.2)','rgba(255,215,0,.25)','rgba(205,127,50,.18)'];
+      const podBdr = ['rgba(192,192,192,.35)','rgba(255,215,0,.45)','rgba(205,127,50,.35)'];
+      const podTxt = ['#C0C0C0','#FFD700','#CD7F32'];
+
+      // ── Column renderer (inline rows, no sub-component) ──
+      const Col = (list, wKey, tKey, icons) => {
+        const t9 = list.slice(0,9);
+        const oi = list.findIndex(s=>s.name===playerName);
+        const own = oi>=9 ? list[oi] : null;
+        const Row = (s, pos, icon) => {
+          const hl = mine(s);
+          return (
+            <tr key={s.name+pos} style={{borderTop:'1px solid rgba(255,255,255,.06)',background:hl?'rgba(156,90,255,.13)':''}}>
+              <td style={{padding:'5px 3px',fontSize:'13px',width:'20px',textAlign:'center'}}>{pos<=3?icon:pos}</td>
+              <td style={{padding:'5px 3px',color:hl?'#c89fff':'#ddd',fontSize:'12px',fontWeight:hl?700:400,
+                          maxWidth:'90px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
+                {hl?'👤 ':''}{s.name}
+              </td>
+              <td style={{padding:'5px 3px',textAlign:'right',color:'#c89fff',fontSize:'11px',whiteSpace:'nowrap'}}>
+                {s[wKey]}<span style={{color:'rgba(255,255,255,.3)',marginLeft:'4px'}}>{f(s[tKey])}</span>
+              </td>
+            </tr>
+          );
+        };
+        return (
+          <table style={{width:'100%',borderCollapse:'collapse'}}>
+            <tbody>
+              {t9.map((s,i)=>Row(s,i+1,icons[i]||i+1))}
+              {own&&<React.Fragment>
+                <tr><td colSpan={3} style={{textAlign:'center',color:'rgba(255,255,255,.15)',fontSize:'10px',padding:'2px'}}>···</td></tr>
+                {Row(own,oi+1,oi+1)}
+              </React.Fragment>}
+            </tbody>
+          </table>
+        );
+      };
+
+      return (
+        <div style={{position:'fixed',inset:0,zIndex:7000,display:'flex',alignItems:'center',justifyContent:'center',
+                     background:'rgba(0,0,0,.82)',backdropFilter:'blur(8px)'}} onClick={onClose}>
+          <div style={{background:'rgba(12,8,30,.97)',border:'1px solid rgba(156,90,255,.3)',borderRadius:'20px',
+                       padding:'20px 16px',width:'min(96vw,460px)',maxHeight:'92vh',overflowY:'auto',
+                       boxShadow:'0 30px 80px rgba(0,0,0,.8)'}} onClick={e=>e.stopPropagation()}>
+
+            {/* Header */}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
+              <div style={{color:'#fff',fontSize:'16px',fontWeight:800}}>👑 {window.T.scoresTitle}</div>
+              <button onClick={onClose} style={{background:'none',border:'none',color:'rgba(255,255,255,.4)',fontSize:'22px',cursor:'pointer',lineHeight:1}}>×</button>
+            </div>
+
+            {/* ── Podium ── */}
+            {c3.length>0 && <>
+              <div style={{textAlign:'center',fontSize:'10px',color:'rgba(255,255,255,.3)',letterSpacing:'.12em',
+                           textTransform:'uppercase',marginBottom:'8px'}}>{window.T.combinedLabel}</div>
+              <div style={{display:'flex',alignItems:'flex-end',justifyContent:'center',gap:'6px',marginBottom:'20px'}}>
+                {podOrd.map((s,i)=>(
+                  <div key={s.name} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:'3px'}}>
+                    <div style={{fontSize:'10px',color:mine(s)?'#c89fff':'rgba(255,255,255,.65)',fontWeight:mine(s)?700:400,
+                                 maxWidth:'100%',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',textAlign:'center',padding:'0 2px'}}>
+                      {mine(s)?'👤 ':''}{s.name}
+                    </div>
+                    <div style={{fontSize:'10px',color:'rgba(255,255,255,.35)'}}>{s.winsTotal}W · {f(s.bestSecTotal)}</div>
+                    <div style={{fontSize:i===1?'26px':'20px'}}>👑</div>
+                    <div style={{width:'100%',background:podCol[i],border:`1px solid ${podBdr[i]}`,
+                                 borderRadius:'6px 6px 0 0',height:`${podH[i]}px`,
+                                 display:'flex',alignItems:'center',justifyContent:'center',
+                                 color:podTxt[i],fontSize:'20px',fontWeight:900}}>
+                      {podPos[i]}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>}
+
+            {/* ── Two columns ── */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
+              <div>
+                <div style={{fontSize:'10px',color:'rgba(255,255,255,.4)',letterSpacing:'.1em',
+                             textTransform:'uppercase',marginBottom:'6px'}}>🥇 {window.T.multiLabel}</div>
+                {d.multi.length===0
+                  ? <div style={{color:'rgba(255,255,255,.2)',fontSize:'11px'}}>{window.T.noScores}</div>
+                  : Col(d.multi,'winsMulti','bestSecMulti',['🥇','🥈','🥉'])}
+              </div>
+              <div>
+                <div style={{fontSize:'10px',color:'rgba(255,255,255,.4)',letterSpacing:'.1em',
+                             textTransform:'uppercase',marginBottom:'6px'}}>⚔️ {window.T.soloLabel}</div>
+                {d.solo.length===0
+                  ? <div style={{color:'rgba(255,255,255,.2)',fontSize:'11px'}}>{window.T.noScores}</div>
+                  : Col(d.solo,'winsSolo','bestSecSolo',['⚔️','⚔️','⚔️'])}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      );
+    }
+
         function TutorialOverlay({ step, hl, onNext, onClose }) {
       if (!step || !hl) return null;
       const { pat, ctr } = hl;
@@ -1672,6 +1823,7 @@
       const [lastMoved,   setLastMoved]    = useState(null);
       const [rrPat,       setRrPat]        = useState([]);
       const [activePl,    setActivePl]     = useState([]);
+      const [showScores,    setShowScores]    = useState(false);
       const [showConfirm, setShowConfirm]  = useState(false);
       const [copied,      setCopied]       = useState(false);
       const [tutStep,     setTutStep]      = useState(0);
@@ -1857,6 +2009,7 @@
 
           {/* Help button */}
           <button className="help-btn" onClick={openTutorial} title={window.T.helpTitle}>?</button>
+          <button className="help-btn" onClick={()=>setShowScores(true)} style={{left:'58px',fontSize:'17px'}}>🏆</button>
           
 
           {/* Top row: title + leave */}
@@ -1992,6 +2145,7 @@
             onNext={()=>setTutStep(2)} onClose={()=>setTutStep(0)}/>
 
           {/* Confirm modal */}
+          {showScores && <ScoresModal onClose={()=>setShowScores(false)} playerName={playerName}/>}
           {showConfirm && (
             <div className="confirm-backdrop" onClick={()=>setShowConfirm(false)}>
               <div className="confirm-box" onClick={e=>e.stopPropagation()}>
