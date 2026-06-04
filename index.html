@@ -1690,6 +1690,38 @@
         </div>
       );
     }
+    /* ─── ScoresModal helpers (defined outside to avoid Babel remount bug) ─── */
+    const _fmt = v => v==null ? '–' : `${Math.floor(v/60)}:${String(v%60).padStart(2,'0')}`;
+
+    function MiniRow({s, pos, icon, wKey, tKey, playerName}) {
+      if (!s) return <tr><td colSpan={3} style={{padding:'5px 4px',color:'rgba(255,255,255,.15)',fontSize:'11px'}}>–</td></tr>;
+      const hl = s.name === playerName;
+      return (
+        <tr style={{borderTop:'1px solid rgba(255,255,255,.06)',background:hl?'rgba(156,90,255,.12)':''}}>
+          <td style={{padding:'5px 4px',width:'22px',color:'rgba(255,255,255,.35)',fontSize:'11px',fontWeight:700}}>{pos<=3?icon:pos}</td>
+          <td style={{padding:'5px 4px',color:hl?'#c89fff':'#fff',fontSize:'12px',fontWeight:hl?700:500,maxWidth:'80px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{hl?'👤 ':''}{s.name}</td>
+          <td style={{padding:'5px 4px',textAlign:'right',color:'#c89fff',fontSize:'11px',fontWeight:700,whiteSpace:'nowrap'}}>{s[wKey]} <span style={{color:'rgba(255,255,255,.3)',fontWeight:400}}>{_fmt(s[tKey])}</span></td>
+        </tr>
+      );
+    }
+
+    function ColTable({list, icons, wKey, tKey, playerName}) {
+      const top9   = list.slice(0,9);
+      const ownIdx = list.findIndex(s=>s.name===playerName);
+      const ownOut = ownIdx >= 9 ? list[ownIdx] : null;
+      return (
+        <table style={{width:'100%',borderCollapse:'collapse'}}>
+          <tbody>
+            {top9.map((s,i) => <MiniRow key={s.name} s={s} pos={i+1} icon={icons[i]||i+1} wKey={wKey} tKey={tKey} playerName={playerName}/>)}
+            {ownOut && <React.Fragment>
+              <tr><td colSpan={3} style={{textAlign:'center',color:'rgba(255,255,255,.15)',fontSize:'10px',padding:'2px'}}>···</td></tr>
+              <MiniRow s={ownOut} pos={ownIdx+1} icon={ownIdx+1} wKey={wKey} tKey={tKey} playerName={playerName}/>
+            </React.Fragment>}
+          </tbody>
+        </table>
+      );
+    }
+
     /* ─── ScoresModal ─── */
     function ScoresModal({ onClose, playerName }) {
       const [data, setData] = useState({combined:[], multi:[], solo:[]});
@@ -1700,46 +1732,10 @@
         return () => window.__fbUnlistenScores?.();
       }, []);
 
-      const fmt = v => v==null ? '–' : `${Math.floor(v/60)}:${String(v%60).padStart(2,'0')}`;
       const isMine = s => s.name === playerName;
-
-      // Top 3 combined podium
-      const top3 = data.combined.slice(0,3);
+      const top3        = data.combined.slice(0,3);
       const podiumOrder = top3.length >= 2 ? [top3[1], top3[0], top3[2]].filter(Boolean) : top3;
       const podiumPos   = top3.length >= 2 ? [2,1,3] : [1,2,3];
-      const crowns = ['👑','👑','👑'];
-      const medals = ['🥇','🥈','🥉'];
-      const swords = ['⚔️','⚔️','⚔️'];
-
-      const MiniRow = ({s, pos, icon, wKey, tKey}) => {
-        if (!s) return <tr><td colSpan={3} style={{padding:'5px 4px',color:'rgba(255,255,255,.15)',fontSize:'11px'}}>–</td></tr>;
-        const hl = isMine(s);
-        return (
-          <tr style={{borderTop:'1px solid rgba(255,255,255,.06)', background: hl?'rgba(156,90,255,.12)':''}}>
-            <td style={{padding:'5px 4px',width:'22px',color:'rgba(255,255,255,.35)',fontSize:'11px',fontWeight:700}}>{pos<=3?icon:pos}</td>
-            <td style={{padding:'5px 4px',color:hl?'#c89fff':'#fff',fontSize:'12px',fontWeight:hl?700:500,maxWidth:'80px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{hl?'👤 ':''}{s.name}</td>
-            <td style={{padding:'5px 4px',textAlign:'right',color:'#c89fff',fontSize:'11px',fontWeight:700,whiteSpace:'nowrap'}}>{s[wKey]} <span style={{color:'rgba(255,255,255,.3)',fontWeight:400}}>{fmt(s[tKey])}</span></td>
-          </tr>
-        );
-      };
-
-      const ColTable = ({list, icons, wKey, tKey, playerName}) => {
-        const top9 = list.slice(0,9);
-        const ownIdx = list.findIndex(s=>s.name===playerName);
-        const ownOut = ownIdx >= 9 ? list[ownIdx] : null;
-        return (
-          <table style={{width:'100%',borderCollapse:'collapse'}}>
-            <tbody>
-              {top9.map((s,i) => <MiniRow key={s.name} s={s} pos={i+1} icon={icons[i]||i+1} wKey={wKey} tKey={tKey}/>)}
-              {ownOut && <>
-                <tr><td colSpan={3} style={{textAlign:'center',color:'rgba(255,255,255,.15)',fontSize:'10px',padding:'2px'}}>···</td></tr>
-                <MiniRow s={ownOut} pos={ownIdx+1} icon={ownIdx+1} wKey={wKey} tKey={tKey}/>
-              </>}
-            </tbody>
-          </table>
-        );
-      };
-
       const podiumHeights = [70, 90, 55];
 
       return (
@@ -1764,8 +1760,8 @@
                                  maxWidth:'100%',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',textAlign:'center'}}>
                       {isMine(s)?'👤 ':''}{s.name}
                     </div>
-                    <div style={{fontSize:'10px',color:'rgba(255,255,255,.4)'}}>{s.wins}W · {fmt(s.bestSec)}</div>
-                    <div style={{fontSize:i===1?'28px':'22px'}}>{crowns[0]}</div>
+                    <div style={{fontSize:'10px',color:'rgba(255,255,255,.4)'}}>{s.wins}W · {_fmt(s.bestSec)}</div>
+                    <div style={{fontSize:i===1?'28px':'22px'}}>👑</div>
                     <div style={{width:'100%',background:i===1?'rgba(255,215,0,.25)':i===0?'rgba(192,192,192,.15)':'rgba(205,127,50,.15)',
                                  border:`1px solid ${i===1?'rgba(255,215,0,.4)':i===0?'rgba(192,192,192,.3)':'rgba(205,127,50,.3)'}`,
                                  borderRadius:'8px 8px 0 0',height:`${podiumHeights[i]}px`,
@@ -1788,7 +1784,7 @@
                 </div>
                 {data.multi.length === 0
                   ? <div style={{color:'rgba(255,255,255,.2)',fontSize:'11px',padding:'8px 0'}}>{window.T.noScores}</div>
-                  : <ColTable list={data.multi} icons={medals} wKey="winsMulti" tKey="bestSecMulti" playerName={playerName}/>
+                  : <ColTable list={data.multi} icons={['🥇','🥈','🥉']} wKey="winsMulti" tKey="bestSecMulti" playerName={playerName}/>
                 }
               </div>
               {/* Solo */}
@@ -1799,7 +1795,7 @@
                 </div>
                 {data.solo.length === 0
                   ? <div style={{color:'rgba(255,255,255,.2)',fontSize:'11px',padding:'8px 0'}}>{window.T.noScores}</div>
-                  : <ColTable list={data.solo} icons={swords} wKey="winsSolo" tKey="bestSecSolo" playerName={playerName}/>
+                  : <ColTable list={data.solo} icons={['⚔️','⚔️','⚔️']} wKey="winsSolo" tKey="bestSecSolo" playerName={playerName}/>
                 }
               </div>
             </div>
