@@ -1210,6 +1210,8 @@
     @keyframes tutFadeUp { from{opacity:0;transform:translate(-50%,10px)} to{opacity:1;transform:translate(-50%,0)} }
     @keyframes tutArrow  { from{opacity:0} to{opacity:1} }
     @keyframes countPulse { 0%{transform:scale(1.4);opacity:.5} 100%{transform:scale(1);opacity:1} }
+    @keyframes tutHintIn  { from { opacity:0; transform:translateX(-8px) scale(.85); } to { opacity:1; transform:none; } }
+    @keyframes tutHintOut { from { opacity:1; } to { opacity:0; transform:translateX(8px) scale(.85); } }
     .help-btn {
       position:fixed; top:14px; left:14px; z-index:301;
       width:36px; height:36px; border-radius:50%;
@@ -1828,6 +1830,7 @@
       const [copied,      setCopied]       = useState(false);
       const [tutStep,     setTutStep]      = useState(0);
       const [tutHl,       setTutHl]        = useState(null);
+      const [showTutHint, setShowTutHint]  = useState(false);
       const [countdown,   setCountdown]    = useState(null);
       const timerRef    = useRef(null);
       const finishedRef = useRef(false);
@@ -1859,6 +1862,19 @@
         setTutHl({ pat, ctr });
         setTutStep(1);
       };
+
+      // Show tutorial hint if player has never played
+      useEffect(() => {
+        window.__fbListenScores?.(data => {
+          window.__fbUnlistenScores?.();
+          const all = [...(data.combined||[]),...(data.multi||[]),...(data.solo||[])];
+          const hasPlayed = all.some(s => s.name === playerName);
+          if (!hasPlayed) {
+            setShowTutHint(true);
+            setTimeout(() => setShowTutHint(false), 2000);
+          }
+        });
+      }, []);
 
       // Delete lobby entry on browser close
       useEffect(() => {
@@ -2009,6 +2025,15 @@
 
           {/* Help button */}
           <button className="help-btn" onClick={openTutorial} title={window.T.helpTitle}>?</button>
+          {showTutHint && (
+            <div style={{
+              position:'fixed', top:'18px', left:'72px', zIndex:9000,
+              fontFamily:"'Pacifico', cursive", fontSize:'22px',
+              color:'#c89fff', textShadow:'0 0 18px rgba(156,90,255,.9), 0 2px 8px rgba(0,0,0,.8)',
+              pointerEvents:'none', whiteSpace:'nowrap',
+              animation:'tutHintIn 0.3s ease, tutHintOut 0.4s ease 1.6s forwards',
+            }}>Tutorial ✨</div>
+          )}
           <button className="help-btn" onClick={()=>setShowScores(true)} style={{left:'58px',fontSize:'17px'}}>🏆</button>
           
 
