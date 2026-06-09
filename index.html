@@ -461,6 +461,15 @@
       return id;
     };
 
+    window.__fbHasPlayed = async (name) => {
+      try {
+        const snap = await get(ref(db, 'rubitrack/scores'));
+        let found = false;
+        snap.forEach(c => { if ((c.val()?.name||'').toLowerCase() === name.toLowerCase()) found = true; });
+        return found;
+      } catch(e) { return true; } // on error, assume played (no hint)
+    };
+
     window.__fbUpdateScore = async (name, timeSec, moves, multiplayer) => {
       if (name.trim().toLowerCase() === 'rubiking') return;
       const deviceId = getDeviceId();
@@ -1865,11 +1874,8 @@
 
       // Show tutorial hint if player has never played
       useEffect(() => {
-        window.__fbListenScores?.(data => {
-          window.__fbUnlistenScores?.();
-          const all = [...(data.combined||[]),...(data.multi||[]),...(data.solo||[])];
-          const hasPlayed = all.some(s => s.name === playerName);
-          if (!hasPlayed) {
+        window.__fbHasPlayed?.(playerName).then(has => {
+          if (!has) {
             setShowTutHint(true);
             setTimeout(() => setShowTutHint(false), 2000);
           }
