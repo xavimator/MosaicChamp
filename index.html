@@ -1222,7 +1222,7 @@
     @keyframes tutHintIn  { from { opacity:0; transform:translateX(-8px) scale(.85); } to { opacity:1; transform:none; } }
     @keyframes tutHintOut { from { opacity:1; } to { opacity:0; transform:translateX(8px) scale(.85); } }
     .help-btn {
-      position:fixed; top:14px; left:14px; z-index:301;
+      position:fixed; top:20px; left:58px; z-index:301;
       width:36px; height:36px; border-radius:50%;
       border:1.5px solid rgba(156,90,255,.45);
       background:rgba(10,8,24,.9); color:#c89fff;
@@ -2033,14 +2033,14 @@
           <button className="help-btn" onClick={openTutorial} title={window.T.helpTitle}>?</button>
           {showTutHint && (
             <div style={{
-              position:'fixed', top:'18px', left:'72px', zIndex:9000,
+              position:'fixed', top:'18px', left:'110px', zIndex:9000,
               fontFamily:"'Pacifico', cursive", fontSize:'22px',
               color:'#c89fff', textShadow:'0 0 18px rgba(156,90,255,.9), 0 2px 8px rgba(0,0,0,.8)',
               pointerEvents:'none', whiteSpace:'nowrap',
-              animation:'tutHintIn 0.3s ease, tutHintOut 0.4s ease 1.6s forwards',
+              animation:'tutHintIn 0.3s ease, tutHintOut 0.6s ease 1.6s forwards',
             }}>Tutorial ✨</div>
           )}
-          <button className="help-btn" onClick={()=>setShowScores(true)} style={{left:'58px',fontSize:'17px'}}>🏆</button>
+          <button className="help-btn" onClick={()=>setShowScores(true)} style={{left:'15px',fontSize:'17px'}}>🏆</button>
           
 
           {/* Top row: title + leave */}
