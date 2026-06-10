@@ -1612,6 +1612,62 @@
         </div>
       );
     }
+    function InviteModal({ onClose, gameCode }) {
+      const url = `${location.origin}${location.pathname}?code=${gameCode}`;
+      const qr  = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&color=c89fff&bgcolor=0c081e&data=${encodeURIComponent(url)}`;
+      const [copied, setCopied] = useState(false);
+
+      const copyLink = () => {
+        navigator.clipboard.writeText(url).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        });
+      };
+
+      const share = () => {
+        if (navigator.share) navigator.share({ title:'RubikRace', text: window.T.inviteText(gameCode), url });
+        else copyLink();
+      };
+
+      return (
+        <div style={{position:'fixed',inset:0,zIndex:7000,display:'flex',alignItems:'center',justifyContent:'center',
+                     background:'rgba(0,0,0,.82)',backdropFilter:'blur(8px)'}} onClick={onClose}>
+          <div style={{background:'rgba(12,8,30,.97)',border:'1px solid rgba(156,90,255,.3)',borderRadius:'20px',
+                       padding:'24px 20px',width:'min(92vw,320px)',boxShadow:'0 30px 80px rgba(0,0,0,.8)',
+                       display:'flex',flexDirection:'column',alignItems:'center',gap:'16px'}}
+               onClick={e=>e.stopPropagation()}>
+
+            <div style={{color:'#fff',fontSize:'16px',fontWeight:800}}>{window.T.inviteTitle}</div>
+
+            {/* QR */}
+            <div style={{background:'#0c081e',borderRadius:'12px',padding:'8px',border:'1px solid rgba(156,90,255,.25)'}}>
+              <img src={qr} width="200" height="200" alt="QR" style={{display:'block',borderRadius:'6px'}}/>
+            </div>
+
+            {/* URL pill */}
+            <div style={{fontSize:'11px',color:'rgba(255,255,255,.35)',textAlign:'center',
+                         wordBreak:'break-all',padding:'0 4px'}}>{url}</div>
+
+            {/* Buttons */}
+            <div style={{display:'flex',gap:'10px',width:'100%'}}>
+              <button onClick={copyLink} style={{flex:1,padding:'11px',borderRadius:'12px',
+                border:'1px solid rgba(156,90,255,.4)',background:copied?'rgba(34,197,94,.15)':'rgba(156,90,255,.12)',
+                color:copied?'#22c55e':'#c89fff',fontWeight:700,fontSize:'13px',cursor:'pointer',transition:'all .2s'}}>
+                {copied ? '✓ '+window.T.copiedOk : '🔗 '+window.T.copyTitle}
+              </button>
+              {navigator.share && (
+                <button onClick={share} style={{flex:1,padding:'11px',borderRadius:'12px',
+                  border:'1px solid rgba(156,90,255,.4)',background:'rgba(156,90,255,.12)',
+                  color:'#c89fff',fontWeight:700,fontSize:'13px',cursor:'pointer'}}>
+                  ↗ {window.T.inviteLabel}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     function ScoresModal({ onClose, playerName }) {
       const [d, setD] = useState({combined:[],multi:[],solo:[]});
       useEffect(()=>{
@@ -1835,6 +1891,7 @@
       const [rrPat,       setRrPat]        = useState([]);
       const [activePl,    setActivePl]     = useState([]);
       const [showScores,    setShowScores]    = useState(false);
+      const [showInvite,    setShowInvite]    = useState(false);
       const [showConfirm, setShowConfirm]  = useState(false);
       const [copied,      setCopied]       = useState(false);
       const [tutStep,     setTutStep]      = useState(0);
@@ -2073,14 +2130,10 @@
               <div className="copy-icon">⧉</div>
             </div>
 
-            {/* Invitar — mismo badge */}
+            {/* Invitar */}
             <div className="game-code-badge" title={window.T.inviteTitle}
                  style={{alignSelf:'stretch',flexShrink:0,cursor:'pointer'}}
-                 onClick={()=>{
-                   const url=`${location.origin}${location.pathname}?code=${gameCode}`;
-                   if(navigator.share) navigator.share({title:'RubikRace',text:window.T.inviteText(gameCode),url});
-                   else navigator.clipboard.writeText(url).then(()=>alert(window.T.linkCopied));
-                 }}>
+                 onClick={()=>setShowInvite(true)}>
               <div>
                 <div className="code-label">{window.T.inviteLabel}</div>
                 <div className="code-value" style={{fontSize:'15px',letterSpacing:'.05em'}}>{window.T.inviteLink}</div>
@@ -2177,6 +2230,7 @@
 
           {/* Confirm modal */}
           {showScores && <ScoresModal onClose={()=>setShowScores(false)} playerName={playerName}/>}
+          {showInvite && <InviteModal onClose={()=>setShowInvite(false)} gameCode={gameCode}/>}
           {showConfirm && (
             <div className="confirm-backdrop" onClick={()=>setShowConfirm(false)}>
               <div className="confirm-box" onClick={e=>e.stopPropagation()}>
