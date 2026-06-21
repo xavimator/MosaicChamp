@@ -1,2 +1,2 @@
-# RubikRace
+# MosaicChamp
 Online sliding puzzle 
