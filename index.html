@@ -2038,7 +2038,7 @@
           // si el seleccionado supera ese límite; de lo contrario respetamos la elección.
           const isCrossSelected = window.RR_LEVEL_INFO(level)?.special === 'cross';
           const level8ok = localStorage.getItem('rr-level8-code') === '1';
-          const maxLvl = isRubiking ? 8 : (() => { let l=1; while(l<7 && done.includes(l)) l++; if(l===7&&done.includes(7)&&level8ok) l=8; return l; })();
+          const maxLvl = isRubiking ? 8 : (() => { let l=3; while(l<7 && done.includes(l)) l++; if(l===7&&done.includes(7)&&level8ok) l=8; return l; })();
           const safeLevel = isCrossSelected ? level : Math.min(level, maxLvl);
           const code = genCode();
           localStorage.setItem('rr-player-name', name.trim());
