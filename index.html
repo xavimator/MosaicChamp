@@ -889,6 +889,7 @@
         tutStep2: (n) => `En estas ${n} fichas centrales.<br/>¡Suerte!`,
         tutStep3: 'También mueve con voz,<br/>¡di el código de ficha!',
         tutStep4: 'Si llevas 5s parado,<br/>aparece una pista 💡',
+        tutStep5: 'Invita para competir',
         tutContinue: 'TOCA PARA CONTINUAR ›',
         tutClose: 'TOCA PARA CERRAR ×',
         // Alert
@@ -963,6 +964,7 @@
         tutStep2: (n) => `En aquestes ${n} fitxes centrals.<br/>Bona sort!`,
         tutStep3: 'Mou fitxes amb la teva veu.<br/>Digues la coordenada, ex. "A3"',
         tutStep4: 'Si esperes 5s sense moure,<br/>apareix una pista 💡',
+        tutStep5: 'Convida per competir',
         tutContinue: 'TOCA PER CONTINUAR ›',
         tutClose: 'TOCA PER TANCAR ×',
         linkCopied: 'Enllaç copiat!',
@@ -1036,6 +1038,7 @@
         tutStep2: (n) => `In these ${n} central tiles.<br/>Good luck!`,
         tutStep3: 'Move tiles with your voice.<br/>Say the coordinate, e.g. "A3"',
         tutStep4: 'After 5s idle,<br/>a hint appears 💡',
+        tutStep5: 'Invite to compete',
         tutContinue: 'TAP TO CONTINUE ›',
         tutClose: 'TAP TO CLOSE ×',
         linkCopied: 'Link copied!',
@@ -1109,6 +1112,7 @@
         tutStep2: (n) => `Dans ces ${n} cases centrales.<br/>Bonne chance !`,
         tutStep3: 'Déplace les cases avec ta voix.<br/>Dis la coordonnée, ex. « A3 »',
         tutStep4: 'Après 5s sans bouger,<br/>un indice apparaît 💡',
+        tutStep5: 'Invite pour concourir',
         tutContinue: 'APPUIE POUR CONTINUER ›',
         tutClose: 'APPUIE POUR FERMER ×',
         linkCopied: 'Lien copié !',
@@ -1182,6 +1186,7 @@
         tutStep2: (n) => `In diesen ${n} mittleren Feldern.<br/>Viel Glück!`,
         tutStep3: 'Bewege Felder mit deiner Stimme.<br/>Sag die Koordinate, z. B. „A3"',
         tutStep4: 'Nach 5s ohne Zug<br/>erscheint ein Hinweis 💡',
+        tutStep5: 'Einladen zum Wettkampf',
         tutContinue: 'TIPPE UM FORTZUFAHREN ›',
         tutClose: 'TIPPE UM ZU SCHLIEẞEN ×',
         linkCopied: 'Link kopiert!',
@@ -1255,6 +1260,7 @@
         tutStep2: (n) => `Nestas ${n} peças centrais.<br/>Boa sorte!`,
         tutStep3: 'Mova peças com a sua voz.<br/>Diga a coordenada, ex. "A3"',
         tutStep4: 'Após 5s parado,<br/>aparece uma dica 💡',
+        tutStep5: 'Convida para competir',
         tutContinue: 'TOCA PARA CONTINUAR ›',
         tutClose: 'TOCA PARA FECHAR ×',
         linkCopied: 'Link copiado!',
@@ -1328,6 +1334,7 @@
         tutStep2: (n) => `In queste ${n} tessere centrali.<br/>Buona fortuna!`,
         tutStep3: 'Muovi le tessere con la voce.<br/>Pronuncia la coordinata, es. "A3"',
         tutStep4: 'Dopo 5s fermi,<br/>appare un suggerimento 💡',
+        tutStep5: 'Invita per competere',
         tutContinue: 'TOCCA PER CONTINUARE ›',
         tutClose: 'TOCCA PER CHIUDERE ×',
         linkCopied: 'Link copiato!',
@@ -2781,13 +2788,14 @@ self.addEventListener('fetch', e => {
 
         function TutorialOverlay({ step, hl, onNext, onClose }) {
       if (!step || !hl) return null;
-      const { pat, ctr, voice } = hl;
+      const { pat, ctr, voice, invite } = hl;
       const pad = 10;
       const vw = window.innerWidth, vh = window.innerHeight;
 
       const pPerim = 2*((pat.width+pad*2)+(pat.height+pad*2));
       const cPerim = ctr ? 2*((ctr.width+pad*2)+(ctr.height+pad*2)) : 0;
       const vPerim = voice ? 2*Math.PI*((voice.width+pad*2)/2) : 0;
+      const iPerim = invite ? 2*((invite.width+pad*2)+(invite.height+pad*2)) : 0;
 
       // Curved arrow: from center of pattern pill → center of board 3×3
       const aFx = pat.left+pat.width/2, aFy = pat.top+pat.height/2;
@@ -2800,11 +2808,14 @@ self.addEventListener('fetch', e => {
       const ctX = ctr ? ctr.left+ctr.width/2 : vw/2;
       const vtY = voice ? (voice.top-pad-46 > 0 ? voice.top-pad-46 : voice.bottom+pad+16) : 0;
       const vtX = voice ? voice.left+voice.width/2 : vw/2;
+      const itY = invite ? (invite.bottom+pad+16+40 < vh ? invite.bottom+pad+16 : invite.top-pad-50) : 0;
+      const itX = invite ? invite.left+invite.width/2 : vw/2;
 
       const handleClick = () => {
         if (step === 1) onNext(2);
         else if (step === 2) { if (voice) onNext(3); else onNext(4); }
         else if (step === 3) onNext(4);
+        else if (step === 4) { if (invite) onNext(5); else onClose(); }
         else onClose();
       };
 
@@ -2821,6 +2832,8 @@ self.addEventListener('fetch', e => {
                                           width={ctr.width+pad*2} height={ctr.height+pad*2} fill="black" rx="14"/>}
                 {step===3 && voice && <circle cx={voice.left+voice.width/2} cy={voice.top+voice.height/2}
                                               r={(voice.width+pad*2)/2} fill="black"/>}
+                {step===5 && invite && <rect x={invite.left-pad} y={invite.top-pad}
+                                             width={invite.width+pad*2} height={invite.height+pad*2} fill="black" rx="14"/>}
               </mask>
               <marker id="tut-ah" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
                 <polygon points="0 0,10 3.5,0 7" fill="#FFD700"/>
@@ -2863,6 +2876,15 @@ self.addEventListener('fetch', e => {
                       fill="none" stroke="#FFD700" strokeWidth="3"
                       strokeDasharray={vPerim} strokeDashoffset={vPerim}
                       style={{animation:'tutDraw .8s ease .15s forwards'}}/>
+            )}
+
+            {/* animated border – step 5: invite button */}
+            {step===5 && invite && (
+              <rect x={invite.left-pad} y={invite.top-pad}
+                    width={invite.width+pad*2} height={invite.height+pad*2}
+                    fill="none" stroke="#FFD700" strokeWidth="3" rx="14"
+                    strokeDasharray={iPerim} strokeDashoffset={iPerim}
+                    style={{animation:'tutDraw .8s ease .15s forwards'}}/>
             )}
           </svg>
 
@@ -2914,11 +2936,23 @@ self.addEventListener('fetch', e => {
             </div>
           )}
 
+          {/* label – step 5: invite */}
+          {step===5 && invite && (
+            <div style={{position:'absolute',left:Math.min(Math.max(itX,140),vw-140),top:itY,
+                         transform:'translateX(-50%)',pointerEvents:'none',
+                         color:'#FFD700',fontSize:'clamp(15px,3.5vw,20px)',fontWeight:800,
+                         textShadow:'0 0 30px rgba(255,215,0,.95),0 2px 10px rgba(0,0,0,.9)',
+                         letterSpacing:'.03em',textAlign:'center',maxWidth:'260px',
+                         animation:'tutFadeUp .45s ease .6s both'}}>
+              {window.T.tutStep5}
+            </div>
+          )}
+
           {/* hint */}
           <div style={{position:'absolute',bottom:22,left:'50%',transform:'translateX(-50%)',
                        color:'rgba(255,255,255,.28)',fontSize:'11px',letterSpacing:'.14em',
                        pointerEvents:'none'}}>
-            {(step===1 || (step===2 && voice) || step===3) ? window.T.tutContinue : window.T.tutClose}
+            {(step===1 || (step===2 && voice) || step===3 || (step===4 && invite)) ? window.T.tutContinue : window.T.tutClose}
           </div>
         </div>
       );
@@ -3051,7 +3085,9 @@ self.addEventListener('fetch', e => {
         }
         const voiceEl = document.getElementById('rr-voice-btn');
         const voice = voiceEl ? voiceEl.getBoundingClientRect() : null;
-        setTutHl({ pat, ctr, voice, centerCount: patternSize*patternSize });
+        const inviteEl = document.getElementById('tut-invite-btn');
+        const invite = inviteEl ? inviteEl.getBoundingClientRect() : null;
+        setTutHl({ pat, ctr, voice, invite, centerCount: patternSize*patternSize });
         setTutStep(1);
       };
 
@@ -3422,7 +3458,7 @@ self.addEventListener('fetch', e => {
           <div style={{display:'flex',alignItems:'center',gap:'8px',marginBottom:'8px',
                        width:'100%',maxWidth:'380px'}}>
 
-            <button title={window.T.inviteTitle} onClick={()=>setShowInvite(true)}
+            <button id="tut-invite-btn" title={window.T.inviteTitle} onClick={()=>setShowInvite(true)}
                  style={{display:'flex',alignItems:'center',justifyContent:'center',
                          width:'40px',height:'40px',flexShrink:0,cursor:'pointer',
                          background:'rgba(156,90,255,.12)',border:'1px solid rgba(156,90,255,.3)',
