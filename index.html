@@ -1434,6 +1434,9 @@
     @keyframes centerPulse { 0%,100%{box-shadow:0 0 0 2.5px rgba(156,90,255,.45),0 0 10px 2px rgba(156,90,255,.12)} 50%{box-shadow:0 0 0 2.5px rgba(200,150,255,.9),0 0 26px 7px rgba(156,90,255,.38)} }
     @keyframes hintPulse { 0%,100%{background:rgba(0,180,255,.10);border-color:rgba(0,200,255,.4)} 50%{background:rgba(0,200,255,.25);border-color:rgba(0,230,255,.9)} }
     @keyframes hintTilePulse { 0%,100%{filter:brightness(1.1)} 50%{filter:brightness(1.5) drop-shadow(0 0 8px rgba(0,220,255,.8))} }
+    @keyframes prideIn { from{opacity:0;transform:scale(.9)} to{opacity:1;transform:scale(1)} }
+    /* Pride SVG title: static rainbow, no animation */
+    .mc-tiles-pride { animation: none !important; filter: none !important; }
 
     .tile-btn  { touch-action:manipulation; -webkit-tap-highlight-color:transparent;
                  -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
@@ -1886,6 +1889,8 @@ self.addEventListener('fetch', e => {
       window.dispatchEvent(new CustomEvent('rrPatternChange',{detail:pattern}));
     }
     window.__fbPatternReceived = p => { rrApplyPattern(p); setConnected(true); };
+    // Redraw preview when pride mode changes
+    window.addEventListener('prideModeChange', () => { if (window.rrPattern && window.rrPattern.length) rrApplyPattern(window.rrPattern); });
 
     // Presence
     let _prevNames = new Set();
@@ -1966,6 +1971,51 @@ self.addEventListener('fetch', e => {
   <script type="text/babel">
     const { useState, useEffect, useCallback, useRef } = React;
 
+    /* ─── Pride mode ─── */
+    // Global state persisted in localStorage; all components read window.__prideMode
+    window.__prideMode = localStorage.getItem('mc-pride') === '1';
+    const PRIDE_COLORS = [
+      { id:"blue",   bg:"#1565C0", shine:"#1E88E5", shadow:"#0D47A1" },  // blue (transgender flag)
+      { id:"green",  bg:"#007C31", shine:"#1DB954", shadow:"#004D1C" },  // green (progress flag)
+      { id:"red",    bg:"#E40303", shine:"#FF4444", shadow:"#990000" },  // red (rainbow)
+      { id:"yellow", bg:"#FFED00", shine:"#FFE57F", shadow:"#C8B400" },  // yellow (rainbow)
+      { id:"orange", bg:"#FF8C00", shine:"#FFAC40", shadow:"#C46400" },  // orange (rainbow)
+      { id:"white",  bg:"#F5F5F5", shine:"#FFFFFF", shadow:"#C0B8D8" },  // white (transgender)
+    ];
+    // Pride colors for RR_COLORS widget
+    const PRIDE_RR_COLORS = [
+      { bg:'#F5F5F5', border:'#C0B8D8', puzzleId:'white'  },
+      { bg:'#007C31', border:'#004D1C', puzzleId:'green'  },
+      { bg:'#FFED00', border:'#C8B400', puzzleId:'yellow' },
+      { bg:'#1565C0', border:'#0D47A1', puzzleId:'blue'   },
+      { bg:'#E40303', border:'#990000', puzzleId:'red'    },
+      { bg:'#FF8C00', border:'#C46400', puzzleId:'orange' },
+    ];
+
+    function setPrideMode(on) {
+      window.__prideMode = on;
+      localStorage.setItem('mc-pride', on ? '1' : '0');
+      // Update RR_COLORS widget colors
+      if (on) {
+        window._origRrColors = window._origRrColors || [...window.RR_COLORS];
+        PRIDE_RR_COLORS.forEach((c, i) => { window.RR_COLORS[i] = c; });
+      } else {
+        if (window._origRrColors) window._origRrColors.forEach((c, i) => { window.RR_COLORS[i] = c; });
+      }
+      // Dispatch event so React components re-render
+      window.dispatchEvent(new CustomEvent('prideModeChange', { detail: on }));
+    }
+
+    // Double-tap detection shared between lobby and game title
+    function useDoubleTap(onDoubleTap) {
+      const lastTap = useRef(0);
+      return useCallback((e) => {
+        const now = Date.now();
+        if (now - lastTap.current < 400) { onDoubleTap(e); lastTap.current = 0; }
+        else lastTap.current = now;
+      }, [onDoubleTap]);
+    }
+
     const COLORS = [
       { id:"blue",   bg:"#0D3B8E", shine:"#1A5FC8", shadow:"#061E50" },
       { id:"green",  bg:"#0A6B2E", shine:"#13A346", shadow:"#053A18" },
@@ -1975,6 +2025,19 @@ self.addEventListener('fetch', e => {
       { id:"white",  bg:"#C8C8D8", shine:"#EEEEF8", shadow:"#8888A0" },
     ];
     const colorMap={}; COLORS.forEach(c=>{colorMap[c.id]=c;});
+    const prideColorMap={}; PRIDE_COLORS.forEach(c=>{prideColorMap[c.id]=c;});
+
+    function usePrideMode() {
+      const [pride, setPride] = useState(!!window.__prideMode);
+      useEffect(() => {
+        const handler = (e) => setPride(e.detail);
+        window.addEventListener('prideModeChange', handler);
+        return () => window.removeEventListener('prideModeChange', handler);
+      }, []);
+      return pride;
+    }
+
+    function getColorMap(pride) { return pride ? prideColorMap : colorMap; }
     const RR_IDS=['white','green','yellow','blue','red','orange'];
     const SESSION_UID=Math.random().toString(36).slice(2);
 
@@ -2028,6 +2091,59 @@ self.addEventListener('fetch', e => {
       return t;
     }
     function fmt(s){return`${Math.floor(s/60).toString().padStart(2,"0")}:${(s%60).toString().padStart(2,"0")}`;}
+
+    /* ─── Pride Toast ─── */
+    function PrideToast({ show }) {
+      if (!show) return null;
+      return (
+        <div style={{
+          position:'absolute', top:'16px', left:'50%', transform:'translateX(-50%)',
+          zIndex:500, pointerEvents:'none',
+          background:'linear-gradient(135deg,rgba(228,3,3,.85),rgba(255,140,0,.85),rgba(255,237,0,.85),rgba(0,124,49,.85),rgba(21,101,192,.85),rgba(117,7,135,.85))',
+          borderRadius:'20px', padding:'8px 20px',
+          fontFamily:"'Pacifico',cursive", fontSize:'13px', color:'#fff',
+          textShadow:'0 1px 4px rgba(0,0,0,.7)', letterSpacing:'.04em',
+          boxShadow:'0 4px 20px rgba(0,0,0,.5)',
+          animation:'fadeUp .4s ease, tutHintOut .5s ease 2.6s forwards',
+          whiteSpace:'nowrap',
+        }}>
+          🏳️‍🌈 Tap twice to show your PRIDE!
+        </div>
+      );
+    }
+
+    /* ─── Title with double-tap Pride toggle ─── */
+    function MosaicTitle({ style }) {
+      const pride = usePrideMode();
+      const [flash, setFlash] = useState(false);
+      const handleDoubleTap = useDoubleTap(useCallback(() => {
+        const next = !window.__prideMode;
+        setPrideMode(next);
+        setFlash(true);
+        setTimeout(() => setFlash(false), 600);
+        window.playChime?.();
+      }, []));
+
+      const svgStyle = pride
+        ? { filter: flash ? 'brightness(1.5)' : 'none', transition:'filter .3s' }
+        : { animation: 'ird 5s linear infinite', filter: flash ? 'brightness(1.5)' : 'none', transition:'filter .3s' };
+
+      // Swap hue-rotate animation for static pride rainbow on the SVG group
+      const svgHtml = window.__MOSAIC_TITLE_SVG__;
+      // In pride mode: remove the ird animation class; in static: keep it
+      const modifiedSvg = pride
+        ? svgHtml.replace('class="mc-tiles"', 'class="mc-tiles-pride"')
+        : svgHtml;
+
+      return (
+        <div
+          onClick={handleDoubleTap}
+          style={{ cursor:'pointer', userSelect:'none', ...style }}
+          title={pride ? '🏳️‍🌈 Pride mode ON — double-tap to disable' : 'Double-tap to show PRIDE! 🏳️‍🌈'}
+          dangerouslySetInnerHTML={{__html: modifiedSvg}}
+        />
+      );
+    }
 
     /* ─── Stars ─── */
     function Stars() {
@@ -2354,10 +2470,21 @@ self.addEventListener('fetch', e => {
         }
       };
 
+      // Pride toast: show once per session in lobby if mode never set
+      const [showPrideToast, setShowPrideToast] = useState(() => {
+        if (localStorage.getItem('mc-pride-seen')) return false;
+        localStorage.setItem('mc-pride-seen','1');
+        return true;
+      });
+      useEffect(() => {
+        if (showPrideToast) setTimeout(() => setShowPrideToast(false), 3200);
+      }, []);
+
       return (
         <div className="lobby-wrap">
           <Stars/>
-          <div dangerouslySetInnerHTML={{__html:window.__MOSAIC_TITLE_SVG__}} style={{width:"100%",maxWidth:"520px"}}/>
+          <PrideToast show={showPrideToast} />
+          <MosaicTitle style={{width:"100%",maxWidth:"520px"}}/>
           {fbOnline === false && (
             <div style={{
               width:'100%',maxWidth:'420px',marginBottom:'10px',
@@ -3085,6 +3212,7 @@ self.addEventListener('fetch', e => {
       const [showLifesaver, setShowLifesaver] = useState(false);
       const [hintMove,      setHintMove]      = useState(null);
       const [usedHints,     setUsedHints]     = useState(false);
+      const pride = usePrideMode();
       const hintIdleRef     = useRef(null);
       const lastMoveTimeRef = useRef(Date.now());
       const timerRef    = useRef(null);
@@ -3634,10 +3762,13 @@ self.addEventListener('fetch', e => {
                 const isCenter = CENTER.includes(idx);
                 if(tile===null) {
                   const isHintTile = false; // el hueco no se pista, sino el tile a mover
+                  // Pre-check if a hint is available (greedy 1-step BFS)
+                  const hintAvailable = showLifesaver && !finished && (() => { try { return bfsSolve(tiles).length > 0; } catch(e) { return false; } })();
                   return <div key="empty" data-tut={isCenter?'center':undefined} style={{position:'relative',width:'var(--tile)',height:'var(--tile)',borderRadius:'8px',background:'rgba(0,0,0,.3)',border:'2px dashed rgba(255,255,255,.08)'}}>
                     {showLifesaver && !finished && (
                       <button
                         onClick={(e)=>{
+                          if (!hintAvailable) return;
                           e.stopPropagation();
                           setUsedHints(true);
                           setTiles(prev => {
@@ -3648,22 +3779,25 @@ self.addEventListener('fetch', e => {
                         }}
                         style={{
                           position:'absolute',inset:0,width:'100%',height:'100%',
-                          background:'rgba(0,180,255,.13)',border:'2px solid rgba(0,200,255,.5)',
-                          borderRadius:'8px',cursor:'pointer',display:'flex',
-                          alignItems:'center',justifyContent:'center',
-                          animation:'hintPulse 1.1s ease-in-out infinite',
+                          background: hintAvailable ? 'rgba(0,180,255,.13)' : 'rgba(200,0,0,.13)',
+                          border: hintAvailable ? '2px solid rgba(0,200,255,.5)' : '2px solid rgba(255,60,60,.6)',
+                          borderRadius:'8px',cursor: hintAvailable ? 'pointer' : 'not-allowed',
+                          display:'flex', alignItems:'center',justifyContent:'center',
+                          animation: hintAvailable ? 'hintPulse 1.1s ease-in-out infinite' : 'none',
                           zIndex:20,
                         }}>
-                        <svg width="60%" height="60%" viewBox="0 0 24 24" fill="none" stroke="rgba(0,220,255,.9)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="60%" height="60%" viewBox="0 0 24 24" fill="none"
+                             stroke={hintAvailable ? 'rgba(0,220,255,.9)' : 'rgba(255,80,80,.9)'}
+                             strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                           <circle cx="12" cy="12" r="10"/>
                           <path d="M12 8v4"/>
-                          <circle cx="12" cy="16" r="1" fill="rgba(0,220,255,.9)" stroke="none"/>
+                          <circle cx="12" cy="16" r="1" fill={hintAvailable ? 'rgba(0,220,255,.9)' : 'rgba(255,80,80,.9)'} stroke="none"/>
                         </svg>
                       </button>
                     )}
                   </div>;
                 }
-                const c=colorMap[tile.colorId], isAdj=canMove(idx,ei,boardSize,mask);
+                const c=getColorMap(pride)[tile.colorId], isAdj=canMove(idx,ei,boardSize,mask);
                 const col = idx % boardSize;
                 const row = Math.floor(idx / boardSize);
                 const coord = String.fromCharCode(65+col) + (row+1);
@@ -3756,7 +3890,7 @@ self.addEventListener('fetch', e => {
                 </button>
               )}
             </div>
-            <div dangerouslySetInnerHTML={{__html:window.__MOSAIC_TITLE_SVG__}} style={{width:"100%",maxWidth:"420px",marginBottom:"8px"}}/>
+            <MosaicTitle style={{width:"100%",maxWidth:"420px",marginBottom:"8px"}}/>
 
           </div>
 
