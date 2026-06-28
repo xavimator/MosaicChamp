@@ -1974,14 +1974,14 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
 
     /* ─── Pride mode ─── */
     // Global state persisted in localStorage; all components read window.__prideMode
-    window.__prideMode = localStorage.getItem('mc-pride') === '1';
+    window.__prideMode = false; // always start static
     const PRIDE_COLORS = [
-      { id:"blue",   bg:"#1565C0", shine:"#1E88E5", shadow:"#0D47A1" },  // blue (transgender flag)
-      { id:"green",  bg:"#007C31", shine:"#1DB954", shadow:"#004D1C" },  // green (progress flag)
-      { id:"red",    bg:"#E40303", shine:"#FF4444", shadow:"#990000" },  // red (rainbow)
-      { id:"yellow", bg:"#FFED00", shine:"#FFE57F", shadow:"#C8B400" },  // yellow (rainbow)
-      { id:"orange", bg:"#FF8C00", shine:"#FFAC40", shadow:"#C46400" },  // orange (rainbow)
-      { id:"white",  bg:"#F5F5F5", shine:"#FFFFFF", shadow:"#C0B8D8" },  // white (transgender)
+      { id:"red",    bg:"#E40303", shine:"#FF5555", shadow:"#9A0000" },
+      { id:"orange", bg:"#FF8C00", shine:"#FFB347", shadow:"#B85E00" },
+      { id:"yellow", bg:"#FFED00", shine:"#FFF176", shadow:"#B8A800" },
+      { id:"green",  bg:"#008026", shine:"#00B33A", shadow:"#004D17" },
+      { id:"blue",   bg:"#004CFF", shine:"#4D88FF", shadow:"#0030B0" },
+      { id:"white",  bg:"#732982", shine:"#9B3DB0", shadow:"#4A1A55" },
     ];
     // Pride colors for RR_COLORS widget
     const PRIDE_RR_COLORS = [
@@ -2005,25 +2005,6 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
       }
       // Dispatch event so React components re-render
       window.dispatchEvent(new CustomEvent('prideModeChange', { detail: on }));
-    }
-
-    // Double-tap detection shared between lobby and game title
-    function useDoubleTap(callback) {
-      const lastTap = useRef(0);
-      const timer   = useRef(null);
-      // Works on both touch and mouse (click fires after touchend on mobile)
-      const handler = useCallback((e) => {
-        const now = Date.now();
-        const diff = now - lastTap.current;
-        if (diff < 400 && diff > 0) {
-          clearTimeout(timer.current);
-          lastTap.current = 0;
-          callback(e);
-        } else {
-          lastTap.current = now;
-        }
-      }, [callback]);
-      return handler;
     }
 
     const COLORS = [
@@ -2103,100 +2084,101 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
     function fmt(s){return`${Math.floor(s/60).toString().padStart(2,"0")}:${(s%60).toString().padStart(2,"0")}`;}
 
     /* ─── Pride Toast ─── */
-    function PrideToast({ show }) {
-      if (!show) return null;
+    function useLongPress(onComplete, ms=3000) {
+      const [holding,  setHolding]  = useState(false);
+      const [progress, setProgress] = useState(0);
+      const timerRef = useRef(null);
+      const progRef  = useRef(null);
+
+      function start(e) {
+        e.preventDefault();
+        setHolding(true);
+        setProgress(0);
+        const t0 = Date.now();
+        progRef.current = setInterval(() => {
+          setProgress(Math.min(1, (Date.now()-t0)/ms));
+        }, 30);
+        timerRef.current = setTimeout(() => {
+          clearInterval(progRef.current);
+          setHolding(false);
+          setProgress(0);
+          onComplete();
+        }, ms);
+      }
+      function cancel() {
+        clearTimeout(timerRef.current);
+        clearInterval(progRef.current);
+        setHolding(false);
+        setProgress(0);
+      }
+      return { holding, progress, start, cancel };
+    }
+
+    function PrideToast({ onActivate }) {
+      const pride = usePrideMode();
+      const lp = useLongPress(onActivate, 3000);
+
       return (
-        <div style={{
-          position:'absolute', top:'16px', left:'50%', transform:'translateX(-50%)',
-          zIndex:500, pointerEvents:'none',
-          background:'linear-gradient(135deg,rgba(228,3,3,.85),rgba(255,140,0,.85),rgba(255,237,0,.85),rgba(0,124,49,.85),rgba(21,101,192,.85),rgba(117,7,135,.85))',
-          borderRadius:'20px', padding:'8px 20px',
-          fontFamily:"'Pacifico',cursive", fontSize:'13px', color:'#fff',
-          textShadow:'0 1px 4px rgba(0,0,0,.7)', letterSpacing:'.04em',
-          boxShadow:'0 4px 20px rgba(0,0,0,.5)',
-          animation:'fadeUp .4s ease, tutHintOut .5s ease 2.6s forwards',
-          whiteSpace:'nowrap',
-        }}>
-          🏳️‍🌈 Swipe the title to show your PRIDE!
+        <div
+          onMouseDown={lp.start}  onMouseUp={lp.cancel}  onMouseLeave={lp.cancel}
+          onTouchStart={lp.start} onTouchEnd={lp.cancel} onTouchCancel={lp.cancel}
+          style={{
+            position:'relative', zIndex:500, overflow:'hidden',
+            background:'linear-gradient(135deg,#E40303,#FF8C00,#FFED00,#008026,#004CFF,#732982)',
+            borderRadius:'20px', padding:'9px 24px',
+            fontFamily:"'Pacifico',cursive", fontSize:'13px', color:'#fff',
+            textShadow:'0 1px 4px rgba(0,0,0,.8)', letterSpacing:'.04em',
+            boxShadow:'0 4px 24px rgba(0,0,0,.55)',
+            cursor:'pointer', userSelect:'none', touchAction:'none',
+            WebkitTapHighlightColor:'transparent',
+            animation:'fadeUp .4s ease',
+            whiteSpace:'nowrap',
+          }}>
+          <div style={{
+            position:'absolute', inset:0,
+            width:`${lp.progress*100}%`,
+            background:'rgba(255,255,255,.3)',
+            transition: lp.holding ? 'none' : 'width .15s',
+            pointerEvents:'none',
+          }}/>
+          <span style={{position:'relative',zIndex:1}}>
+            {pride
+              ? (lp.holding ? '🏳️‍🌈 Suelta para volver…' : '🏳️‍🌈 Mantén 3s para desactivar')
+              : (lp.holding ? '🏳️‍🌈 Aguanta…'            : '🏳️‍🌈 Mantén 3s para PRIDE!')}
+          </span>
         </div>
       );
     }
 
-    /* ─── Title with swipe Pride toggle ─── */
+    /* ─── Title with long-press Pride toggle ─── */
     function MosaicTitle({ style }) {
       const pride = usePrideMode();
-      const [sweeping, setSweeping] = useState(false); // visual feedback during swipe
-      const touchStartX = useRef(null);
-      const touchStartY = useRef(null);
-
-      function triggerToggle() {
-        const next = !window.__prideMode;
-        setPrideMode(next);
+      const lp = useLongPress(() => {
+        setPrideMode(!window.__prideMode);
         window.playChime?.();
-        // Brief sweep flash
-        setSweeping(true);
-        setTimeout(() => setSweeping(false), 400);
-      }
+      }, 3000);
 
-      function onTouchStart(e) {
-        touchStartX.current = e.touches[0].clientX;
-        touchStartY.current = e.touches[0].clientY;
-      }
-
-      function onTouchEnd(e) {
-        if (touchStartX.current === null) return;
-        const dx = e.changedTouches[0].clientX - touchStartX.current;
-        const dy = e.changedTouches[0].clientY - touchStartY.current;
-        touchStartX.current = null;
-        // Swipe derecha → Pride ON, swipe izquierda → Pride OFF
-        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-          const wantPride = dx > 0;
-          if (wantPride !== !!window.__prideMode) triggerToggle();
-        }
-      }
-
-      // Also allow mouse drag (desktop)
-      const mouseStartX = useRef(null);
-      function onMouseDown(e) { mouseStartX.current = e.clientX; }
-      function onMouseUp(e) {
-        if (mouseStartX.current === null) return;
-        const dx = e.clientX - mouseStartX.current;
-        mouseStartX.current = null;
-        if (Math.abs(dx) > 40) {
-          const wantPride = dx > 0;
-          if (wantPride !== !!window.__prideMode) triggerToggle();
-        }
-      }
-
-      const modifiedSvg = pride
+      const svg = pride
         ? (window.__MOSAIC_TITLE_PRIDE_SVG__ || window.__MOSAIC_TITLE_SVG__)
         : window.__MOSAIC_TITLE_SVG__;
 
       return (
-        <div
-          style={{ userSelect:'none', position:'relative', ...style }}
-          title={pride ? '🏳️‍🌈 Pride ON — swipe to toggle' : 'Swipe to show PRIDE! 🏳️‍🌈'}
-        >
+        <div style={{ userSelect:'none', position:'relative', ...style }}>
+          <div dangerouslySetInnerHTML={{__html: svg}} style={{pointerEvents:'none', display:'block'}}/>
+          {lp.holding && (
+            <div style={{
+              position:'absolute', bottom:2, left:'5%', right:'5%', height:'4px', borderRadius:'2px',
+              background: pride
+                ? 'rgba(255,255,255,.7)'
+                : 'linear-gradient(90deg,#E40303,#FF8C00,#FFED00,#008026,#004CFF,#732982)',
+              width:`${lp.progress*90}%`, transition:'none', zIndex:20, pointerEvents:'none',
+            }}/>
+          )}
           <div
-            dangerouslySetInnerHTML={{__html: modifiedSvg}}
-            style={{
-              pointerEvents:'none',
-              transition:'opacity .25s',
-              opacity: sweeping ? 0.6 : 1,
-            }}
-          />
-          {/* Overlay captures swipe without blocking SVG re-render */}
-          <div
-            onTouchStart={onTouchStart}
-            onTouchEnd={onTouchEnd}
-            onMouseDown={onMouseDown}
-            onMouseUp={onMouseUp}
-            style={{
-              position:'absolute', inset:0, zIndex:10,
-              cursor:'ew-resize',
-              WebkitTapHighlightColor:'transparent',
-              touchAction:'pan-y',
-            }}
+            onMouseDown={lp.start}  onMouseUp={lp.cancel}  onMouseLeave={lp.cancel}
+            onTouchStart={lp.start} onTouchEnd={lp.cancel} onTouchCancel={lp.cancel}
+            style={{position:'absolute',inset:0,zIndex:10,cursor:'pointer',
+              WebkitTapHighlightColor:'transparent', touchAction:'none'}}
           />
         </div>
       );
@@ -2527,20 +2509,10 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
         }
       };
 
-      // Pride toast: show once per session in lobby if mode never set
-      const [showPrideToast, setShowPrideToast] = useState(() => {
-        if (localStorage.getItem('mc-pride-seen')) return false;
-        localStorage.setItem('mc-pride-seen','1');
-        return true;
-      });
-      useEffect(() => {
-        if (showPrideToast) setTimeout(() => setShowPrideToast(false), 3200);
-      }, []);
-
       return (
         <div className="lobby-wrap">
           <Stars/>
-          <PrideToast show={showPrideToast} />
+          <PrideToast onActivate={() => { setPrideMode(!window.__prideMode); window.playChime?.(); }} />
           <MosaicTitle style={{width:"100%",maxWidth:"520px"}}/>
           {fbOnline === false && (
             <div style={{
