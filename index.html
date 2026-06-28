@@ -2117,42 +2117,85 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
           animation:'fadeUp .4s ease, tutHintOut .5s ease 2.6s forwards',
           whiteSpace:'nowrap',
         }}>
-          🏳️‍🌈 Tap twice to show your PRIDE!
+          🏳️‍🌈 Swipe the title to show your PRIDE!
         </div>
       );
     }
 
-    /* ─── Title with double-tap Pride toggle ─── */
+    /* ─── Title with swipe Pride toggle ─── */
     function MosaicTitle({ style }) {
       const pride = usePrideMode();
-      const [flash, setFlash] = useState(false);
-      const handleDoubleTap = useDoubleTap(useCallback(() => {
+      const [sweeping, setSweeping] = useState(false); // visual feedback during swipe
+      const touchStartX = useRef(null);
+      const touchStartY = useRef(null);
+
+      function triggerToggle() {
         const next = !window.__prideMode;
         setPrideMode(next);
-        setFlash(true);
-        setTimeout(() => setFlash(false), 600);
         window.playChime?.();
-      }, []));
+        // Brief sweep flash
+        setSweeping(true);
+        setTimeout(() => setSweeping(false), 400);
+      }
 
-      // Static SVG by default; iridescent animated SVG in Pride mode
+      function onTouchStart(e) {
+        touchStartX.current = e.touches[0].clientX;
+        touchStartY.current = e.touches[0].clientY;
+      }
+
+      function onTouchEnd(e) {
+        if (touchStartX.current === null) return;
+        const dx = e.changedTouches[0].clientX - touchStartX.current;
+        const dy = e.changedTouches[0].clientY - touchStartY.current;
+        touchStartX.current = null;
+        // Swipe derecha → Pride ON, swipe izquierda → Pride OFF
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+          const wantPride = dx > 0;
+          if (wantPride !== !!window.__prideMode) triggerToggle();
+        }
+      }
+
+      // Also allow mouse drag (desktop)
+      const mouseStartX = useRef(null);
+      function onMouseDown(e) { mouseStartX.current = e.clientX; }
+      function onMouseUp(e) {
+        if (mouseStartX.current === null) return;
+        const dx = e.clientX - mouseStartX.current;
+        mouseStartX.current = null;
+        if (Math.abs(dx) > 40) {
+          const wantPride = dx > 0;
+          if (wantPride !== !!window.__prideMode) triggerToggle();
+        }
+      }
+
       const modifiedSvg = pride
         ? (window.__MOSAIC_TITLE_PRIDE_SVG__ || window.__MOSAIC_TITLE_SVG__)
         : window.__MOSAIC_TITLE_SVG__;
 
       return (
         <div
-          style={{ cursor:'pointer', userSelect:'none', position:'relative', ...style }}
-          title={pride ? '🏳️‍🌈 Pride mode ON — double-tap to disable' : 'Double-tap to show PRIDE! 🏳️‍🌈'}
+          style={{ userSelect:'none', position:'relative', ...style }}
+          title={pride ? '🏳️‍🌈 Pride ON — swipe to toggle' : 'Swipe to show PRIDE! 🏳️‍🌈'}
         >
-          <div dangerouslySetInnerHTML={{__html: modifiedSvg}} style={{pointerEvents:'none'}} />
-          {/* Transparent overlay captures all taps without interfering with SVG re-render */}
           <div
-            onTouchEnd={handleDoubleTap}
-            onClick={handleDoubleTap}
+            dangerouslySetInnerHTML={{__html: modifiedSvg}}
+            style={{
+              pointerEvents:'none',
+              transition:'opacity .25s',
+              opacity: sweeping ? 0.6 : 1,
+            }}
+          />
+          {/* Overlay captures swipe without blocking SVG re-render */}
+          <div
+            onTouchStart={onTouchStart}
+            onTouchEnd={onTouchEnd}
+            onMouseDown={onMouseDown}
+            onMouseUp={onMouseUp}
             style={{
               position:'absolute', inset:0, zIndex:10,
+              cursor:'ew-resize',
               WebkitTapHighlightColor:'transparent',
-              touchAction:'manipulation',
+              touchAction:'pan-y',
             }}
           />
         </div>
