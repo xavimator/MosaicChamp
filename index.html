@@ -2008,13 +2008,22 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
     }
 
     // Double-tap detection shared between lobby and game title
-    function useDoubleTap(onDoubleTap) {
+    function useDoubleTap(callback) {
       const lastTap = useRef(0);
-      return useCallback((e) => {
+      const timer   = useRef(null);
+      // Works on both touch and mouse (click fires after touchend on mobile)
+      const handler = useCallback((e) => {
         const now = Date.now();
-        if (now - lastTap.current < 400) { onDoubleTap(e); lastTap.current = 0; }
-        else lastTap.current = now;
-      }, [onDoubleTap]);
+        const diff = now - lastTap.current;
+        if (diff < 400 && diff > 0) {
+          clearTimeout(timer.current);
+          lastTap.current = 0;
+          callback(e);
+        } else {
+          lastTap.current = now;
+        }
+      }, [callback]);
+      return handler;
     }
 
     const COLORS = [
@@ -2132,11 +2141,21 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
 
       return (
         <div
-          onClick={handleDoubleTap}
-          style={{ cursor:'pointer', userSelect:'none', ...style }}
+          style={{ cursor:'pointer', userSelect:'none', position:'relative', ...style }}
           title={pride ? '🏳️‍🌈 Pride mode ON — double-tap to disable' : 'Double-tap to show PRIDE! 🏳️‍🌈'}
-          dangerouslySetInnerHTML={{__html: modifiedSvg}}
-        />
+        >
+          <div dangerouslySetInnerHTML={{__html: modifiedSvg}} style={{pointerEvents:'none'}} />
+          {/* Transparent overlay captures all taps without interfering with SVG re-render */}
+          <div
+            onTouchEnd={handleDoubleTap}
+            onClick={handleDoubleTap}
+            style={{
+              position:'absolute', inset:0, zIndex:10,
+              WebkitTapHighlightColor:'transparent',
+              touchAction:'manipulation',
+            }}
+          />
+        </div>
       );
     }
 
