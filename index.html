@@ -2084,67 +2084,83 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
     function fmt(s){return`${Math.floor(s/60).toString().padStart(2,"0")}:${(s%60).toString().padStart(2,"0")}`;}
 
     /* ─── Pride Toast ─── */
-    function useLongPress(onComplete, ms=3000) {
-      const [holding,  setHolding]  = useState(false);
-      const [progress, setProgress] = useState(0);
-      const timerRef = useRef(null);
-      const progRef  = useRef(null);
-
-      function start(e) {
-        e.preventDefault();
-        setHolding(true);
-        setProgress(0);
-        const t0 = Date.now();
-        progRef.current = setInterval(() => {
-          setProgress(Math.min(1, (Date.now()-t0)/ms));
-        }, 30);
-        timerRef.current = setTimeout(() => {
-          clearInterval(progRef.current);
-          setHolding(false);
-          setProgress(0);
-          onComplete();
-        }, ms);
+    /* ─── Long press utility (module-level timers, no hooks) ─── */
+    function makeLongPress(onComplete, ms) {
+      let timer = null, prog = null, t0 = 0;
+      function start(setH, setP) {
+        if (timer) return;
+        t0 = Date.now();
+        setH(true); setP(0);
+        prog  = setInterval(() => setP(Math.min(1,(Date.now()-t0)/ms)), 30);
+        timer = setTimeout(() => { stop(setH,setP); onComplete(); }, ms);
       }
-      function cancel() {
-        clearTimeout(timerRef.current);
-        clearInterval(progRef.current);
-        setHolding(false);
-        setProgress(0);
+      function stop(setH, setP) {
+        clearTimeout(timer); clearInterval(prog);
+        timer = null; prog = null;
+        setH(false); setP(0);
       }
-      return { holding, progress, start, cancel };
+      return { start, stop };
     }
 
     function PrideToast({ onActivate }) {
       const pride = usePrideMode();
-      const lp = useLongPress(onActivate, 3000);
+      const [holding,  setHolding]  = useState(false);
+      const [progress, setProgress] = useState(0);
+      const lpRef = useRef(null);
+
+      // Recreate longpress when onActivate changes
+      useEffect(() => {
+        lpRef.current = makeLongPress(onActivate, 3000);
+      }, [onActivate]);
+
+      function onStart(e) {
+        if (e.cancelable) e.preventDefault();
+        lpRef.current?.start(setHolding, setProgress);
+      }
+      function onStop() {
+        lpRef.current?.stop(setHolding, setProgress);
+      }
+
+      const toastRef = useRef(null);
+      useEffect(() => {
+        const el = toastRef.current; if (!el) return;
+        el.addEventListener('touchstart',  onStart, { passive:false });
+        el.addEventListener('touchend',    onStop,  { passive:false });
+        el.addEventListener('touchcancel', onStop,  { passive:false });
+        return () => {
+          el.removeEventListener('touchstart',  onStart);
+          el.removeEventListener('touchend',    onStop);
+          el.removeEventListener('touchcancel', onStop);
+        };
+      }, []);
 
       return (
         <div
-          onMouseDown={lp.start}  onMouseUp={lp.cancel}  onMouseLeave={lp.cancel}
-          onTouchStart={lp.start} onTouchEnd={lp.cancel} onTouchCancel={lp.cancel}
+          ref={toastRef}
+          onMouseDown={onStart} onMouseUp={onStop} onMouseLeave={onStop}
           style={{
             position:'relative', zIndex:500, overflow:'hidden',
-            background:'linear-gradient(135deg,#E40303,#FF8C00,#FFED00,#008026,#004CFF,#732982)',
-            borderRadius:'20px', padding:'9px 24px',
-            fontFamily:"'Pacifico',cursive", fontSize:'13px', color:'#fff',
-            textShadow:'0 1px 4px rgba(0,0,0,.8)', letterSpacing:'.04em',
-            boxShadow:'0 4px 24px rgba(0,0,0,.55)',
+            background:'transparent',
+            border:'2px solid rgba(255,255,255,.25)',
+            borderRadius:'999px', padding:'11px 28px',
+            fontFamily:"'Pacifico',cursive", fontSize:'16px', color:'#fff',
+            textShadow:'0 1px 6px rgba(0,0,0,.7)', letterSpacing:'.03em',
+            boxShadow:'0 2px 16px rgba(0,0,0,.35)',
             cursor:'pointer', userSelect:'none', touchAction:'none',
             WebkitTapHighlightColor:'transparent',
-            animation:'fadeUp .4s ease',
-            whiteSpace:'nowrap',
+            animation:'fadeUp .4s ease', whiteSpace:'nowrap',
           }}>
           <div style={{
-            position:'absolute', inset:0,
-            width:`${lp.progress*100}%`,
-            background:'rgba(255,255,255,.3)',
-            transition: lp.holding ? 'none' : 'width .15s',
-            pointerEvents:'none',
+            position:'absolute', top:0, left:0, bottom:0,
+            width: holding ? `${progress*100}%` : '0%',
+            background:'rgba(255,255,255,.15)',
+            transition: holding ? 'none' : 'width .15s',
+            pointerEvents:'none', borderRadius:'999px',
           }}/>
           <span style={{position:'relative',zIndex:1}}>
             {pride
-              ? (lp.holding ? '🏳️‍🌈 Suelta para volver…' : '🏳️‍🌈 Mantén 3s para desactivar')
-              : (lp.holding ? '🏳️‍🌈 Aguanta…'            : '🏳️‍🌈 Mantén 3s para PRIDE!')}
+              ? (holding ? 'Suelta para volver…'  : 'Mantén 3s para desactivar')
+              : (holding ? 'Aguanta…'              : 'Mantén 3s para PRIDE!')}
           </span>
         </div>
       );
@@ -2153,36 +2169,65 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
     /* ─── Title with long-press Pride toggle ─── */
     function MosaicTitle({ style }) {
       const pride = usePrideMode();
-      const lp = useLongPress(() => {
-        setPrideMode(!window.__prideMode);
-        window.playChime?.();
-      }, 3000);
+      const [holding,  setHolding]  = useState(false);
+      const [progress, setProgress] = useState(0);
+      const lpRef      = useRef(null);
+      const overlayRef = useRef(null);
+
+      useEffect(() => {
+        lpRef.current = makeLongPress(() => {
+          setPrideMode(!window.__prideMode);
+          window.playChime?.();
+        }, 3000);
+      }, []);
+
+      function onStart(e) {
+        if (e.cancelable) e.preventDefault();
+        lpRef.current?.start(setHolding, setProgress);
+      }
+      function onStop() {
+        lpRef.current?.stop(setHolding, setProgress);
+      }
+
+      useEffect(() => {
+        const el = overlayRef.current; if (!el) return;
+        el.addEventListener('touchstart',  onStart, { passive:false });
+        el.addEventListener('touchend',    onStop,  { passive:false });
+        el.addEventListener('touchcancel', onStop,  { passive:false });
+        return () => {
+          el.removeEventListener('touchstart',  onStart);
+          el.removeEventListener('touchend',    onStop);
+          el.removeEventListener('touchcancel', onStop);
+        };
+      }, []);
 
       const svg = pride
         ? (window.__MOSAIC_TITLE_PRIDE_SVG__ || window.__MOSAIC_TITLE_SVG__)
         : window.__MOSAIC_TITLE_SVG__;
 
       return (
-        <div style={{ userSelect:'none', position:'relative', ...style }}>
-          <div dangerouslySetInnerHTML={{__html: svg}} style={{pointerEvents:'none', display:'block'}}/>
-          {lp.holding && (
+        <div style={{userSelect:'none', position:'relative', ...style}}>
+          <div dangerouslySetInnerHTML={{__html:svg}} style={{pointerEvents:'none',display:'block'}}/>
+          {holding && (
             <div style={{
-              position:'absolute', bottom:2, left:'5%', right:'5%', height:'4px', borderRadius:'2px',
+              position:'absolute', bottom:2, left:0, height:'4px', borderRadius:'2px',
+              width:`${progress*100}%`,
               background: pride
-                ? 'rgba(255,255,255,.7)'
+                ? 'rgba(255,255,255,.8)'
                 : 'linear-gradient(90deg,#E40303,#FF8C00,#FFED00,#008026,#004CFF,#732982)',
-              width:`${lp.progress*90}%`, transition:'none', zIndex:20, pointerEvents:'none',
+              transition:'none', zIndex:20, pointerEvents:'none',
             }}/>
           )}
           <div
-            onMouseDown={lp.start}  onMouseUp={lp.cancel}  onMouseLeave={lp.cancel}
-            onTouchStart={lp.start} onTouchEnd={lp.cancel} onTouchCancel={lp.cancel}
+            ref={overlayRef}
+            onMouseDown={onStart} onMouseUp={onStop} onMouseLeave={onStop}
             style={{position:'absolute',inset:0,zIndex:10,cursor:'pointer',
-              WebkitTapHighlightColor:'transparent', touchAction:'none'}}
+              WebkitTapHighlightColor:'transparent',touchAction:'none'}}
           />
         </div>
       );
     }
+
 
     /* ─── Stars ─── */
     function Stars() {
