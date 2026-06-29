@@ -2117,12 +2117,12 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
 
       onStartRef.current = (e) => {
         if (e.cancelable) e.preventDefault();
-        window.dispatchEvent(new CustomEvent('prideTitleHolding', { detail: true }));
+        window.dispatchEvent(new CustomEvent('prideToastHolding', { detail: true }));
         lpRef.current?.start(setHolding, setProgress);
       };
       onStopRef.current = () => {
         lpRef.current?.stop(setHolding, setProgress);
-        window.dispatchEvent(new CustomEvent('prideTitleHolding', { detail: false }));
+        window.dispatchEvent(new CustomEvent('prideToastHolding', { detail: false }));
       };
 
       useEffect(() => {
@@ -2190,8 +2190,8 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
       // Escucha el holding del PrideToast (lobby) para preview del SVG
       useEffect(() => {
         const handler = (e) => setHoldingPreview(e.detail);
-        window.addEventListener('prideTitleHolding', handler);
-        return () => window.removeEventListener('prideTitleHolding', handler);
+        window.addEventListener('prideToastHolding', handler);
+        return () => window.removeEventListener('prideToastHolding', handler);
       }, []);
 
       useEffect(() => {
