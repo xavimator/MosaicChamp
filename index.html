@@ -1638,6 +1638,7 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
     // Construye el icono mini del patrón completo (real, no una muestra), con celdas
     // dimensionadas para que el icono entero mida al menos ~72px de lado (el doble del original).
     function rrBuildPreview(pattern) {
+      window.rrBuildPreview = rrBuildPreview;
       const preview = document.getElementById('rr-preview');
       if (!preview) return;
       const n = pattern.length;
@@ -2034,6 +2035,15 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
         lpRef.current = makeLongPress(() => {
           // Toggle persistente de fichas Pride en partida
           window.__prideTiles = !window.__prideTiles;
+          // Sincronizar RR_COLORS para que el widget del patrón también cambie
+          if (window.__prideTiles) {
+            window._origRrColors = window._origRrColors || [...window.RR_COLORS];
+            PRIDE_RR_COLORS.forEach((c, i) => { window.RR_COLORS[i] = c; });
+          } else {
+            if (window._origRrColors) window._origRrColors.forEach((c, i) => { window.RR_COLORS[i] = c; });
+          }
+          // Redibujar el widget del patrón
+          if (window.rrPattern) window.rrBuildPreview?.(window.rrPattern);
           window.dispatchEvent(new CustomEvent('prideTileToggle', { detail: window.__prideTiles }));
           window.playChime?.();
         }, 3000);
