@@ -1724,6 +1724,9 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
       <div id="rr-players"></div>
       <div id="rr-grid"></div>
       <button id="rr-shuffle" onclick="rrShuffle()" disabled></button>
+      <div style="margin-top:10px;text-align:center;">
+        <a href="licenses.html" style="font-size:11px;color:rgba(255,255,255,.25);text-decoration:none;letter-spacing:.03em;" target="_blank">Licencias de terceros</a>
+      </div>
     </div>
   </div>
 
@@ -2106,14 +2109,17 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
       const pride = usePrideMode();
       const [holding,  setHolding]  = useState(false);
       const [progress, setProgress] = useState(0);
-      const lpRef      = useRef(null);
-      const wrapRef    = useRef(null);
-      const onStartRef = useRef(null);
-      const onStopRef  = useRef(null);
+      const lpRef         = useRef(null);
+      const wrapRef       = useRef(null);
+      const onActivateRef = useRef(onActivate);
+      const onStartRef    = useRef(null);
+      const onStopRef     = useRef(null);
+
+      useEffect(() => { onActivateRef.current = onActivate; }, [onActivate]);
 
       useEffect(() => {
-        lpRef.current = makeLongPress(onActivate, 3000);
-      }, [onActivate]);
+        lpRef.current = makeLongPress(() => onActivateRef.current?.(), 3000);
+      }, []);
 
       onStartRef.current = (e) => {
         if (e.cancelable) e.preventDefault();

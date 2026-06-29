@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Licencias de terceros</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0a0818;
+      color: #e0d9f7;
+      min-height: 100vh;
+      padding: 0 0 48px;
+    }
+
+    header {
+      position: sticky; top: 0; z-index: 10;
+      background: rgba(10,8,24,.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      padding: 16px 20px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    header button {
+      background: none; border: none; cursor: pointer;
+      color: #a78bfa; font-size: 22px; line-height: 1;
+      padding: 4px; border-radius: 8px;
+    }
+    header button:active { opacity: .6; }
+    header h1 {
+      font-size: 17px; font-weight: 700;
+      color: #f0ebff; letter-spacing: .01em;
+    }
+
+    .intro {
+      padding: 20px 20px 8px;
+      font-size: 13px; color: rgba(255,255,255,.45);
+      line-height: 1.6;
+    }
+
+    .card {
+      margin: 12px 16px 0;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 16px 18px 12px;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 12px;
+    }
+    .card-header .left h2 {
+      font-size: 15px; font-weight: 700; color: #f0ebff;
+    }
+    .card-header .left .version {
+      font-size: 11px; color: rgba(255,255,255,.35);
+      margin-top: 2px; font-family: 'SF Mono', monospace;
+    }
+    .badge {
+      font-size: 11px; font-weight: 700;
+      padding: 3px 10px; border-radius: 999px;
+      white-space: nowrap; flex-shrink: 0;
+      letter-spacing: .04em;
+    }
+    .badge-mit    { background: rgba(139,92,246,.2); color: #a78bfa; border: 1px solid rgba(139,92,246,.3); }
+    .badge-apache { background: rgba(251,146,60,.15); color: #fb923c; border: 1px solid rgba(251,146,60,.25); }
+    .badge-ofl    { background: rgba(34,197,94,.15);  color: #4ade80; border: 1px solid rgba(34,197,94,.25); }
+
+    .card-divider { border: none; border-top: 1px solid rgba(255,255,255,.06); margin: 0; }
+
+    .card-body {
+      padding: 14px 18px 16px;
+      font-size: 12px; line-height: 1.75;
+      color: rgba(255,255,255,.4);
+      font-family: 'SF Mono', 'Fira Mono', monospace;
+      white-space: pre-wrap; word-break: break-word;
+    }
+
+    .card-footer {
+      padding: 10px 18px 14px;
+      border-top: 1px solid rgba(255,255,255,.06);
+    }
+    .card-footer a {
+      font-size: 12px; color: #7c6dfa;
+      text-decoration: none;
+    }
+    .card-footer a:hover { text-decoration: underline; }
+
+    footer {
+      margin-top: 32px;
+      text-align: center;
+      font-size: 11px;
+      color: rgba(255,255,255,.2);
+      padding: 0 20px;
+      line-height: 1.8;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <button onclick="history.back()" aria-label="Volver">&#8592;</button>
+  <h1>Licencias de terceros</h1>
+</header>
+
+<p class="intro">
+  Esta aplicación hace uso de los siguientes componentes de software de terceros,
+  cada uno sujeto a su propia licencia de código abierto.
+</p>
+
+<!-- React -->
+<div class="card">
+  <div class="card-header">
+    <div class="left">
+      <h2>React</h2>
+      <div class="version">v18.2.0</div>
+    </div>
+    <span class="badge badge-mit">MIT</span>
+  </div>
+  <hr class="card-divider"/>
+  <div class="card-body">MIT License
+
+Copyright (c) Meta Platforms, Inc. and affiliates.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.</div>
+  <div class="card-footer">
+    <a href="https://github.com/facebook/react/blob/main/LICENSE" target="_blank">Ver licencia completa ↗</a>
+  </div>
+</div>
+
+<!-- ReactDOM -->
+<div class="card">
+  <div class="card-header">
+    <div class="left">
+      <h2>ReactDOM</h2>
+      <div class="version">v18.2.0</div>
+    </div>
+    <span class="badge badge-mit">MIT</span>
+  </div>
+  <hr class="card-divider"/>
+  <div class="card-body">MIT License
+
+Copyright (c) Meta Platforms, Inc. and affiliates.
+
+Mismos términos que React. Forma parte del mismo paquete y está sujeto
+a la misma licencia MIT indicada arriba.</div>
+  <div class="card-footer">
+    <a href="https://github.com/facebook/react/blob/main/LICENSE" target="_blank">Ver licencia completa ↗</a>
+  </div>
+</div>
+
+<!-- Babel -->
+<div class="card">
+  <div class="card-header">
+    <div class="left">
+      <h2>Babel Standalone</h2>
+      <div class="version">v7.23.2</div>
+    </div>
+    <span class="badge badge-mit">MIT</span>
+  </div>
+  <hr class="card-divider"/>
+  <div class="card-body">MIT License
+
+Copyright (c) 2014-present Sebastian McKenzie and other contributors.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.</div>
+  <div class="card-footer">
+    <a href="https://github.com/babel/babel/blob/main/LICENSE" target="_blank">Ver licencia completa ↗</a>
+  </div>
+</div>
+
+<!-- Firebase -->
+<div class="card">
+  <div class="card-header">
+    <div class="left">
+      <h2>Firebase JS SDK</h2>
+      <div class="version">v10.12.2</div>
+    </div>
+    <span class="badge badge-apache">Apache 2.0</span>
+  </div>
+  <hr class="card-divider"/>
+  <div class="card-body">Apache License, Version 2.0
+
+Copyright (c) Google LLC.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at:
+
+    https://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.</div>
+  <div class="card-footer">
+    <a href="https://github.com/firebase/firebase-js-sdk/blob/master/LICENSE" target="_blank">Ver licencia completa ↗</a>
+  </div>
+</div>
+
+<!-- Pacifico -->
+<div class="card">
+  <div class="card-header">
+    <div class="left">
+      <h2>Pacifico</h2>
+      <div class="version">Google Fonts</div>
+    </div>
+    <span class="badge badge-ofl">OFL 1.1</span>
+  </div>
+  <hr class="card-divider"/>
+  <div class="card-body">SIL Open Font License, Version 1.1
+
+Copyright (c) 2011 Vernon Adams (vern@newtypography.co.uk)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+This license is copied below, and is also available with a FAQ at:
+    https://scripts.sil.org/OFL
+
+The Font Software may be used, studied, modified and redistributed freely
+as long as they are not sold by themselves. The Font Software, including
+any derivative works, can be bundled, embedded, redistributed and/or sold
+with any software provided that any reserved names are not used by derivative
+works. The Font Software and derivatives, however, cannot be released under
+any other type of license.</div>
+  <div class="card-footer">
+    <a href="https://fonts.google.com/specimen/Pacifico/about" target="_blank">Ver licencia completa ↗</a>
+  </div>
+</div>
+
+<footer>
+  El resto del código fuente de esta aplicación es propiedad de sus autores.<br/>
+  Todos los derechos reservados.
+</footer>
+
+</body>
+</html>
