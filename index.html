@@ -2174,19 +2174,33 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
       const lpRef      = useRef(null);
       const overlayRef = useRef(null);
 
+      // Cuando cambia holding, emite evento para preview de fichas Pride en partida
+      useEffect(() => {
+        window.dispatchEvent(new CustomEvent('prideTitleHolding', { detail: holding }));
+        // Al soltar sin completar (holding→false), cancelar preview
+        if (!holding) {
+          window.dispatchEvent(new CustomEvent('prideTilePreview', { detail: false }));
+        }
+      }, [holding]);
+
       useEffect(() => {
         lpRef.current = makeLongPress(() => {
           setPrideMode(!window.__prideMode);
           window.playChime?.();
+          window.dispatchEvent(new CustomEvent('prideTilePreview', { detail: false }));
         }, 3000);
       }, []);
 
       function onStart(e) {
         if (e.cancelable) e.preventDefault();
+        // Preview inmediato de tiles Pride al empezar a pulsar
+        window.dispatchEvent(new CustomEvent('prideTilePreview', { detail: true }));
         lpRef.current?.start(setHolding, setProgress);
       }
       function onStop() {
         lpRef.current?.stop(setHolding, setProgress);
+        // Si no completó el long press, quitar preview
+        window.dispatchEvent(new CustomEvent('prideTilePreview', { detail: false }));
       }
 
       useEffect(() => {
@@ -3287,6 +3301,18 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
       const [hintMove,      setHintMove]      = useState(null);
       const [usedHints,     setUsedHints]     = useState(false);
       const pride = usePrideMode();
+      const [pridePreview, setPridePreview] = useState(false);
+
+      // Escucha preview temporal de fichas Pride (mientras se mantiene pulsado el título)
+      useEffect(() => {
+        const handler = (e) => setPridePreview(e.detail);
+        window.addEventListener('prideTilePreview', handler);
+        return () => window.removeEventListener('prideTilePreview', handler);
+      }, []);
+
+      // El colorMap efectivo: Pride real O preview temporal durante long press
+      const effectivePride = pride || pridePreview;
+
       const hintIdleRef     = useRef(null);
       const lastMoveTimeRef = useRef(Date.now());
       const timerRef    = useRef(null);
@@ -3558,22 +3584,7 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
         setVoiceOn(false);
       }, []);
 
-      // Long-press anywhere (1s) toggles voice control
-      const pressTimerRef = useRef(null);
-      const pressFiredRef = useRef(false);
-      const handlePressStart = useCallback((e) => {
-        if (e.target.closest('button, input, .tile-btn, .help-btn')) return; // ignore presses on interactive elements
-        pressFiredRef.current = false;
-        pressTimerRef.current = setTimeout(() => {
-          pressFiredRef.current = true;
-          if (navigator.vibrate) navigator.vibrate(40);
-          if (voiceRef.current) { stopVoice(); window.showDiscreteToast?.('🎙️', window.T.voiceOff, '#6b7280'); }
-          else { startVoice(); window.showDiscreteToast?.('🎙️', window.T.voiceOn, '#c89fff'); }
-        }, 1000);
-      }, [startVoice, stopVoice]);
-      const handlePressEnd = useCallback(() => {
-        if (pressTimerRef.current) { clearTimeout(pressTimerRef.current); pressTimerRef.current=null; }
-      }, []);
+
 
       useEffect(() => () => { if(voiceRef.current){voiceRef.current.onend=null;voiceRef.current.stop();} }, []);
 
@@ -3708,8 +3719,6 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
 
       return (
         <div
-          onMouseDown={handlePressStart} onMouseUp={handlePressEnd} onMouseLeave={handlePressEnd}
-          onTouchStart={handlePressStart} onTouchEnd={handlePressEnd} onTouchCancel={handlePressEnd}
           style={{
           minHeight:'100vh',
           background:'radial-gradient(ellipse at 30% 20%,#1a1035 0%,#0a0818 60%,#000508 100%)',
@@ -3871,7 +3880,7 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
                     )}
                   </div>;
                 }
-                const c=getColorMap(pride)[tile.colorId], isAdj=canMove(idx,ei,boardSize,mask);
+                const c=getColorMap(effectivePride)[tile.colorId], isAdj=canMove(idx,ei,boardSize,mask);
                 const col = idx % boardSize;
                 const row = Math.floor(idx / boardSize);
                 const coord = String.fromCharCode(65+col) + (row+1);
