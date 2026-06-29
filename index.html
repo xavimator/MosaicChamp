@@ -2102,12 +2102,12 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
       return { start, stop };
     }
 
-    function PrideToast({ onActivate }) {
+    function PrideToast({ onActivate, children }) {
       const pride = usePrideMode();
       const [holding,  setHolding]  = useState(false);
       const [progress, setProgress] = useState(0);
-      const lpRef    = useRef(null);
-      const toastRef = useRef(null);
+      const lpRef      = useRef(null);
+      const wrapRef    = useRef(null);
       const onStartRef = useRef(null);
       const onStopRef  = useRef(null);
 
@@ -2117,16 +2117,14 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
 
       onStartRef.current = (e) => {
         if (e.cancelable) e.preventDefault();
-        window.dispatchEvent(new CustomEvent('prideToastHolding', { detail: true }));
         lpRef.current?.start(setHolding, setProgress);
       };
       onStopRef.current = () => {
         lpRef.current?.stop(setHolding, setProgress);
-        window.dispatchEvent(new CustomEvent('prideToastHolding', { detail: false }));
       };
 
       useEffect(() => {
-        const el = toastRef.current; if (!el) return;
+        const el = wrapRef.current; if (!el) return;
         const start = (e) => onStartRef.current(e);
         const stop  = ()  => onStopRef.current();
         el.addEventListener('touchstart',  start, { passive:false });
@@ -2141,21 +2139,19 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
 
       return (
         <div
-          ref={toastRef}
+          ref={wrapRef}
           onMouseDown={(e)=>onStartRef.current(e)}
           onMouseUp={()=>onStopRef.current()}
           onMouseLeave={()=>onStopRef.current()}
           style={{
-            position:'absolute', zIndex:600, overflow:'hidden',
-            left:0, right:0, bottom:'-38px',
-            display:'flex', alignItems:'center', justifyContent:'center',
-            background:'transparent',
+            position:'relative', width:'100%', maxWidth:'520px',
             cursor:'pointer', userSelect:'none', touchAction:'none',
             WebkitTapHighlightColor:'transparent',
           }}>
-          {/* Barra de progreso arcoíris debajo del texto */}
+          {children}
+          {/* Texto hint debajo del título */}
           <div style={{
-            textAlign:'center', lineHeight:1.4,
+            textAlign:'center', lineHeight:1.4, marginTop:'4px',
             fontFamily:"'Pacifico',cursive", fontSize:'clamp(11px,3vw,14px)',
             color:'rgba(255,255,255,.75)', textShadow:'0 1px 6px rgba(0,0,0,.9)',
             letterSpacing:'.02em', pointerEvents:'none',
@@ -2166,6 +2162,7 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
               : (holding ? 'Aguanta…' : <>Mantén pulsado el título<br/>para mostrar tu PRIDE</>)
             }
           </div>
+          {/* Barra de progreso arcoíris */}
           {holding && (
             <div style={{
               position:'absolute', bottom:0, left:0, height:'3px',
@@ -2179,20 +2176,12 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
     }
 
     /* ─── Title with long-press Pride toggle ─── */
-    function MosaicTitle({ style }) {
+    function MosaicTitle({ style, interactive = true }) {
       const pride = usePrideMode();
-      const [holdingPreview, setHoldingPreview] = useState(false);
       const [holding,  setHolding]  = useState(false);
       const [progress, setProgress] = useState(0);
       const lpRef      = useRef(null);
       const overlayRef = useRef(null);
-
-      // Escucha el holding del PrideToast (lobby) para preview del SVG
-      useEffect(() => {
-        const handler = (e) => setHoldingPreview(e.detail);
-        window.addEventListener('prideToastHolding', handler);
-        return () => window.removeEventListener('prideToastHolding', handler);
-      }, []);
 
       useEffect(() => {
         lpRef.current = makeLongPress(() => {
@@ -2229,7 +2218,7 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
         };
       }, []);
 
-      const svg = (pride || holdingPreview)
+      const svg = pride
         ? (window.__MOSAIC_TITLE_PRIDE_SVG__ || window.__MOSAIC_TITLE_SVG__)
         : window.__MOSAIC_TITLE_SVG__;
 
@@ -2246,14 +2235,16 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
               transition:'none', zIndex:20, pointerEvents:'none',
             }}/>
           )}
-          <div
-            ref={overlayRef}
-            onMouseDown={(e)=>onStartRef.current(e)}
-            onMouseUp={()=>onStopRef.current()}
-            onMouseLeave={()=>onStopRef.current()}
-            style={{position:'absolute',inset:0,zIndex:10,cursor:'pointer',
-              WebkitTapHighlightColor:'transparent',touchAction:'none'}}
-          />
+          {interactive && (
+            <div
+              ref={overlayRef}
+              onMouseDown={(e)=>onStartRef.current(e)}
+              onMouseUp={()=>onStopRef.current()}
+              onMouseLeave={()=>onStopRef.current()}
+              style={{position:'absolute',inset:0,zIndex:10,cursor:'pointer',
+                WebkitTapHighlightColor:'transparent',touchAction:'none'}}
+            />
+          )}
         </div>
       );
     }
@@ -2587,10 +2578,9 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
       return (
         <div className="lobby-wrap">
           <Stars/>
-          <div style={{position:'relative', width:'100%', maxWidth:'520px'}}>
-            <MosaicTitle style={{width:'100%'}}/>
-            <PrideToast onActivate={() => { setPrideMode(!window.__prideMode); window.playChime?.(); }} />
-          </div>
+          <PrideToast onActivate={() => { setPrideMode(!window.__prideMode); window.playChime?.(); }}>
+            <MosaicTitle style={{width:'100%'}} interactive={false}/>
+          </PrideToast>
           {fbOnline === false && (
             <div style={{
               width:'100%',maxWidth:'420px',marginBottom:'10px',
