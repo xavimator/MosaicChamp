@@ -1,47 +1,24 @@
-// ─────────────────────────────────────────────────────────
-//  RubikRace — Service Worker
-//  Coloca este archivo en la raíz del servidor (junto a index.html)
-//  El registro se hace automáticamente desde index.html
-// ─────────────────────────────────────────────────────────
+const CACHE_NAME = 'mosaic-champ-v1';
 
-const CACHE_NAME = 'rubikrace-v1';
-
-// Recursos que se precachean en la instalación
-const PRECACHE = [
+// Archivos a cachear para funcionamiento offline
+const PRECACHE_URLS = [
   '/',
   '/index.html',
-
-  // React + ReactDOM
-  'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js',
-
-  // Babel (necesario para JSX en runtime)
-  'https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js',
-
-  // Google Fonts — solo el CSS; los ficheros de fuente los gestiona el browser
-  'https://fonts.googleapis.com/css2?family=Pacifico&display=swap',
+  '/licenses.html',
+  '/manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
 ];
 
-// Dominios que van siempre a red (Firebase, tiempo real)
-const NETWORK_ONLY_ORIGINS = [
-  'firebasedatabase.app',
-  'firebaseio.com',
-  'googleapis.com',
-  'identitytoolkit.googleapis.com',
-];
-
-// ── Install ───────────────────────────────────────────────
+// Instalación: precachear recursos estáticos
 self.addEventListener('install', event => {
-  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache =>
-      // addAll falla si algún recurso no carga; usamos add individual para ser resilientes
-      Promise.allSettled(PRECACHE.map(url => cache.add(url)))
-    )
+    caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE_URLS))
   );
+  self.skipWaiting();
 });
 
-// ── Activate ──────────────────────────────────────────────
+// Activación: limpiar caches antiguas
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -50,51 +27,48 @@ self.addEventListener('activate', event => {
           .filter(key => key !== CACHE_NAME)
           .map(key => caches.delete(key))
       )
-    ).then(() => self.clients.claim())
+    )
   );
+  self.clients.claim();
 });
 
-// ── Fetch ─────────────────────────────────────────────────
+// Fetch: network-first para Firebase/CDN, cache-first para assets locales
 self.addEventListener('fetch', event => {
-  const { request } = event;
-  if (request.method !== 'GET') return;
+  const url = new URL(event.request.url);
 
-  const url = new URL(request.url);
-
-  // 1. Firebase y APIs de tiempo real → siempre red, nunca caché
-  if (NETWORK_ONLY_ORIGINS.some(o => url.hostname.includes(o))) {
-    event.respondWith(fetch(request));
-    return;
+  // Dejar pasar Firebase, CDN y Google Fonts sin cachear
+  const passThrough = [
+    'firebaseio.com',
+    'googleapis.com',
+    'gstatic.com',
+    'cdnjs.cloudflare.com',
+    'fonts.googleapis.com',
+    'fonts.gstatic.com',
+  ];
+  if (passThrough.some(domain => url.hostname.includes(domain))) {
+    return; // red directa
   }
 
-  // 2. Página principal y recursos locales → Cache-first, fallback a red
-  if (url.origin === self.location.origin) {
-    event.respondWith(
-      caches.match(request).then(cached => {
-        if (cached) return cached;
-        return fetch(request).then(response => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
-          }
-          return response;
-        });
-      }).catch(() => caches.match('/index.html')) // fallback offline
-    );
-    return;
-  }
-
-  // 3. CDNs (React, Babel, Fonts) → Cache-first, fallback a red
+  // Cache-first para assets locales
   event.respondWith(
-    caches.match(request).then(cached => {
+    caches.match(event.request).then(cached => {
       if (cached) return cached;
-      return fetch(request).then(response => {
-        if (response.ok) {
+      return fetch(event.request).then(response => {
+        // Solo cachear respuestas válidas del mismo origen
+        if (
+          response.ok &&
+          url.origin === self.location.origin
+        ) {
           const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return response;
       });
+    }).catch(() => {
+      // Fallback offline: devolver index.html para navegación
+      if (event.request.mode === 'navigate') {
+        return caches.match('/index.html');
+      }
     })
   );
 });

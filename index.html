@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#7c3aed" />
   <meta name="description" content="Puzzle deslizante multijugador en tiempo real, con 7 niveles de dificultad" />
 
@@ -11,179 +12,19 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="Mosaic Champ" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <link rel="manifest" id="pwa-manifest" />
-  <link rel="apple-touch-icon" id="pwa-icon" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
 
   <title>Mosaic Champ</title>
   <link href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" rel="stylesheet" />
 
-  <!-- PWA: manifest + service worker (inline, single-file) -->
+  <!-- PWA: service worker -->
   <script>
-  (function() {
-    // ── Icon SVG → data URI ──────────────────────────────
-    const iconSVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-      <defs>
-        <radialGradient id="bg" cx="50%" cy="45%" r="65%">
-          <stop offset="0%" stop-color="#240d5e"/><stop offset="100%" stop-color="#08041a"/>
-        </radialGradient>
-        <radialGradient id="gb" cx="38%" cy="30%" r="70%">
-          <stop offset="0%" stop-color="#6AADFF"/><stop offset="55%" stop-color="#1A5FC8"/><stop offset="100%" stop-color="#061940"/>
-        </radialGradient>
-        <radialGradient id="gg" cx="38%" cy="30%" r="70%">
-          <stop offset="0%" stop-color="#50F090"/><stop offset="55%" stop-color="#13A346"/><stop offset="100%" stop-color="#053a18"/>
-        </radialGradient>
-        <radialGradient id="gr" cx="38%" cy="30%" r="70%">
-          <stop offset="0%" stop-color="#FF6666"/><stop offset="55%" stop-color="#C41A1A"/><stop offset="100%" stop-color="#4a0505"/>
-        </radialGradient>
-        <radialGradient id="gy" cx="38%" cy="30%" r="70%">
-          <stop offset="0%" stop-color="#FFE866"/><stop offset="55%" stop-color="#E8B800"/><stop offset="100%" stop-color="#6b5500"/>
-        </radialGradient>
-        <radialGradient id="go" cx="38%" cy="30%" r="70%">
-          <stop offset="0%" stop-color="#FFB066"/><stop offset="55%" stop-color="#E86200"/><stop offset="100%" stop-color="#6b2600"/>
-        </radialGradient>
-        <radialGradient id="gw" cx="38%" cy="30%" r="70%">
-          <stop offset="0%" stop-color="#FFFFFF"/><stop offset="55%" stop-color="#C8C8D8"/><stop offset="100%" stop-color="#5a6880"/>
-        </radialGradient>
-        <radialGradient id="gl" cx="35%" cy="25%" r="58%">
-          <stop offset="0%" stop-color="rgba(255,255,255,.5)"/><stop offset="100%" stop-color="rgba(255,255,255,0)"/>
-        </radialGradient>
-        <radialGradient id="gbt" cx="50%" cy="95%" r="52%">
-          <stop offset="0%" stop-color="rgba(255,255,255,.18)"/><stop offset="100%" stop-color="rgba(255,255,255,0)"/>
-        </radialGradient>
-        <clipPath id="cb"><circle cx="88"  cy="110" r="62"/></clipPath>
-        <clipPath id="cg"><circle cx="230" cy="195" r="74"/></clipPath>
-        <clipPath id="cr"><circle cx="392" cy="128" r="58"/></clipPath>
-        <clipPath id="cy"><circle cx="148" cy="348" r="58"/></clipPath>
-        <clipPath id="co"><circle cx="330" cy="388" r="72"/></clipPath>
-        <clipPath id="cw"><circle cx="446" cy="300" r="60"/></clipPath>
-      </defs>
-      <rect width="512" height="512" rx="90" fill="url(#bg)"/>
-
-      <circle cx="88"  cy="110" r="62" fill="url(#gb)" opacity=".83"/>
-      <circle cx="88"  cy="110" r="62" fill="url(#gl)"/>
-      <circle cx="88"  cy="110" r="62" fill="url(#gbt)"/>
-      <ellipse cx="70" cy="87" rx="25" ry="13" fill="white" opacity=".55" transform="rotate(-35,70,87)" clip-path="url(#cb)"/>
-      <ellipse cx="72" cy="89" rx="13" ry="6.5" fill="white" opacity=".82" transform="rotate(-35,72,89)" clip-path="url(#cb)"/>
-      <circle cx="75" cy="87" r="5" fill="white" opacity=".96" clip-path="url(#cb)"/>
-      <circle cx="88"  cy="110" r="61" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="2"/>
-
-      <circle cx="230" cy="195" r="74" fill="url(#gg)" opacity=".83"/>
-      <circle cx="230" cy="195" r="74" fill="url(#gl)"/>
-      <circle cx="230" cy="195" r="74" fill="url(#gbt)"/>
-      <ellipse cx="208" cy="167" rx="30" ry="16" fill="white" opacity=".55" transform="rotate(-35,208,167)" clip-path="url(#cg)"/>
-      <ellipse cx="210" cy="169" rx="16" ry="8"  fill="white" opacity=".82" transform="rotate(-35,210,169)" clip-path="url(#cg)"/>
-      <circle cx="214" cy="167" r="6" fill="white" opacity=".96" clip-path="url(#cg)"/>
-      <circle cx="230" cy="195" r="73" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="2"/>
-
-      <circle cx="392" cy="128" r="58" fill="url(#gr)" opacity=".83"/>
-      <circle cx="392" cy="128" r="58" fill="url(#gl)"/>
-      <circle cx="392" cy="128" r="58" fill="url(#gbt)"/>
-      <ellipse cx="374" cy="105" rx="23" ry="12" fill="white" opacity=".55" transform="rotate(-35,374,105)" clip-path="url(#cr)"/>
-      <ellipse cx="376" cy="107" rx="12" ry="6"  fill="white" opacity=".82" transform="rotate(-35,376,107)" clip-path="url(#cr)"/>
-      <circle cx="379" cy="105" r="4.5" fill="white" opacity=".96" clip-path="url(#cr)"/>
-      <circle cx="392" cy="128" r="57" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="2"/>
-
-      <circle cx="148" cy="348" r="58" fill="url(#gy)" opacity=".83"/>
-      <circle cx="148" cy="348" r="58" fill="url(#gl)"/>
-      <circle cx="148" cy="348" r="58" fill="url(#gbt)"/>
-      <ellipse cx="130" cy="323" rx="23" ry="12" fill="white" opacity=".55" transform="rotate(-35,130,323)" clip-path="url(#cy)"/>
-      <ellipse cx="132" cy="325" rx="12" ry="6"  fill="white" opacity=".82" transform="rotate(-35,132,325)" clip-path="url(#cy)"/>
-      <circle cx="135" cy="323" r="4.5" fill="white" opacity=".96" clip-path="url(#cy)"/>
-      <circle cx="148" cy="348" r="57" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="2"/>
-
-      <circle cx="330" cy="388" r="72" fill="url(#go)" opacity=".83"/>
-      <circle cx="330" cy="388" r="72" fill="url(#gl)"/>
-      <circle cx="330" cy="388" r="72" fill="url(#gbt)"/>
-      <ellipse cx="308" cy="361" rx="29" ry="15" fill="white" opacity=".55" transform="rotate(-35,308,361)" clip-path="url(#co)"/>
-      <ellipse cx="310" cy="363" rx="15" ry="7.5" fill="white" opacity=".82" transform="rotate(-35,310,363)" clip-path="url(#co)"/>
-      <circle cx="314" cy="361" r="6" fill="white" opacity=".96" clip-path="url(#co)"/>
-      <circle cx="330" cy="388" r="71" fill="none" stroke="rgba(255,255,255,.28)" stroke-width="2"/>
-
-      <circle cx="446" cy="300" r="60" fill="url(#gw)" opacity=".83"/>
-      <circle cx="446" cy="300" r="60" fill="url(#gl)"/>
-      <circle cx="446" cy="300" r="60" fill="url(#gbt)"/>
-      <ellipse cx="427" cy="275" rx="24" ry="13" fill="white" opacity=".55" transform="rotate(-35,427,275)" clip-path="url(#cw)"/>
-      <ellipse cx="429" cy="277" rx="13" ry="6.5" fill="white" opacity=".82" transform="rotate(-35,429,277)" clip-path="url(#cw)"/>
-      <circle cx="432" cy="275" r="5" fill="white" opacity=".96" clip-path="url(#cw)"/>
-      <circle cx="446" cy="300" r="59" fill="none" stroke="rgba(255,255,255,.35)" stroke-width="2"/>
-    </svg>`;
-    const iconURI = 'data:image/svg+xml,' + encodeURIComponent(iconSVG);
-    document.getElementById('pwa-icon').href = iconURI;
-
-    // ── Manifest ─────────────────────────────────────────
-    const manifest = {
-      name: 'Mosaic Champ Online',
-      short_name: 'Mosaic Champ',
-      description: 'Puzzle deslizante 5×5 multijugador en tiempo real',
-      start_url: location.pathname + location.search,
-      display: 'standalone',
-      orientation: 'portrait-primary',
-      background_color: '#0a0818',
-      theme_color: '#7c3aed',
-      lang: 'es',
-      icons: [
-        { src: iconURI, sizes: '192x192', type: 'image/svg+xml', purpose: 'any maskable' },
-        { src: iconURI, sizes: '512x512', type: 'image/svg+xml', purpose: 'any maskable' },
-      ],
-    };
-    const mBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-    document.getElementById('pwa-manifest').href = URL.createObjectURL(mBlob);
-
-    // ── Service Worker ────────────────────────────────────
-    if ('serviceWorker' in navigator) {
-      const CACHE = 'rubikrace-v1';
-
-      // En servidor (http/https) usa sw.js separado para scope completo
-      // En local (file://) o si no existe sw.js, usa el blob inline
-      const registerSW = async () => {
-        if (location.protocol !== 'file:') {
-          try {
-            // Comprueba si sw.js existe en el servidor
-            const probe = await fetch('./sw.js', { method: 'HEAD' });
-            if (probe.ok) {
-              await navigator.serviceWorker.register('./sw.js', { scope: './' });
-              console.log('✅ SW registrado desde sw.js');
-              return;
-            }
-          } catch(_) {}
-        }
-        // Fallback: SW inline como Blob (scope limitado pero funcional)
-        const swCode = `
-          const CACHE = '${CACHE}';
-          self.addEventListener('install', e => {
-            self.skipWaiting();
-            e.waitUntil(caches.open(CACHE).then(c =>
-              c.add('${location.origin + location.pathname}').catch(()=>{})
-            ));
-          });
-          self.addEventListener('activate', e => {
-            e.waitUntil(caches.keys().then(keys =>
-              Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))
-            ));
-            self.clients.claim();
-          });
-          self.addEventListener('fetch', e => {
-            if (e.request.method !== 'GET') return;
-            const url = new URL(e.request.url);
-            if (url.origin === self.location.origin) {
-              e.respondWith(
-                caches.match(e.request).then(r => r || fetch(e.request).then(res => {
-                  const c = res.clone();
-                  caches.open(CACHE).then(cache => cache.put(e.request, c));
-                  return res;
-                }))
-              );
-            }
-          });
-        `;
-        const swBlob = new Blob([swCode], { type: 'application/javascript' });
-        navigator.serviceWorker.register(URL.createObjectURL(swBlob))
-          .catch(err => console.info('SW blob:', err.message));
-      };
-
-      registerSW();
-    }
-  })();
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js', { scope: './' })
+        .catch(err => console.warn('SW registro fallido:', err));
+    });
+  }
   </script>
   <script>
   /* ── Sonidos — Chrome + Safari/iOS ── */
@@ -1801,7 +1642,7 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
       if (!preview) return;
       const n = pattern.length;
       const isCross = n === window.RR_CROSS_SHAPE.patternIndices.length;
-      const MIN = 72, GAP = 1.5;
+      const MIN = 65, GAP = 1.5;
       preview.innerHTML = '';
 
       if (isCross) {
@@ -2191,9 +2032,10 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
 
       useEffect(() => {
         lpRef.current = makeLongPress(() => {
-          setPrideMode(!window.__prideMode);
+          // Toggle persistente de fichas Pride en partida
+          window.__prideTiles = !window.__prideTiles;
+          window.dispatchEvent(new CustomEvent('prideTileToggle', { detail: window.__prideTiles }));
           window.playChime?.();
-          window.dispatchEvent(new CustomEvent('prideTilePreview', { detail: false }));
         }, 3000);
       }, []);
 
@@ -2202,12 +2044,10 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
 
       onStartRef.current = (e) => {
         if (e.cancelable) e.preventDefault();
-        window.dispatchEvent(new CustomEvent('prideTilePreview', { detail: true }));
         lpRef.current?.start(setHolding, setProgress);
       };
       onStopRef.current = () => {
         lpRef.current?.stop(setHolding, setProgress);
-        window.dispatchEvent(new CustomEvent('prideTilePreview', { detail: false }));
       };
 
       useEffect(() => {
@@ -3317,11 +3157,15 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
       const pride = usePrideMode();
       const [pridePreview, setPridePreview] = useState(false);
 
-      // Escucha preview temporal de fichas Pride (mientras se mantiene pulsado el título)
+      // Toggle persistente de fichas Pride durante la partida
       useEffect(() => {
+        window.__prideTiles = false; // reset al montar
         const handler = (e) => setPridePreview(e.detail);
-        window.addEventListener('prideTilePreview', handler);
-        return () => window.removeEventListener('prideTilePreview', handler);
+        window.addEventListener('prideTileToggle', handler);
+        return () => {
+          window.removeEventListener('prideTileToggle', handler);
+          window.__prideTiles = false;
+        };
       }, []);
 
       // El colorMap efectivo: Pride real O preview temporal durante long press
