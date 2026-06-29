@@ -2106,62 +2106,74 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
       const pride = usePrideMode();
       const [holding,  setHolding]  = useState(false);
       const [progress, setProgress] = useState(0);
-      const lpRef = useRef(null);
+      const lpRef    = useRef(null);
+      const toastRef = useRef(null);
+      const onStartRef = useRef(null);
+      const onStopRef  = useRef(null);
 
-      // Recreate longpress when onActivate changes
       useEffect(() => {
         lpRef.current = makeLongPress(onActivate, 3000);
       }, [onActivate]);
 
-      function onStart(e) {
+      onStartRef.current = (e) => {
         if (e.cancelable) e.preventDefault();
+        window.dispatchEvent(new CustomEvent('prideTitleHolding', { detail: true }));
         lpRef.current?.start(setHolding, setProgress);
-      }
-      function onStop() {
+      };
+      onStopRef.current = () => {
         lpRef.current?.stop(setHolding, setProgress);
-      }
+        window.dispatchEvent(new CustomEvent('prideTitleHolding', { detail: false }));
+      };
 
-      const toastRef = useRef(null);
       useEffect(() => {
         const el = toastRef.current; if (!el) return;
-        el.addEventListener('touchstart',  onStart, { passive:false });
-        el.addEventListener('touchend',    onStop,  { passive:false });
-        el.addEventListener('touchcancel', onStop,  { passive:false });
+        const start = (e) => onStartRef.current(e);
+        const stop  = ()  => onStopRef.current();
+        el.addEventListener('touchstart',  start, { passive:false });
+        el.addEventListener('touchend',    stop,  { passive:false });
+        el.addEventListener('touchcancel', stop,  { passive:false });
         return () => {
-          el.removeEventListener('touchstart',  onStart);
-          el.removeEventListener('touchend',    onStop);
-          el.removeEventListener('touchcancel', onStop);
+          el.removeEventListener('touchstart',  start);
+          el.removeEventListener('touchend',    stop);
+          el.removeEventListener('touchcancel', stop);
         };
       }, []);
 
       return (
         <div
           ref={toastRef}
-          onMouseDown={onStart} onMouseUp={onStop} onMouseLeave={onStop}
+          onMouseDown={(e)=>onStartRef.current(e)}
+          onMouseUp={()=>onStopRef.current()}
+          onMouseLeave={()=>onStopRef.current()}
           style={{
-            position:'relative', zIndex:500, overflow:'hidden',
+            position:'absolute', zIndex:600, overflow:'hidden',
+            left:0, right:0, bottom:'-38px',
+            display:'flex', alignItems:'center', justifyContent:'center',
             background:'transparent',
-            border:'2px solid rgba(255,255,255,.25)',
-            borderRadius:'999px', padding:'11px 28px',
-            fontFamily:"'Pacifico',cursive", fontSize:'16px', color:'#fff',
-            textShadow:'0 1px 6px rgba(0,0,0,.7)', letterSpacing:'.03em',
-            boxShadow:'0 2px 16px rgba(0,0,0,.35)',
             cursor:'pointer', userSelect:'none', touchAction:'none',
             WebkitTapHighlightColor:'transparent',
-            animation:'fadeUp .4s ease', whiteSpace:'nowrap',
           }}>
+          {/* Barra de progreso arcoíris debajo del texto */}
           <div style={{
-            position:'absolute', top:0, left:0, bottom:0,
-            width: holding ? `${progress*100}%` : '0%',
-            background:'rgba(255,255,255,.15)',
-            transition: holding ? 'none' : 'width .15s',
-            pointerEvents:'none', borderRadius:'999px',
-          }}/>
-          <span style={{position:'relative',zIndex:1}}>
+            textAlign:'center', lineHeight:1.4,
+            fontFamily:"'Pacifico',cursive", fontSize:'clamp(11px,3vw,14px)',
+            color:'rgba(255,255,255,.75)', textShadow:'0 1px 6px rgba(0,0,0,.9)',
+            letterSpacing:'.02em', pointerEvents:'none',
+            padding:'0 12px',
+          }}>
             {pride
-              ? (holding ? 'Suelta para volver…'  : 'Mantén 3s para desactivar')
-              : (holding ? 'Aguanta…'              : 'Mantén 3s para PRIDE!')}
-          </span>
+              ? (holding ? 'Aguanta…' : <>Mantén pulsado el título<br/>para desactivar PRIDE</>)
+              : (holding ? 'Aguanta…' : <>Mantén pulsado el título<br/>para mostrar tu PRIDE</>)
+            }
+          </div>
+          {holding && (
+            <div style={{
+              position:'absolute', bottom:0, left:0, height:'3px',
+              width:`${progress*100}%`,
+              background:'linear-gradient(90deg,#E40303,#FF8C00,#FFED00,#008026,#004CFF,#732982)',
+              transition:'none', pointerEvents:'none',
+            }}/>
+          )}
         </div>
       );
     }
@@ -2169,19 +2181,18 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
     /* ─── Title with long-press Pride toggle ─── */
     function MosaicTitle({ style }) {
       const pride = usePrideMode();
+      const [holdingPreview, setHoldingPreview] = useState(false);
       const [holding,  setHolding]  = useState(false);
       const [progress, setProgress] = useState(0);
       const lpRef      = useRef(null);
       const overlayRef = useRef(null);
 
-      // Cuando cambia holding, emite evento para preview de fichas Pride en partida
+      // Escucha el holding del PrideToast (lobby) para preview del SVG
       useEffect(() => {
-        window.dispatchEvent(new CustomEvent('prideTitleHolding', { detail: holding }));
-        // Al soltar sin completar (holding→false), cancelar preview
-        if (!holding) {
-          window.dispatchEvent(new CustomEvent('prideTilePreview', { detail: false }));
-        }
-      }, [holding]);
+        const handler = (e) => setHoldingPreview(e.detail);
+        window.addEventListener('prideTitleHolding', handler);
+        return () => window.removeEventListener('prideTitleHolding', handler);
+      }, []);
 
       useEffect(() => {
         lpRef.current = makeLongPress(() => {
@@ -2191,31 +2202,34 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
         }, 3000);
       }, []);
 
-      function onStart(e) {
+      const onStartRef = useRef(null);
+      const onStopRef  = useRef(null);
+
+      onStartRef.current = (e) => {
         if (e.cancelable) e.preventDefault();
-        // Preview inmediato de tiles Pride al empezar a pulsar
         window.dispatchEvent(new CustomEvent('prideTilePreview', { detail: true }));
         lpRef.current?.start(setHolding, setProgress);
-      }
-      function onStop() {
+      };
+      onStopRef.current = () => {
         lpRef.current?.stop(setHolding, setProgress);
-        // Si no completó el long press, quitar preview
         window.dispatchEvent(new CustomEvent('prideTilePreview', { detail: false }));
-      }
+      };
 
       useEffect(() => {
         const el = overlayRef.current; if (!el) return;
-        el.addEventListener('touchstart',  onStart, { passive:false });
-        el.addEventListener('touchend',    onStop,  { passive:false });
-        el.addEventListener('touchcancel', onStop,  { passive:false });
+        const start = (e) => onStartRef.current(e);
+        const stop  = ()  => onStopRef.current();
+        el.addEventListener('touchstart',  start, { passive:false });
+        el.addEventListener('touchend',    stop,  { passive:false });
+        el.addEventListener('touchcancel', stop,  { passive:false });
         return () => {
-          el.removeEventListener('touchstart',  onStart);
-          el.removeEventListener('touchend',    onStop);
-          el.removeEventListener('touchcancel', onStop);
+          el.removeEventListener('touchstart',  start);
+          el.removeEventListener('touchend',    stop);
+          el.removeEventListener('touchcancel', stop);
         };
       }, []);
 
-      const svg = pride
+      const svg = (pride || holdingPreview)
         ? (window.__MOSAIC_TITLE_PRIDE_SVG__ || window.__MOSAIC_TITLE_SVG__)
         : window.__MOSAIC_TITLE_SVG__;
 
@@ -2234,7 +2248,9 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
           )}
           <div
             ref={overlayRef}
-            onMouseDown={onStart} onMouseUp={onStop} onMouseLeave={onStop}
+            onMouseDown={(e)=>onStartRef.current(e)}
+            onMouseUp={()=>onStopRef.current()}
+            onMouseLeave={()=>onStopRef.current()}
             style={{position:'absolute',inset:0,zIndex:10,cursor:'pointer',
               WebkitTapHighlightColor:'transparent',touchAction:'none'}}
           />
@@ -2571,8 +2587,10 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
       return (
         <div className="lobby-wrap">
           <Stars/>
-          <PrideToast onActivate={() => { setPrideMode(!window.__prideMode); window.playChime?.(); }} />
-          <MosaicTitle style={{width:"100%",maxWidth:"520px"}}/>
+          <div style={{position:'relative', width:'100%', maxWidth:'520px'}}>
+            <MosaicTitle style={{width:'100%'}}/>
+            <PrideToast onActivate={() => { setPrideMode(!window.__prideMode); window.playChime?.(); }} />
+          </div>
           {fbOnline === false && (
             <div style={{
               width:'100%',maxWidth:'420px',marginBottom:'10px',
