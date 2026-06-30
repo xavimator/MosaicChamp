@@ -51,7 +51,21 @@
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Partida en tablero 4x4"
+    },
+    {
+      "src": "screenshots/wide1.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Vista general del tablero"
     }
   ],
-  "shortcuts": []
+  "shortcuts": [],
+  "prefer_related_applications": false,
+  "related_applications": [
+    {
+      "platform": "play",
+      "id": "com.xavimator.mosaicchamp"
+    }
+  ]
 }
