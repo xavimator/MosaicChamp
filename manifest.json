@@ -29,6 +29,28 @@
       "purpose": "maskable"
     }
   ],
-  "screenshots": [],
+  "screenshots": [
+    {
+      "src": "screenshots/ingame2x2.png",
+      "sizes": "1206x2114",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Partida en tablero 2x2"
+    },
+    {
+      "src": "screenshots/tuto.png",
+      "sizes": "1206x2061",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Tutorial: crea el patrón"
+    },
+    {
+      "src": "screenshots/ingame4x4.png",
+      "sizes": "1206x2059",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Partida en tablero 4x4"
+    }
+  ],
   "shortcuts": []
 }
