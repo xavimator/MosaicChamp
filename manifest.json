@@ -2,6 +2,7 @@
   "name": "Mosaic Champ",
   "short_name": "Mosaic Champ",
   "description": "Sliding puzzle game with multiplayer support",
+  "id": "com.xavimator.mosaicchamp",
   "start_url": "/index.html",
   "display": "standalone",
   "orientation": "portrait",
