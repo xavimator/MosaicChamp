@@ -1685,6 +1685,7 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
     }
 
     function rrApplyPattern(pattern) {
+      window.rrApplyPattern = rrApplyPattern;
       window.rrPattern=pattern;
       const n = pattern.length;
       const isCross = n === window.RR_CROSS_SHAPE.patternIndices.length;
@@ -1831,7 +1832,7 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
     ];
     // Pride colors for RR_COLORS widget
     const PRIDE_RR_COLORS = [
-      { bg:'#F5F5F5', border:'#C0B8D8', puzzleId:'white'  },
+      { bg:'#732982', border:'#4A1A55', puzzleId:'white'  },
       { bg:'#007C31', border:'#004D1C', puzzleId:'green'  },
       { bg:'#FFED00', border:'#C8B400', puzzleId:'yellow' },
       { bg:'#1565C0', border:'#0D47A1', puzzleId:'blue'   },
@@ -2051,7 +2052,9 @@ window.__MOSAIC_TITLE_PRIDE_SVG__='<svg xmlns="http://www.w3.org/2000/svg" viewB
           } else {
             if (window._origRrColors) window._origRrColors.forEach((c, i) => { window.RR_COLORS[i] = c; });
           }
-          if (window.rrPattern) window.rrBuildPreview?.(window.rrPattern);
+          if (window.rrPattern && window.rrApplyPattern) {
+            window.rrApplyPattern(window.rrPattern);
+          }
           window.dispatchEvent(new CustomEvent('prideTileToggle', { detail: next }));
           window.playChime?.();
         }, 3000);
