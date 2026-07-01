@@ -9,7 +9,17 @@
   "background_color": "#0a0818",
   "theme_color": "#7c3aed",
   "lang": "es",
+  "dir": "ltr",
   "categories": ["games", "puzzle"],
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
+  "protocol_handlers": [
+    {
+      "protocol": "web+mosaicchamp",
+      "url": "/index.html?code=%s"
+    }
+  ],
   "icons": [
     {
       "src": "icons/icon-192.png",
