@@ -1,10 +1,10 @@
 // ─────────────────────────────────────────────────────────
-//  RubikRace — Service Worker
+//  MosaicChamp — Service Worker
 //  Coloca este archivo en la raíz del servidor (junto a index.html)
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'rubikrace-v1';
+const CACHE_NAME = 'mosaicchamp-v14';
 
 // Recursos que se precachean en la instalación
 const PRECACHE = [
