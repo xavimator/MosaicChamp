@@ -1344,7 +1344,7 @@
     @keyframes fadeUp     { from{transform:translateY(20px);opacity:0} to{transform:translateY(0);opacity:1} }
     @keyframes tileSlide  { from{transform:scale(0.92)} to{transform:scale(1)} }
     @keyframes widgetIn   { from{transform:translateY(-14px) scale(.95);opacity:0} to{transform:translateY(0) scale(1);opacity:1} }
-    @keyframes panelIn    { from{transform:translateY(-10px);opacity:0} to{transform:translateY(0);opacity:1} }
+    @keyframes panelIn    { from{transform:translateY(-46px) scaleY(.55);opacity:0} to{transform:translateY(0) scaleY(1);opacity:1} }
     @keyframes level8In   { 0%{transform:scale(0.3) rotate(-25deg);opacity:0} 60%{transform:scale(1.15) rotate(8deg);opacity:1} 100%{transform:scale(1) rotate(0);opacity:1} }
     @keyframes starTwinkle { 0%,100%{opacity:.15;transform:scale(.5)} 50%{opacity:1;transform:scale(1.2)} }
     @keyframes levelUpPulse { 0%,100%{box-shadow:0 0 12px rgba(255,215,0,.3)} 50%{box-shadow:0 0 28px rgba(255,215,0,.7)} }
@@ -1476,7 +1476,8 @@
       width:auto; min-width:260px; max-width:92vw; background:rgba(6,4,20,.97);
       border:1.5px solid rgba(156,90,255,.35); border-radius:18px;
       padding:20px 20px 16px; backdrop-filter:blur(18px);
-      box-shadow:0 24px 60px rgba(0,0,0,.7); animation:panelIn .22s ease;
+      box-shadow:0 24px 60px rgba(0,0,0,.7); transform-origin:top right;
+      animation:panelIn .32s cubic-bezier(.34,1.15,.64,1);
     }
     #rr-panel.hidden { display:none; }
     #rr-panel-header { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:2px; }
@@ -1983,14 +1984,21 @@
         document.getElementById('rr-editor-unlock-svg')?.remove();
 
         const widget = document.getElementById('rr-widget');
+        const logo   = document.getElementById('mc-title-compact-wrap');
         const vw = window.innerWidth, vh = window.innerHeight;
         const wr = (widget && widget.offsetParent !== null) ? widget.getBoundingClientRect() : null;
+        const lr = (logo   && logo.offsetParent   !== null) ? logo.getBoundingClientRect()   : null;
+        // Flecha apunta siempre al bloque de patrón (rr-widget)
         const tx = wr ? wr.left + wr.width / 2 : vw - 50;
         const ty = wr ? wr.top  + wr.height / 2 : 60;
+        // La tarjeta flota libremente centrada sobre el logo/título, sin anclarse
+        // a ningún panel ni empujar el layout (position:fixed + pointer-events:none)
+        const cx = lr ? lr.left + lr.width / 2 : vw / 2;
+        const cy = lr ? Math.max(64, lr.top - 8) : 90;
 
         const wrap = document.createElement('div');
         wrap.id = 'rr-editor-unlock-notif';
-        wrap.style.cssText = `position:fixed;top:${Math.max(64, ty - 90)}px;right:16px;z-index:9500;pointer-events:none;`;
+        wrap.style.cssText = `position:fixed;top:${cy}px;left:${cx}px;transform:translate(-50%,-100%);z-index:9500;pointer-events:none;`;
         wrap.innerHTML = `
           <div id="rr-editor-unlock-card" style="
             display:flex;align-items:center;gap:10px;background:rgba(6,4,20,.96);
@@ -2014,7 +2022,7 @@
 
         setTimeout(() => {
           const card = document.getElementById('rr-editor-unlock-card');
-          const cr = card ? card.getBoundingClientRect() : { left: vw - 140, top: 100, width: 120, height: 50 };
+          const cr = card ? card.getBoundingClientRect() : { left: cx - 60, top: cy - 50, width: 120, height: 50 };
           const fx = cr.left, fy = cr.top + cr.height / 2;
           const dPath = `M${fx},${fy} C${(fx + tx) / 2},${fy} ${(fx + tx) / 2},${ty} ${tx},${ty}`;
           const path = document.createElementNS(svgNS, 'path');
