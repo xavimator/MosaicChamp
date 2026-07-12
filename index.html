@@ -391,6 +391,29 @@
         set(ref(db, `${base}/presence/${uid}`), { name, ts:Date.now(), moving:false,
                                                    finished:true, finishTime, finishMoves });
 
+      // Progreso (nº de fichas centrales bien colocadas) — usado por el power-up de remontada
+      const progRef = ref(db, `${base}/progress`);
+      unsubs.push(onValue(progRef, snap => {
+        const now = Date.now(), list = [];
+        snap.forEach(child => {
+          const v = child.val();
+          if (v?.name && (now - v.ts) < 20000) list.push({ name: v.name, correct: v.correct || 0 });
+        });
+        window.__fbProgressReceived?.(list);
+      }));
+      window.__fbUpdateProgress = (uid, name, correct) =>
+        set(ref(db, `${base}/progress/${uid}`), { name, correct, ts: Date.now() });
+
+      // Sabotaje: remontada — quien va último puede descolocar una ficha del que va ganando
+      const saboRef   = ref(db, `${base}/sabotage`);
+      const saboQuery = query(saboRef, orderByChild('ts'), startAfter(Date.now()));
+      unsubs.push(onChildAdded(saboQuery, snap => {
+        const item = snap.val();
+        if (item?.target) window.__fbSabotageReceived?.(item);
+      }));
+      window.__fbSendSabotage = (targetName, fromName) =>
+        push(saboRef, { target: targetName, from: fromName, ts: Date.now() });
+
       // Meta (host info for lobby list)
       window.__fbSetMeta = (hostName) =>
         set(ref(db, `${base}/meta`), { host: hostName, ts: Date.now() });
@@ -1583,6 +1606,13 @@
     /* ══ Editor de patrón: notificación de desbloqueo ══ */
     @keyframes rrEditorSlideIn  { from{transform:translateX(120%);opacity:0} to{transform:translateX(0);opacity:1} }
     @keyframes rrEditorSlideOut { from{transform:translateX(0);opacity:1} to{transform:translateX(-140vw);opacity:0} }
+
+    /* ══ Ficha saboteada: flash morado breve ══ */
+    @keyframes rrSabotageFlash {
+      0%   { box-shadow:0 0 0 4px rgba(168,85,247,1),0 0 34px 10px rgba(168,85,247,.9); filter:brightness(1.7); }
+      55%  { box-shadow:0 0 0 4px rgba(168,85,247,.8),0 0 24px 6px rgba(168,85,247,.65); filter:brightness(1.35); }
+      100% { box-shadow:0 0 0 0 rgba(168,85,247,0); filter:brightness(1); }
+    }
     .help-btn {
       width:38px; height:38px; border-radius:50%; flex-shrink:0;
       border:1.5px solid rgba(156,90,255,.45);
@@ -1835,6 +1865,13 @@
         return `<div class="rr-player-chip"><div class="rr-player-chip-row"><span class="dot ${dc}"></span><span class="rr-chip-name">${p.name}</span></div>${sl}</div>`;
       }).join('') : '';
       window.dispatchEvent(new CustomEvent('rrPresenceChange',{detail:players}));
+    };
+
+    window.__fbProgressReceived = function(list) {
+      window.dispatchEvent(new CustomEvent('rrProgressChange', { detail: list }));
+    };
+    window.__fbSabotageReceived = function(item) {
+      window.dispatchEvent(new CustomEvent('rrSabotageReceived', { detail: item }));
     };
 
     // Reset
@@ -2188,6 +2225,8 @@
 
     function getColorMap(pride) { return pride ? prideColorMap : colorMap; }
     const RR_IDS=['white','green','yellow','blue','red','orange'];
+    // Probabilidad de que se dispare el power-up de remontada al cumplirse la condición
+    const RR_SABOTAGE_CHANCE = 0.5;
     const SESSION_UID=Math.random().toString(36).slice(2);
 
     const CODE_CHARS='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -3546,6 +3585,7 @@
       const [copied,      setCopied]       = useState(false);
       const [tutStep,     setTutStep]      = useState(0);
       const [tutHl,       setTutHl]        = useState(null);
+      const [sabotageFlashIdx, setSabotageFlashIdx] = useState(null); // ficha recién saboteada → flash morado
       const [showTutHint, setShowTutHint]  = useState(true);
       const [countdown,   setCountdown]    = useState(null);
       const [showLifesaver, setShowLifesaver] = useState(false);
@@ -3579,6 +3619,58 @@
       const nearWinSentRef = useRef(false);
       const rrPatRef = useRef([]);
       useEffect(() => { rrPatRef.current = rrPat; }, [rrPat]);
+
+      // ── Power-up de remontada (sabotaje) ──
+      const matchIndexRef     = useRef(0);  // nº de partida en esta sesión/dispositivo
+      const prevCorrectRef    = useRef(0);  // fichas centrales correctas antes del último movimiento
+      const otherProgressRef  = useRef([]); // progreso de los demás jugadores: [{name, correct}]
+
+      // Cuenta esta partida como "partida nº N" del dispositivo — el power-up solo
+      // se activa a partir de la 2ª partida en adelante.
+      useEffect(() => {
+        try {
+          const n = (parseInt(localStorage.getItem('rr-match-count') || '0', 10) || 0) + 1;
+          localStorage.setItem('rr-match-count', String(n));
+          matchIndexRef.current = n;
+        } catch (e) { matchIndexRef.current = 1; }
+      }, []);
+
+      // Escucha el progreso (fichas correctas) de los demás jugadores de la partida
+      useEffect(() => {
+        const handler = (e) => {
+          const list = (e.detail || []).filter(p => p.name !== playerName);
+          otherProgressRef.current = list;
+        };
+        window.addEventListener('rrProgressChange', handler);
+        return () => window.removeEventListener('rrProgressChange', handler);
+      }, [playerName]);
+
+      // Recibe un sabotaje: descoloca aleatoriamente una de mis fichas bien colocadas
+      useEffect(() => {
+        const handler = (e) => {
+          const item = e.detail;
+          if (!item || item.target !== playerName || finishedRef.current) return;
+          setTiles(curTiles => {
+            const correctPositions = CENTER.filter((pos, i) => {
+              const t = curTiles[pos];
+              return t && rrPatRef.current.length > i && t.colorId === RR_IDS[rrPatRef.current[i]];
+            });
+            if (!correctPositions.length) return curTiles;
+            const pos = correctPositions[Math.floor(Math.random() * correctPositions.length)];
+            const options = RR_IDS.filter(c => c !== curTiles[pos].colorId);
+            const wrongColor = options[Math.floor(Math.random() * options.length)];
+            const nt = [...curTiles];
+            nt[pos] = { ...nt[pos], colorId: wrongColor };
+            setSabotageFlashIdx(pos);
+            setTimeout(() => setSabotageFlashIdx(p => p === pos ? null : p), 700);
+            return nt;
+          });
+          window.showDiscreteToast?.('😈', `${item.from} descolocó una de tus fichas`, '#ef4444');
+          navigator.vibrate?.([40, 30, 40, 30, 90]);
+        };
+        window.addEventListener('rrSabotageReceived', handler);
+        return () => window.removeEventListener('rrSabotageReceived', handler);
+      }, [playerName]);
 
       // Fija el nivel activo (para que rrShuffle/reset regeneren un patrón del tamaño correcto)
       // y ajusta el tamaño de ficha (--tile) global a este tablero.
@@ -3909,12 +4001,27 @@
         else            { window.playClack?.(); navigator.vibrate?.(18); }
 
         // Near-win: a una ficha de completar el patrón central
+        const centerCorrectCount = CENTER.filter((pos,i) => {
+          const t = nt[pos]; return t && rrPat.length > i && t.colorId === RR_IDS[rrPat[i]];
+        }).length;
         if (!nearWinSentRef.current && !finishedRef.current) {
-          const matchCount = CENTER.filter((pos,i) => {
-            const t = nt[pos]; return t && rrPat.length > i && t.colorId === RR_IDS[rrPat[i]];
-          }).length;
-          if (matchCount === CENTER.length - 1) { nearWinSentRef.current = true; window.__fbSendNearWin?.(playerName); }
+          if (centerCorrectCount === CENTER.length - 1) { nearWinSentRef.current = true; window.__fbSendNearWin?.(playerName); }
         }
+
+        // Difundo mi progreso a los demás jugadores de la partida
+        if (activePl.length > 1) window.__fbUpdateProgress?.(SESSION_UID, playerName, centerCorrectCount);
+
+        // Power-up de remontada: si voy 1-1 en fichas y coloco mi 2ª ficha correcta
+        // mientras alguien va ganando con más de 4, tengo una chance de descolocarle una.
+        if (matchIndexRef.current >= 2 && activePl.length > 1 &&
+            prevCorrectRef.current === 1 && centerCorrectCount === 2) {
+          const targets = otherProgressRef.current.filter(p => p.correct > 4);
+          if (targets.length && Math.random() < RR_SABOTAGE_CHANCE) {
+            const victim = targets[Math.floor(Math.random() * targets.length)];
+            window.__fbSendSabotage?.(victim.name, playerName);
+          }
+        }
+        prevCorrectRef.current = centerCorrectCount;
 
         if (!finishedRef.current && checkMatch(nt,rrPat,CENTER)) {
           finishedRef.current=true; setFinished(true);
@@ -3932,7 +4039,7 @@
             },50);
           }
         }
-      }, [tiles, finished, countdown, rrPat, time, moves, sendPresence, gameCode, voiceOn, usedHints]);
+      }, [tiles, finished, countdown, rrPat, time, moves, sendPresence, gameCode, voiceOn, usedHints, activePl, playerName]);
 
       useEffect(() => { handleTileRef.current = handleTile; }, [handleTile]);
 
@@ -4210,13 +4317,15 @@
                     width:'var(--tile)',height:'var(--tile)',borderRadius:'8px',border:'none',
                     cursor:isAdj?'pointer':'default',
                     background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`,
-                    boxShadow:idx===hintMove
+                    boxShadow:idx===sabotageFlashIdx
+                      ? `0 0 0 4px rgba(168,85,247,1),0 0 34px 10px rgba(168,85,247,.9)`
+                      : idx===hintMove
                       ? `0 4px 0 ${c.shadow},0 0 0 3px rgba(0,220,255,.9),0 0 18px rgba(0,220,255,.7),inset 0 1px 0 rgba(255,255,255,.25)`
                       : `0 4px 0 ${c.shadow},0 6px 16px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.25)`,
                     transition:'transform .1s,filter .1s,box-shadow .2s',
                     transform:isAdj?'scale(1.02) translateZ(0)':'translateZ(0)',
                     filter:isAdj?'brightness(1.1)':'brightness(1)',
-                    animation:idx===lastMoved?'tileSlide .15s ease':idx===hintMove?'hintTilePulse 0.9s ease-in-out infinite':'none',
+                    animation:idx===sabotageFlashIdx?'rrSabotageFlash .7s ease-out':idx===lastMoved?'tileSlide .15s ease':idx===hintMove?'hintTilePulse 0.9s ease-in-out infinite':'none',
                     position:'relative',overflow:'hidden',
                   }}>
                     <div style={{position:'absolute',top:0,left:0,right:0,height:'45%',borderRadius:'8px 8px 50% 50%',background:'linear-gradient(to bottom,rgba(255,255,255,.2),transparent)',pointerEvents:'none'}}/>
