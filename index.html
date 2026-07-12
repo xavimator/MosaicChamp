@@ -4185,7 +4185,20 @@
                   </svg>
                 </button>
               )}
-              <button className="help-btn" onClick={()=>setShowScores(true)} style={{fontSize:'18px'}}>🏆</button>
+              <button className="help-btn" onClick={()=>setShowScores(true)} style={{display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <svg width="18" height="18" viewBox="0 0 800 800" fill="none" stroke="#FFC64D" strokeWidth="42" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M220 115 H580"/>
+                  <path d="M220 135 C145 135 105 170 105 235 C105 355 200 445 300 470"/>
+                  <path d="M580 135 C655 135 695 170 695 235 C695 355 600 445 500 470"/>
+                  <path d="M280 135 L280 390 C280 490 335 555 400 555 C465 555 520 490 520 390 L520 135"/>
+                  <path d="M355 555 H445"/>
+                  <path d="M365 590 H435"/>
+                  <path d="M365 590 C355 655 325 710 270 745"/>
+                  <path d="M435 590 C445 655 475 710 530 745"/>
+                  <path d="M400 590 L400 745"/>
+                  <path d="M235 745 H565"/>
+                </svg>
+              </button>
               <button id="tut-invite-btn" className="help-btn" title={window.T.inviteTitle} onClick={()=>{
                    try {
                      navigator.registerProtocolHandler?.('web+mosaicchamp', `${location.origin}${location.pathname}?code=%s`);
