@@ -1658,9 +1658,35 @@
       <div id="rr-manual-hint"></div>
       <button id="rr-shuffle" onclick="rrShuffle()" disabled></button>
       <div id="rr-pattern-tools">
-        <button id="rr-image-btn" class="rr-tool-btn" onclick="rrImageButtonClick()" title="Desde imagen">📷</button>
-        <button id="rr-manual-btn" class="rr-tool-btn" onclick="rrToggleManualMode()" title="Manual">✏️</button>
-        <button id="rr-validate-btn" class="rr-tool-btn" onclick="rrValidatePattern()" title="Validar patrón (rellena el tablero con tiles suficientes)">✅</button>
+        <button id="rr-image-btn" class="rr-tool-btn" onclick="rrImageButtonClick()" title="Desde imagen">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c89fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2.6 8.4a1.9 1.9 0 0 1 1.9-1.9h4.1l1.8 2h7a1.9 1.9 0 0 1 1.9 1.9v6.3a1.9 1.9 0 0 1-1.9 1.9H4.5a1.9 1.9 0 0 1-1.9-1.9z"/>
+            <rect x="12.6" y="1.6" width="4.6" height="4.6" rx="1" transform="rotate(-14 14.9 3.9)"/>
+            <rect x="16.6" y="5.2" width="3.8" height="3.8" rx="0.9" transform="rotate(11 18.5 7.1)"/>
+          </svg>
+        </button>
+        <button id="rr-manual-btn" class="rr-tool-btn" onclick="rrToggleManualMode()" title="Manual">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+            <defs>
+              <clipPath id="rrToolTileClip"><rect x="3" y="8.6" width="13" height="13" rx="2.3"/></clipPath>
+            </defs>
+            <g clip-path="url(#rrToolTileClip)">
+              <polygon points="3,21.6 3,13.8 9,8.6 15.2,8.6 15.2,10.4 3,21.6" fill="#ff5c5c"/>
+              <polygon points="3,21.6 15.2,10.4 15.2,16 8.6,21.6" fill="#ffd23f"/>
+              <polygon points="8.6,21.6 15.2,16 15.2,21.6" fill="#4da6ff"/>
+            </g>
+            <rect x="3" y="8.6" width="13" height="13" rx="2.3" stroke="#c89fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M20.8 2.2L13.4 9.6" stroke="#c89fff" stroke-width="3.1" stroke-linecap="round"/>
+            <path d="M10.4 6.6a3.1 3.1 0 0 1 3.4-.6" stroke="#c89fff" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M9.2 4.2a6 6 0 0 1 6.6-1.1" stroke="#c89fff" stroke-width="1.2" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <button id="rr-validate-btn" class="rr-tool-btn" onclick="rrValidatePattern()" title="Validar patrón (rellena el tablero con tiles suficientes)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c89fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="18" height="18" rx="3.2"/>
+            <path d="M7.3 12.6l3.1 3.1 6.3-7.4"/>
+          </svg>
+        </button>
       </div>
       <div id="rr-validate-hint" style="text-align:center;font-size:10px;color:rgba(34,197,94,.6);margin-top:4px;display:none;">Tablero actualizado con colores suficientes</div>
       <input id="rr-image-input" type="file" accept="image/*" style="display:none" onchange="rrHandleImageFile(this.files[0])">
