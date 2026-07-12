@@ -1578,6 +1578,10 @@
     @keyframes voicePulse { 0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.4)} 50%{box-shadow:0 0 0 8px rgba(239,68,68,0)} }
     @keyframes tutHintIn  { from { opacity:0; transform:translateX(-8px) scale(.85); } to { opacity:1; transform:none; } }
     @keyframes tutHintOut { from { opacity:1; } to { opacity:0; transform:translateX(8px) scale(.85); } }
+
+    /* ══ Editor de patrón: notificación de desbloqueo ══ */
+    @keyframes rrEditorSlideIn  { from{transform:translateX(120%);opacity:0} to{transform:translateX(0);opacity:1} }
+    @keyframes rrEditorSlideOut { from{transform:translateX(0);opacity:1} to{transform:translateX(-140vw);opacity:0} }
     .help-btn {
       width:38px; height:38px; border-radius:50%; flex-shrink:0;
       border:1.5px solid rgba(156,90,255,.45);
@@ -1929,15 +1933,118 @@
       return info.special === 'cross' ? null : info.patternSize;
     }
 
+    // ── Editor de patrón: desbloqueo por victorias multijugador ──
+    // Rubiking siempre tiene acceso. Cualquier otro jugador debe ganar 3 partidas
+    // multijugador (en cualquier nivel) para desbloquear el editor por esa sesión.
+    // Al desconectarse de la partida, el desbloqueo se "consume": hace falta ganar
+    // 3 partidas más para volver a verlo y usarlo.
+    const RR_EDITOR_WIN_KEY      = 'rr-editor-win-count';
+    const RR_EDITOR_CONSUMED_KEY = 'rr-editor-consumed-count';
+    let rrEditorUnlocked = false; // válido solo durante la partida/sesión actual
+
+    function rrEditorCurrentName() {
+      return (window.__rrCurrentPlayerName || localStorage.getItem('rr-player-name') || '').trim().toLowerCase();
+    }
+    function rrEditorIsRubiking() { return rrEditorCurrentName() === 'rubiking'; }
+    function rrEditorWinCount()  { return parseInt(localStorage.getItem(RR_EDITOR_WIN_KEY)     || '0', 10) || 0; }
+    function rrEditorConsumed()  { return parseInt(localStorage.getItem(RR_EDITOR_CONSUMED_KEY) || '0', 10) || 0; }
+
+    function rrEditorHasAccess() { return rrEditorIsRubiking() || rrEditorUnlocked; }
+    window.__rrEditorHasAccess = rrEditorHasAccess;
+
+    // Se llama cuando el jugador actual gana una partida multijugador (ver handleTile)
+    function rrRegisterMultiWin(name) {
+      if ((name || '').trim().toLowerCase() === 'rubiking') return; // ya tiene acceso total
+      const wins = rrEditorWinCount() + 1;
+      localStorage.setItem(RR_EDITOR_WIN_KEY, String(wins));
+      if (!rrEditorUnlocked && (wins - rrEditorConsumed()) >= 3) {
+        rrEditorUnlocked = true;
+        rrSyncPatternTools();
+        rrShowEditorUnlockNotif();
+      }
+    }
+    window.__rrRegisterMultiWin = rrRegisterMultiWin;
+
+    // Se llama al desconectarse de la partida (salir al lobby, level-up, etc.)
+    function rrConsumeEditorUnlock() {
+      if (rrEditorUnlocked) {
+        localStorage.setItem(RR_EDITOR_CONSUMED_KEY, String(rrEditorWinCount()));
+        rrEditorUnlocked = false;
+      }
+      rrSyncPatternTools();
+    }
+    window.__rrConsumeEditorUnlock = rrConsumeEditorUnlock;
+
+    // Notificación: entra desde la derecha, se queda para leerse, y sale por la
+    // izquierda dibujando una flecha hacia el bloque de patrón (#rr-widget).
+    function rrShowEditorUnlockNotif() {
+      try {
+        document.getElementById('rr-editor-unlock-notif')?.remove();
+        document.getElementById('rr-editor-unlock-svg')?.remove();
+
+        const widget = document.getElementById('rr-widget');
+        const vw = window.innerWidth, vh = window.innerHeight;
+        const wr = (widget && widget.offsetParent !== null) ? widget.getBoundingClientRect() : null;
+        const tx = wr ? wr.left + wr.width / 2 : vw - 50;
+        const ty = wr ? wr.top  + wr.height / 2 : 60;
+
+        const wrap = document.createElement('div');
+        wrap.id = 'rr-editor-unlock-notif';
+        wrap.style.cssText = `position:fixed;top:${Math.max(64, ty - 90)}px;right:16px;z-index:9500;pointer-events:none;`;
+        wrap.innerHTML = `
+          <div id="rr-editor-unlock-card" style="
+            display:flex;align-items:center;gap:10px;background:rgba(6,4,20,.96);
+            border:1.5px solid rgba(255,215,0,.55);border-radius:16px;padding:12px 16px;
+            backdrop-filter:blur(16px);box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 24px rgba(255,215,0,.25);
+            max-width:min(280px,80vw);animation:rrEditorSlideIn .5s cubic-bezier(.34,1.4,.64,1) forwards;">
+            <div style="font-size:22px;flex-shrink:0;">✏️</div>
+            <div style="font-size:12.5px;font-weight:700;color:#FFE566;line-height:1.35;">
+              ¡Ahora puedes editar tu patrón!
+            </div>
+          </div>`;
+        document.body.appendChild(wrap);
+
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(svgNS, 'svg');
+        svg.id = 'rr-editor-unlock-svg';
+        svg.setAttribute('width', vw); svg.setAttribute('height', vh);
+        svg.style.cssText = 'position:fixed;inset:0;z-index:9499;pointer-events:none;overflow:visible;opacity:0;transition:opacity .25s ease;';
+        svg.innerHTML = '<defs><marker id="rr-eu-ah" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0,10 3.5,0 7" fill="#FFD700"/></marker></defs>';
+        document.body.appendChild(svg);
+
+        setTimeout(() => {
+          const card = document.getElementById('rr-editor-unlock-card');
+          const cr = card ? card.getBoundingClientRect() : { left: vw - 140, top: 100, width: 120, height: 50 };
+          const fx = cr.left, fy = cr.top + cr.height / 2;
+          const dPath = `M${fx},${fy} C${(fx + tx) / 2},${fy} ${(fx + tx) / 2},${ty} ${tx},${ty}`;
+          const path = document.createElementNS(svgNS, 'path');
+          path.setAttribute('d', dPath);
+          path.setAttribute('fill', 'none');
+          path.setAttribute('stroke', '#FFD700');
+          path.setAttribute('stroke-width', '2.5');
+          path.setAttribute('stroke-dasharray', '9 6');
+          path.setAttribute('marker-end', 'url(#rr-eu-ah)');
+          svg.appendChild(path);
+          svg.style.opacity = '1';
+          if (card) card.style.animation = 'rrEditorSlideOut .6s ease forwards';
+        }, 2400);
+
+        setTimeout(() => { wrap.remove(); svg.remove(); }, 3200);
+      } catch (e) { console.warn('rrShowEditorUnlockNotif:', e); }
+    }
+    window.rrShowEditorUnlockNotif = rrShowEditorUnlockNotif;
+
     function rrSyncPatternTools() {
       const size = rrPatternSize();
       const imgBtn = document.getElementById('rr-image-btn');
       const manBtn = document.getElementById('rr-manual-btn');
       const valBtn = document.getElementById('rr-validate-btn');
-      if (imgBtn) imgBtn.disabled = !size;
-      if (manBtn) manBtn.disabled = !size;
+      const hasAccess = rrEditorHasAccess();
+      if (imgBtn) { imgBtn.style.display = hasAccess ? '' : 'none'; imgBtn.disabled = !size; }
+      if (manBtn) { manBtn.style.display = hasAccess ? '' : 'none'; manBtn.disabled = !size; }
       if (valBtn) valBtn.disabled = !(window.rrPattern && window.rrPattern.length);
       if (!size && rrManualMode) rrToggleManualMode(false);
+      if (!hasAccess && rrManualMode) rrToggleManualMode(false);
     }
     window.rrSyncPatternTools = rrSyncPatternTools;
 
@@ -1962,6 +2069,7 @@
     window.rrValidatePattern = rrValidatePattern;
 
     function rrToggleManualMode(force) {
+      if (!rrEditorHasAccess()) return;
       const size = rrPatternSize();
       if (typeof force !== 'boolean' && !size) return;
       rrManualMode = typeof force === 'boolean' ? force : !rrManualMode;
@@ -1975,7 +2083,7 @@
     window.rrToggleManualMode = rrToggleManualMode;
 
     function rrCellClick(idx) {
-      if (!rrManualMode) return;
+      if (!rrManualMode || !rrEditorHasAccess()) return;
       const size = rrPatternSize();
       if (!size) return;
       const n = size * size;
@@ -1986,7 +2094,7 @@
     window.rrCellClick = rrCellClick;
 
     function rrImageButtonClick() {
-      if (!rrPatternSize()) return;
+      if (!rrEditorHasAccess() || !rrPatternSize()) return;
       document.getElementById('rr-image-input')?.click();
     }
     window.rrImageButtonClick = rrImageButtonClick;
@@ -3594,6 +3702,8 @@
       useEffect(() => {
         const widget = document.getElementById('rr-widget');
         const slot = rrSlotRef.current;
+        window.__rrCurrentPlayerName = playerName;
+        window.rrSyncPatternTools?.();
         if (widget && slot) {
           slot.appendChild(widget);
           widget.style.display = '';
@@ -3606,6 +3716,9 @@
             // deja de encontrarlo en la próxima partida, y el bloque de patrón no vuelve a salir.
             document.body.appendChild(widget);
           }
+          // Al salir de esta partida (desconexión) se consume el desbloqueo del
+          // editor de patrón: hará falta ganar 3 partidas más para recuperarlo.
+          window.__rrConsumeEditorUnlock?.();
         };
       }, []);
 
@@ -3806,6 +3919,7 @@
               window.__fbSendFinish?.(playerName, ft, fm);
               window.__fbUpdateFinishPresence?.(SESSION_UID, playerName, ft, fm);
               window.__fbUpdateScore?.(playerName, time+1, fm, activePl.length > 1, level);
+              if (activePl.length > 1) window.__rrRegisterMultiWin?.(playerName);
               window.__fbScheduleLobbyDelete?.(gameCode);
             },50);
           }
