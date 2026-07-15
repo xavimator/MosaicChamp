@@ -414,6 +414,26 @@
       window.__fbSendSabotage = (targetName, fromName) =>
         push(saboRef, { target: targetName, from: fromName, ts: Date.now() });
 
+      // Consenso para "nuevo juego" / "reiniciar": los demás jugadores tienen 5s
+      // para rechazarlo; si nadie rechaza (o aceptan) se procede como antes.
+      const resetReqRef   = ref(db, `${base}/resetRequest`);
+      const resetReqQuery = query(resetReqRef, orderByChild('ts'), startAfter(Date.now()));
+      unsubs.push(onChildAdded(resetReqQuery, snap => {
+        const item = snap.val();
+        if (item) window.__fbResetRequestReceived?.(item);
+      }));
+      window.__fbSendResetRequest = (from, action, requestId) =>
+        push(resetReqRef, { from, action, requestId, ts: Date.now() });
+
+      const resetResRef   = ref(db, `${base}/resetResponse`);
+      const resetResQuery = query(resetResRef, orderByChild('ts'), startAfter(Date.now()));
+      unsubs.push(onChildAdded(resetResQuery, snap => {
+        const item = snap.val();
+        if (item) window.__fbResetResponseReceived?.(item);
+      }));
+      window.__fbSendResetResponse = (requestId, from, accept) =>
+        push(resetResRef, { requestId, from, accept, ts: Date.now() });
+
       // Meta (host info for lobby list)
       window.__fbSetMeta = (hostName) =>
         set(ref(db, `${base}/meta`), { host: hostName, ts: Date.now() });
@@ -1613,6 +1633,13 @@
       55%  { box-shadow:0 0 0 4px rgba(168,85,247,.8),0 0 24px 6px rgba(168,85,247,.65); filter:brightness(1.35); }
       100% { box-shadow:0 0 0 0 rgba(168,85,247,0); filter:brightness(1); }
     }
+
+    /* ══ Prompt "¿Mandar Sudden Swap?": entrada creciente ══ */
+    @keyframes rrPromptGrow {
+      0%   { transform:translateX(-50%) scale(.35); opacity:0; }
+      65%  { transform:translateX(-50%) scale(1.08); opacity:1; }
+      100% { transform:translateX(-50%) scale(1); opacity:1; }
+    }
     .help-btn {
       width:38px; height:38px; border-radius:50%; flex-shrink:0;
       border:1.5px solid rgba(156,90,255,.45);
@@ -1898,6 +1925,12 @@
     };
     window.__fbSabotageReceived = function(item) {
       window.dispatchEvent(new CustomEvent('rrSabotageReceived', { detail: item }));
+    };
+    window.__fbResetRequestReceived = function(item) {
+      window.dispatchEvent(new CustomEvent('rrResetRequest', { detail: item }));
+    };
+    window.__fbResetResponseReceived = function(item) {
+      window.dispatchEvent(new CustomEvent('rrResetResponse', { detail: item }));
     };
 
     // Reset
@@ -3651,6 +3684,119 @@
       const prevCorrectRef    = useRef(0);  // fichas centrales correctas antes del último movimiento
       const otherProgressRef  = useRef([]); // progreso de los demás jugadores: [{name, correct}]
 
+      // Prompt de "¿Mandar Sudden Swap?" — el jugador elige si lo usa o no
+      const [sabotagePrompt, setSabotagePrompt]   = useState(null); // {target, secondsLeft}
+      const sabotagePromptActiveRef = useRef(false);
+      const sabotagePromptTickRef   = useRef(null);
+
+      const triggerSabotagePrompt = useCallback((targetName) => {
+        sabotagePromptActiveRef.current = true;
+        setSabotagePrompt({ target: targetName, secondsLeft: 5 });
+        clearInterval(sabotagePromptTickRef.current);
+        sabotagePromptTickRef.current = setInterval(() => {
+          setSabotagePrompt(p => {
+            if (!p) return p;
+            const next = p.secondsLeft - 1;
+            if (next <= 0) {
+              clearInterval(sabotagePromptTickRef.current);
+              sabotagePromptActiveRef.current = false;
+              return null;
+            }
+            return { ...p, secondsLeft: next };
+          });
+        }, 1000);
+      }, []);
+
+      const confirmSabotage = useCallback(() => {
+        setSabotagePrompt(p => {
+          if (p) window.__fbSendSabotage?.(p.target, playerName);
+          return null;
+        });
+        clearInterval(sabotagePromptTickRef.current);
+        sabotagePromptActiveRef.current = false;
+      }, [playerName]);
+
+      useEffect(() => () => clearInterval(sabotagePromptTickRef.current), []);
+
+      // ── Consenso de "nuevo juego" / "reiniciar" ──
+      const [resetVotePrompt, setResetVotePrompt] = useState(null); // {requestId, from, action, secondsLeft} (para mí, si me llega un pedido)
+      const resetVoteTickRef = useRef(null);
+      const pendingResetRef  = useRef(null); // cuando YO soy quien pidió el reset
+
+      const finalizeResetVote = useCallback((accepted, rejectedBy) => {
+        const pend = pendingResetRef.current;
+        if (!pend || pend.done) return;
+        pend.done = true;
+        clearTimeout(pend.timeoutId);
+        pendingResetRef.current = null;
+        if (accepted) {
+          pend.proceed();
+        } else {
+          window.showDiscreteToast?.('❌', `${rejectedBy} rechazó el nuevo juego`, '#ef4444');
+        }
+      }, []);
+
+      const requestResetConsensus = useCallback((action, proceed) => {
+        const requestId = Math.random().toString(36).slice(2);
+        const others = new Set(activePlRef.current.filter(p => p.name !== playerName).map(p => p.name));
+        pendingResetRef.current = { requestId, accepted: new Set(), othersRequired: others, proceed, done: false, timeoutId: null };
+        window.__fbSendResetRequest?.(playerName, action, requestId);
+        if (others.size === 0) { finalizeResetVote(true); return; }
+        window.showDiscreteToast?.('⏳', 'Esperando confirmación de los demás jugadores…', '#c89fff');
+        pendingResetRef.current.timeoutId = setTimeout(() => finalizeResetVote(true), 5000);
+      }, [playerName, finalizeResetVote]);
+
+      // Recibo un pedido de reset de otro jugador → le muestro un prompt para aceptar/rechazar
+      useEffect(() => {
+        const handler = (e) => {
+          const item = e.detail;
+          if (!item || item.from === playerName) return;
+          setResetVotePrompt({ requestId: item.requestId, from: item.from, action: item.action, secondsLeft: 5 });
+          clearInterval(resetVoteTickRef.current);
+          resetVoteTickRef.current = setInterval(() => {
+            setResetVotePrompt(p => {
+              if (!p) return p;
+              const next = p.secondsLeft - 1;
+              if (next <= 0) { clearInterval(resetVoteTickRef.current); return null; }
+              return { ...p, secondsLeft: next };
+            });
+          }, 1000);
+        };
+        window.addEventListener('rrResetRequest', handler);
+        return () => window.removeEventListener('rrResetRequest', handler);
+      }, [playerName]);
+
+      // Recibo respuestas a MI pedido de reset
+      useEffect(() => {
+        const handler = (e) => {
+          const item = e.detail;
+          const pend = pendingResetRef.current;
+          if (!item || !pend || item.requestId !== pend.requestId) return;
+          if (item.accept === false) {
+            finalizeResetVote(false, item.from);
+          } else {
+            pend.accepted.add(item.from);
+            const stillWaiting = [...pend.othersRequired].some(n => !pend.accepted.has(n));
+            if (!stillWaiting) finalizeResetVote(true);
+          }
+        };
+        window.addEventListener('rrResetResponse', handler);
+        return () => window.removeEventListener('rrResetResponse', handler);
+      }, [finalizeResetVote]);
+
+      const respondReset = useCallback((accept) => {
+        setResetVotePrompt(p => {
+          if (p) window.__fbSendResetResponse?.(p.requestId, playerName, accept);
+          return null;
+        });
+        clearInterval(resetVoteTickRef.current);
+      }, [playerName]);
+
+      useEffect(() => () => {
+        clearInterval(resetVoteTickRef.current);
+        if (pendingResetRef.current) clearTimeout(pendingResetRef.current.timeoutId);
+      }, []);
+
       // Cuenta esta partida como "partida nº N" del dispositivo — el power-up solo
       // se activa a partir de la 2ª partida en adelante.
       useEffect(() => {
@@ -3691,7 +3837,7 @@
             setTimeout(() => setSabotageFlashIdx(p => p === pos ? null : p), 700);
             return nt;
           });
-          window.showDiscreteToast?.('😈', `${item.from} descolocó una de tus fichas`, '#ef4444');
+          window.showDiscreteToast?.('😈', `Sudden Swap by ${item.from}!!!`, '#ef4444');
           navigator.vibrate?.([40, 30, 40, 30, 90]);
         };
         window.addEventListener('rrSabotageReceived', handler);
@@ -4038,13 +4184,15 @@
         if (activePl.length > 1) window.__fbUpdateProgress?.(SESSION_UID, playerName, centerCorrectCount);
 
         // Power-up de remontada: si voy 1-1 en fichas y coloco mi 2ª ficha correcta
-        // mientras alguien va ganando con más de 4, tengo una chance de descolocarle una.
+        // mientras alguien va ganando con más de 4, se me ofrece la opción de mandar
+        // un Sudden Swap (el jugador decide, no es automático).
         if (matchIndexRef.current >= 2 && activePl.length > 1 &&
-            prevCorrectRef.current === 1 && centerCorrectCount === 2) {
+            prevCorrectRef.current === 1 && centerCorrectCount === 2 &&
+            !sabotagePromptActiveRef.current) {
           const targets = otherProgressRef.current.filter(p => p.correct > 4);
-          if (targets.length && Math.random() < RR_SABOTAGE_CHANCE) {
+          if (targets.length) {
             const victim = targets[Math.floor(Math.random() * targets.length)];
-            window.__fbSendSabotage?.(victim.name, playerName);
+            triggerSabotagePrompt(victim.name);
           }
         }
         prevCorrectRef.current = centerCorrectCount;
@@ -4065,7 +4213,7 @@
             },50);
           }
         }
-      }, [tiles, finished, countdown, rrPat, time, moves, sendPresence, gameCode, voiceOn, usedHints, activePl, playerName]);
+      }, [tiles, finished, countdown, rrPat, time, moves, sendPresence, gameCode, voiceOn, usedHints, activePl, playerName, triggerSabotagePrompt]);
 
       useEffect(() => { handleTileRef.current = handleTile; }, [handleTile]);
 
@@ -4126,8 +4274,9 @@
       };
       const doReset = () => {
         setShowConfirm(false);
-        window.rrShuffle?.();
-        window.__fbSendReset?.() ?? doLocalReset();
+        const proceed = () => { window.rrShuffle?.(); window.__fbSendReset?.() ?? doLocalReset(); };
+        if (activePl.length > 1) requestResetConsensus('new', proceed);
+        else proceed();
       };
 
       // Reiniciar: vuelve a intentar el mismo patrón (no genera uno nuevo).
@@ -4137,7 +4286,9 @@
       };
       const doRestart = () => {
         setShowConfirm(false);
-        window.__fbSendReset?.() ?? doLocalReset();
+        const proceed = () => { window.__fbSendReset?.() ?? doLocalReset(); };
+        if (activePl.length > 1) requestResetConsensus('restart', proceed);
+        else proceed();
       };
 
       const copyCode = () => {
@@ -4243,7 +4394,64 @@
 
           {/* Fila 3: nombre del jugador — centrada */}
           <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'6px',marginBottom:'8px',
-                       width:'100%',maxWidth:'380px',marginTop:'10px'}}>
+                       width:'100%',maxWidth:'380px',marginTop:'10px',position:'relative'}}>
+
+            {sabotagePrompt && (
+              <div onClick={confirmSabotage} style={{
+                position:'absolute', bottom:'calc(100% + 8px)', left:'50%',
+                background:'linear-gradient(135deg, rgba(168,85,247,.95), rgba(126,34,206,.95))',
+                border:'1.5px solid rgba(216,180,254,.7)', borderRadius:'14px',
+                padding:'10px 14px 10px 16px', display:'flex', alignItems:'center', gap:'10px',
+                boxShadow:'0 8px 24px rgba(0,0,0,.5), 0 0 20px rgba(168,85,247,.45)',
+                cursor:'pointer', zIndex:50, whiteSpace:'nowrap',
+                animation:'rrPromptGrow .35s cubic-bezier(.34,1.56,.64,1) forwards'
+              }}>
+                <span style={{fontSize:'12.5px', fontWeight:700, color:'#fff'}}>¿Mandar Sudden Swap?</span>
+                <span style={{
+                  width:'20px', height:'20px', borderRadius:'50%', background:'rgba(255,255,255,.28)',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  fontSize:'11px', fontWeight:800, color:'#fff', flexShrink:0
+                }}>{sabotagePrompt.secondsLeft}</span>
+              </div>
+            )}
+
+            {resetVotePrompt && (
+              <div style={{
+                position:'absolute', bottom:'calc(100% + 8px)', left:'50%',
+                background:'linear-gradient(135deg, rgba(96,165,250,.95), rgba(37,99,235,.95))',
+                border:'1.5px solid rgba(191,219,254,.7)', borderRadius:'14px',
+                padding:'10px 14px', display:'flex', flexDirection:'column', alignItems:'center', gap:'8px',
+                boxShadow:'0 8px 24px rgba(0,0,0,.5), 0 0 20px rgba(59,130,246,.45)',
+                zIndex:51, whiteSpace:'nowrap',
+                animation:'rrPromptGrow .35s cubic-bezier(.34,1.56,.64,1) forwards'
+              }}>
+                <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                  <span style={{fontSize:'12.5px', fontWeight:700, color:'#fff'}}>
+                    {resetVotePrompt.from} quiere {resetVotePrompt.action==='restart' ? 'reiniciar' : 'un nuevo juego'}
+                  </span>
+                  <span style={{
+                    width:'20px', height:'20px', borderRadius:'50%', background:'rgba(255,255,255,.28)',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    fontSize:'11px', fontWeight:800, color:'#fff', flexShrink:0
+                  }}>{resetVotePrompt.secondsLeft}</span>
+                </div>
+                <div style={{display:'flex',gap:'8px'}}>
+                  <button onClick={()=>respondReset(true)} style={{background:'rgba(34,197,94,.92)',border:'none',
+                    borderRadius:'8px',padding:'5px 12px',color:'#fff',fontWeight:700,fontSize:'11px',cursor:'pointer'}}>
+                    ✅ Aceptar
+                  </button>
+                  <button onClick={()=>respondReset(false)} style={{background:'rgba(239,68,68,.92)',border:'none',
+                    borderRadius:'8px',padding:'5px 12px',color:'#fff',fontWeight:700,fontSize:'11px',cursor:'pointer',
+                    display:'flex',alignItems:'center',gap:'5px'}}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="3.2"/>
+                      <path d="M8.4 8.4l7.2 7.2M15.6 8.4l-7.2 7.2"/>
+                    </svg>
+                    Rechazar
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div style={{display:'flex',alignItems:'center',gap:'5px',
                          background:'rgba(255,255,255,.05)',borderRadius:'9px',
