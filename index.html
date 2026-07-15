@@ -3807,11 +3807,15 @@
         } catch (e) { matchIndexRef.current = 1; }
       }, []);
 
+      const [myCorrectCount, setMyCorrectCount] = useState(0);
+      const [otherProgressState, setOtherProgressState] = useState([]);
+
       // Escucha el progreso (fichas correctas) de los demás jugadores de la partida
       useEffect(() => {
         const handler = (e) => {
           const list = (e.detail || []).filter(p => p.name !== playerName);
           otherProgressRef.current = list;
+          setOtherProgressState(list);
         };
         window.addEventListener('rrProgressChange', handler);
         return () => window.removeEventListener('rrProgressChange', handler);
@@ -4181,11 +4185,20 @@
         }
 
         // Difundo mi progreso a los demás jugadores de la partida
+        setMyCorrectCount(centerCorrectCount);
         if (activePl.length > 1) window.__fbUpdateProgress?.(SESSION_UID, playerName, centerCorrectCount);
 
         // Power-up de remontada: si voy 1-1 en fichas y coloco mi 2ª ficha correcta
         // mientras alguien va ganando con más de 4, se me ofrece la opción de mandar
         // un Sudden Swap (el jugador decide, no es automático).
+        if (window.__RR_DEBUG__) {
+          console.debug('[SuddenSwap]', {
+            matchIndex: matchIndexRef.current, activePl: activePl.length,
+            prevCorrect: prevCorrectRef.current, centerCorrectCount,
+            promptActive: sabotagePromptActiveRef.current,
+            otherProgress: otherProgressRef.current
+          });
+        }
         if (matchIndexRef.current >= 2 && activePl.length > 1 &&
             prevCorrectRef.current === 1 && centerCorrectCount === 2 &&
             !sabotagePromptActiveRef.current) {
@@ -4466,6 +4479,17 @@
             </div>
 
           </div>
+
+          {/* Debug: fichas correctas propias vs rivales — para verificar la condición del Sudden Swap */}
+          {activePl.length > 1 && (
+            <div style={{textAlign:'center', fontSize:'10.5px', color:'#9a90b5', marginBottom:'6px'}}>
+              🎯 Vos: {myCorrectCount} fichas
+              {otherProgressState.length > 0 && (
+                <> · Rival{otherProgressState.length>1?'es':''}: {otherProgressState.map(p=>`${p.name} (${p.correct})`).join(', ')}</>
+              )}
+              {matchIndexRef.current < 2 && <> · Sudden Swap se activa desde tu 2ª partida</>}
+            </div>
+          )}
 
           {/* Board */}
           <div style={{position:'relative'}} ref={boardRef}>
