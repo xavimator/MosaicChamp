@@ -260,6 +260,7 @@
           "lobby":  { ".read": true, ".write": true },
           "scores": { ".read": true, ".write": true },
           "scoresByLevel": { ".read": true, ".write": true },
+          "savedPatterns": { ".read": true, ".write": true },
           "games": {
             "$code": {
               "pattern":      { ".read": true, ".write": true },
@@ -331,6 +332,33 @@
 
     // ── Connection state ──
     onValue(ref(db, '.info/connected'), snap => window.__fbConnectionState?.(!!snap.val()));
+
+    // ── Patrones guardados (galería global, no depende de la partida) ──
+    // Solo Rubiking puede crearlos/eliminarlos (comprobado en el cliente antes de
+    // llamar a estas funciones); cualquier jugador con acceso al editor puede leerlos
+    // y aplicarlos a la partida actual.
+    const savedPatternsRef = ref(db, 'rubitrack/savedPatterns');
+
+    window.__fbSavePattern = (name, pattern) =>
+      push(savedPatternsRef, {
+        name,
+        pattern,
+        size: Math.round(Math.sqrt(pattern.length)),
+        ts: Date.now(),
+      });
+
+    window.__fbListenSavedPatterns = (callback) =>
+      onValue(savedPatternsRef, snap => {
+        const list = [];
+        snap.forEach(child => {
+          const v = child.val();
+          if (v && Array.isArray(v.pattern)) list.push({ id: child.key, ...v });
+        });
+        list.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+        callback(list);
+      });
+
+    window.__fbDeleteSavedPattern = (id) => remove(ref(db, `rubitrack/savedPatterns/${id}`));
 
     // ── Per-game listeners ──
     let unsubs = [];
@@ -1554,6 +1582,61 @@
     }
     .rr-tool-btn:disabled { opacity:.35; cursor:not-allowed; }
     .rr-tool-btn.active { border-color:rgba(156,90,255,.8); background:rgba(156,90,255,.25); }
+
+    /* ── Saved patterns modals ── */
+    .rr-modal-overlay {
+      position:fixed; inset:0; background:rgba(4,2,12,.72); backdrop-filter:blur(4px);
+      display:flex; align-items:center; justify-content:center; z-index:10000; padding:20px;
+      animation:rrModalFade .2s ease;
+    }
+    .rr-modal-overlay.hidden { display:none; }
+    @keyframes rrModalFade { from{opacity:0;} to{opacity:1;} }
+    .rr-modal-box {
+      background:rgba(6,4,20,.98); border:1.5px solid rgba(156,90,255,.4); border-radius:18px;
+      padding:18px 20px 20px; width:100%; max-width:340px; max-height:80vh; display:flex; flex-direction:column;
+      box-shadow:0 24px 60px rgba(0,0,0,.7); animation:panelIn .28s cubic-bezier(.34,1.15,.64,1);
+    }
+    .rr-modal-box-sm { max-width:280px; }
+    .rr-modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    .rr-modal-header h3 { color:#fff; font-size:15px; font-weight:700; }
+    .rr-modal-close {
+      background:rgba(255,255,255,.08); border:none; color:#c89fff; width:26px; height:26px; border-radius:50%;
+      cursor:pointer; font-size:13px; line-height:1; flex-shrink:0;
+    }
+    .rr-modal-close:hover { background:rgba(255,255,255,.18); }
+    .rr-save-input {
+      width:100%; box-sizing:border-box; background:rgba(255,255,255,.07); border:1.5px solid rgba(156,90,255,.35);
+      border-radius:10px; padding:10px 12px; color:#fff; font-size:13px; margin-bottom:12px; outline:none;
+    }
+    .rr-save-input:focus { border-color:rgba(156,90,255,.8); }
+    .rr-save-confirm-btn {
+      width:100%; padding:10px; background:#7c3aed; color:#fff; border:none; border-radius:9px;
+      font-size:13px; font-weight:700; cursor:pointer; transition:background .2s;
+    }
+    .rr-save-confirm-btn:hover { background:#6d28d9; }
+    .rr-saved-list { overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
+    .rr-saved-empty { text-align:center; font-size:12px; color:rgba(255,255,255,.4); padding:14px 0; }
+    .rr-saved-item {
+      display:flex; align-items:center; gap:10px; background:rgba(255,255,255,.05);
+      border:1px solid rgba(156,90,255,.2); border-radius:12px; padding:8px 10px;
+    }
+    .rr-mini-grid { display:grid; gap:1px; width:36px; height:36px; flex-shrink:0; }
+    .rr-mini-cell { display:block; border-radius:1px; border:.5px solid rgba(0,0,0,.4); }
+    .rr-mini-empty { background:transparent; border-color:transparent; }
+    .rr-saved-info { flex:1; min-width:0; }
+    .rr-saved-name { color:#fff; font-size:12.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .rr-saved-size { color:rgba(255,255,255,.4); font-size:10.5px; margin-top:1px; }
+    .rr-saved-actions { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+    .rr-saved-use-btn {
+      background:rgba(124,58,237,.25); border:1px solid rgba(156,90,255,.6); color:#e9d9ff;
+      font-size:11px; font-weight:700; padding:6px 10px; border-radius:8px; cursor:pointer;
+    }
+    .rr-saved-use-btn:hover { background:rgba(124,58,237,.45); }
+    .rr-saved-del-btn {
+      background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.4); color:#ffb3b3;
+      font-size:12px; width:28px; height:28px; border-radius:8px; cursor:pointer; flex-shrink:0;
+    }
+    .rr-saved-del-btn:hover { background:rgba(239,68,68,.3); }
     #rr-manual-hint { text-align:center; font-size:10px; color:rgba(255,255,255,.4); margin-top:6px; display:none; }
     #rr-grid.rr-manual-active .rrcell { cursor:pointer; }
     #rr-shuffle:hover    { background:#6d28d9; }
@@ -1734,12 +1817,49 @@
             <path d="M7.3 12.6l3.1 3.1 6.3-7.4"/>
           </svg>
         </button>
+        <button id="rr-save-btn" class="rr-tool-btn" onclick="rrOpenSaveModal()" title="Guardar patrón con nombre">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c89fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4.5 3.5h12l3 3v13a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1z"/>
+            <path d="M7.5 3.5v5h7v-5"/>
+            <rect x="7.5" y="13.5" width="9" height="6.5"/>
+          </svg>
+        </button>
+        <button id="rr-gallery-btn" class="rr-tool-btn" onclick="rrOpenSavedGallery()" title="Patrones guardados">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c89fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6.5a1.5 1.5 0 0 1 1.5-1.5h4.4l1.6 2h9a1.5 1.5 0 0 1 1.5 1.5v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/>
+          </svg>
+        </button>
       </div>
       <div id="rr-validate-hint" style="text-align:center;font-size:10px;color:rgba(34,197,94,.6);margin-top:4px;display:none;">Tablero actualizado con colores suficientes</div>
       <input id="rr-image-input" type="file" accept="image/*" style="display:none" onchange="rrHandleImageFile(this.files[0])">
       <div style="margin-top:10px;text-align:center;">
         <a href="licenses.html" style="font-size:11px;color:rgba(255,255,255,.25);text-decoration:none;letter-spacing:.03em;" target="_blank">Licencias de terceros</a>
       </div>
+    </div>
+  </div>
+
+  <!-- ══ Guardar patrón (modal) ══ -->
+  <div id="rr-save-overlay" class="rr-modal-overlay hidden" onclick="if(event.target===this) rrCloseSaveModal()">
+    <div class="rr-modal-box rr-modal-box-sm">
+      <div class="rr-modal-header">
+        <h3>💾 Guardar patrón</h3>
+        <button class="rr-modal-close" onclick="rrCloseSaveModal()">✕</button>
+      </div>
+      <input id="rr-save-name-input" type="text" maxlength="24" placeholder="Nombre del patrón"
+             class="rr-save-input" onkeydown="if(event.key==='Enter') rrConfirmSavePattern()">
+      <button id="rr-save-confirm-btn" class="rr-save-confirm-btn" onclick="rrConfirmSavePattern()">Guardar</button>
+    </div>
+  </div>
+
+  <!-- ══ Patrones guardados (galería) ══ -->
+  <div id="rr-saved-overlay" class="rr-modal-overlay hidden" onclick="if(event.target===this) rrCloseSavedGallery()">
+    <div class="rr-modal-box">
+      <div class="rr-modal-header">
+        <h3>📂 Patrones guardados</h3>
+        <button class="rr-modal-close" onclick="rrCloseSavedGallery()">✕</button>
+      </div>
+      <div id="rr-saved-list" class="rr-saved-list"></div>
+      <div id="rr-saved-empty" class="rr-saved-empty" style="display:none;">Todavía no hay patrones guardados.</div>
     </div>
   </div>
 
@@ -2178,10 +2298,15 @@
       const imgBtn = document.getElementById('rr-image-btn');
       const manBtn = document.getElementById('rr-manual-btn');
       const valBtn = document.getElementById('rr-validate-btn');
+      const saveBtn = document.getElementById('rr-save-btn');
+      const galBtn  = document.getElementById('rr-gallery-btn');
       const hasAccess = rrEditorHasAccess();
       if (imgBtn) { imgBtn.style.display = hasAccess ? '' : 'none'; imgBtn.disabled = !size; }
       if (manBtn) { manBtn.style.display = hasAccess ? '' : 'none'; manBtn.disabled = !size; }
       if (valBtn) valBtn.disabled = !(window.rrPattern && window.rrPattern.length);
+      // Guardar patrones con nombre: solo Rubiking. Ver la galería: cualquiera con acceso al editor.
+      if (saveBtn) saveBtn.style.display = rrEditorIsRubiking() ? '' : 'none';
+      if (galBtn)  galBtn.style.display  = hasAccess ? '' : 'none';
       if (!size && rrManualMode) rrToggleManualMode(false);
       if (!hasAccess && rrManualMode) rrToggleManualMode(false);
     }
@@ -2255,6 +2380,150 @@
       document.getElementById('rr-image-input').value = '';
     }
     window.rrHandleImageFile = rrHandleImageFile;
+
+    // ── Patrones guardados: galería + guardado con nombre (solo Rubiking) ──
+    let rrSavedPatternsCache = [];
+    let rrSavedPatternsSubscribed = false;
+
+    function rrRequiredPatternLength() {
+      const info = window.RR_LEVEL_INFO(window.__rrLevel || 2);
+      return info.special === 'cross'
+        ? window.RR_CROSS_SHAPE.patternIndices.length
+        : info.patternSize * info.patternSize;
+    }
+
+    // Genera una previsualización en miniatura de un patrón guardado, respetando
+    // la forma especial de cruz cuando corresponda.
+    function rrMiniPreviewHTML(pattern) {
+      const n = pattern.length;
+      const isCross = n === window.RR_CROSS_SHAPE.patternIndices.length;
+      let side, cells;
+      if (isCross) {
+        side = window.RR_CROSS_SHAPE.N;
+        cells = new Array(side * side).fill(null);
+        window.RR_CROSS_SHAPE.patternIndices.forEach((absIdx, k) => { cells[absIdx] = pattern[k]; });
+      } else {
+        side = Math.round(Math.sqrt(n));
+        cells = pattern;
+      }
+      let html = `<div class="rr-mini-grid" style="grid-template-columns:repeat(${side},1fr)">`;
+      cells.forEach(v => {
+        if (v === null || v === undefined) html += `<span class="rr-mini-cell rr-mini-empty"></span>`;
+        else {
+          const col = RR_COLORS[v] || RR_COLORS[0];
+          html += `<span class="rr-mini-cell" style="background:${col.bg};border-color:${col.border}"></span>`;
+        }
+      });
+      html += `</div>`;
+      return html;
+    }
+
+    function rrRenderSavedList() {
+      const list = document.getElementById('rr-saved-list');
+      const empty = document.getElementById('rr-saved-empty');
+      if (!list) return;
+      if (!rrSavedPatternsCache.length) {
+        list.innerHTML = '';
+        if (empty) empty.style.display = 'block';
+        return;
+      }
+      if (empty) empty.style.display = 'none';
+      const canDelete = rrEditorIsRubiking();
+      list.innerHTML = rrSavedPatternsCache.map(sp => `
+        <div class="rr-saved-item">
+          ${rrMiniPreviewHTML(sp.pattern)}
+          <div class="rr-saved-info">
+            <div class="rr-saved-name">${String(sp.name || 'Sin nombre').replace(/</g, '&lt;')}</div>
+            <div class="rr-saved-size">${sp.size}×${sp.size}</div>
+          </div>
+          <div class="rr-saved-actions">
+            <button class="rr-saved-use-btn" onclick="rrApplySavedPattern('${sp.id}')">Usar</button>
+            ${canDelete ? `<button class="rr-saved-del-btn" onclick="rrDeleteSavedPatternClick('${sp.id}')" title="Eliminar">🗑</button>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function rrEnsureSavedSubscription() {
+      if (rrSavedPatternsSubscribed || !window.__fbListenSavedPatterns) return;
+      rrSavedPatternsSubscribed = true;
+      window.__fbListenSavedPatterns(list => {
+        rrSavedPatternsCache = list;
+        rrRenderSavedList();
+      });
+    }
+
+    function rrOpenSavedGallery() {
+      if (!rrEditorHasAccess()) return;
+      rrEnsureSavedSubscription();
+      rrRenderSavedList();
+      document.getElementById('rr-saved-overlay')?.classList.remove('hidden');
+    }
+    window.rrOpenSavedGallery = rrOpenSavedGallery;
+
+    function rrCloseSavedGallery() {
+      document.getElementById('rr-saved-overlay')?.classList.add('hidden');
+    }
+    window.rrCloseSavedGallery = rrCloseSavedGallery;
+
+    function rrApplySavedPattern(id) {
+      if (!rrEditorHasAccess()) return;
+      const sp = rrSavedPatternsCache.find(s => s.id === id);
+      if (!sp) return;
+      const need = rrRequiredPatternLength();
+      if (sp.pattern.length !== need) {
+        window.showDiscreteToast?.('⚠️', 'Este patrón es de otro tamaño de nivel — cambiá de nivel para usarlo', '#f59e0b');
+        return;
+      }
+      if (window.__fbSetPattern) window.__fbSetPattern(sp.pattern); else rrApplyPattern(sp.pattern);
+      window.showDiscreteToast?.('🧩', `Patrón "${sp.name}" cargado`, '#7c3aed');
+      rrCloseSavedGallery();
+      rrOpen = false;
+      document.getElementById('rr-panel')?.classList.add('hidden');
+    }
+    window.rrApplySavedPattern = rrApplySavedPattern;
+
+    function rrDeleteSavedPatternClick(id) {
+      if (!rrEditorIsRubiking()) return;
+      const sp = rrSavedPatternsCache.find(s => s.id === id);
+      if (!sp) return;
+      if (!confirm(`¿Eliminar el patrón "${sp.name}"?`)) return;
+      window.__fbDeleteSavedPattern?.(id);
+    }
+    window.rrDeleteSavedPatternClick = rrDeleteSavedPatternClick;
+
+    function rrOpenSaveModal() {
+      if (!rrEditorIsRubiking()) return;
+      if (!window.rrPattern || !window.rrPattern.length) {
+        window.showDiscreteToast?.('⚠️', 'Primero creá un patrón para guardar', '#f59e0b');
+        return;
+      }
+      const input = document.getElementById('rr-save-name-input');
+      if (input) input.value = '';
+      document.getElementById('rr-save-overlay')?.classList.remove('hidden');
+      setTimeout(() => input?.focus(), 50);
+    }
+    window.rrOpenSaveModal = rrOpenSaveModal;
+
+    function rrCloseSaveModal() {
+      document.getElementById('rr-save-overlay')?.classList.add('hidden');
+    }
+    window.rrCloseSaveModal = rrCloseSaveModal;
+
+    function rrConfirmSavePattern() {
+      if (!rrEditorIsRubiking()) return;
+      const input = document.getElementById('rr-save-name-input');
+      const name = (input?.value || '').trim().slice(0, 24);
+      if (!name) {
+        window.showDiscreteToast?.('⚠️', 'Poné un nombre para el patrón', '#f59e0b');
+        return;
+      }
+      if (!window.rrPattern || !window.rrPattern.length) return;
+      window.__fbSavePattern?.(name, [...window.rrPattern]);
+      window.showDiscreteToast?.('💾', `Patrón "${name}" guardado`, '#22c55e');
+      rrCloseSaveModal();
+    }
+    window.rrConfirmSavePattern = rrConfirmSavePattern;
   </script>
 
   <!-- ══ React ══ -->
@@ -2737,10 +3006,16 @@
         }
       }, [name, isRubiking, doneLevels]);
 
-      // Carga el progreso desde Firebase siempre que el nombre cambie
+      // Carga el progreso desde Firebase siempre que el nombre cambie. Rubiking no tiene
+      // contraseña, así que su progreso se carga directamente. El resto de jugadores solo
+      // ven su progreso si el alias está libre (sin proteger) o tras verificar la contraseña
+      // correcta (ver el efecto de aliasClaimed y confirmPassword más abajo); mientras tanto
+      // se muestra el estado por defecto (niveles 1-3 desbloqueados, sin marcas de completado).
       useEffect(() => {
-        if (!name.trim()) { setDoneLevels([]); setLevel8Unlocked(false); setUserPickedLevel(false); return; }
-        loadProgress(name.trim()).then(d => checkLevel8(d));
+        if (!name.trim()) { setDoneLevels([]); setLevel8Unlocked(false); setUserPickedLevel(false); setProgressLoaded(false); return; }
+        if (isRubiking) { loadProgress(name.trim()).then(d => checkLevel8(d)); return; }
+        if (passSession) return; // sesión de contraseña ya verificada: no ocultar el progreso
+        setDoneLevels([]); setLevel8Unlocked(false); setProgressLoaded(false);
       }, [name, isRubiking]);
 
       // Seleccionar el mayor nivel desbloqueado al cargar el progreso, pero solo si el
@@ -2799,8 +3074,12 @@
       const [passwordError, setPasswordError] = useState('');
       // True cuando la sesión de contraseña está activa (no hay que volver a escribirla)
       const [passSession,   setPassSession]   = useState(false);
+      // True mientras se verifica la contraseña contra Firebase (evita doble clic)
+      const [pwChecking,    setPwChecking]    = useState(false);
 
-      // Al montar: restaurar sesión si existe y no han pasado 30s desde que salió
+      // Al montar: restaurar sesión si existe y no han pasado 30s desde que salió.
+      // La sesión solo se guarda tras verificar la contraseña correctamente (ver
+      // confirmPassword), así que aquí se puede confiar en ella y cargar el progreso.
       useEffect(() => {
         try {
           const raw = sessionStorage.getItem('rr-pass-session');
@@ -2811,11 +3090,13 @@
           if (savedName && savedPass && storedName === savedName && elapsed < 30000) {
             setPassword(savedPass);
             setPassSession(true);
+            loadProgress(savedName).then(d => checkLevel8(d));
           } else {
             sessionStorage.removeItem('rr-pass-session');
           }
         } catch(e) {}
       }, []);
+
 
       useEffect(() => {
         setPasswordError('');
@@ -2826,9 +3107,35 @@
           if (!window.__fbReady) return;
           const claimed = await window.__fbCheckAlias?.(name.trim()) ?? false;
           setAliasClaimed(claimed);
+          if (!claimed && !isRubiking) {
+            // Alias libre: no hay contraseña que proteja el progreso, se muestra directamente.
+            const done = await loadProgress(name.trim());
+            await checkLevel8(done);
+          } else if (!isRubiking) {
+            // Alias protegido: el progreso permanece oculto hasta introducir la contraseña correcta.
+            setProgressLoaded(true);
+          }
         }, 600);
         return () => clearTimeout(t);
-      }, [name, nameOk, passSession]);
+      }, [name, nameOk, passSession, isRubiking]);
+
+      // Se ejecuta al pulsar "OK" o Enter en el campo de contraseña. Si el alias está
+      // protegido, verifica la contraseña contra Firebase ANTES de revelar el progreso
+      // y marcar la sesión como activa; si es incorrecta, muestra el error y no revela nada.
+      const confirmPassword = useCallback(async () => {
+        if (!password.trim() || passSession || pwChecking) return;
+        if (aliasClaimed) {
+          setPwChecking(true);
+          const ok = await window.__fbVerifyAliasPassword?.(name.trim(), password.trim()) ?? false;
+          setPwChecking(false);
+          if (!ok) { setPasswordError(window.T.wrongPassword); return; }
+        }
+        setPasswordError('');
+        const done = await loadProgress(name.trim());
+        await checkLevel8(done);
+        sessionStorage.setItem('rr-pass-session', JSON.stringify({ savedName: name.trim(), savedPass: password.trim(), leaveTime: null }));
+        setPassSession(true);
+      }, [password, passSession, pwChecking, aliasClaimed, name, loadProgress, checkLevel8]);
 
       // Verifica la contraseña (si el alias está reclamado) o la reclama (si se ha escrito una
       // contraseña para un alias libre). Devuelve si la sesión debe tratarse como efímera
@@ -3008,11 +3315,7 @@
                     <input type="password" maxLength={17} value={password}
                       disabled={passSession}
                       onChange={e=>{setPassword(e.target.value); setPasswordError(''); setPassSession(false);}}
-                      onKeyDown={e=>{ if(e.key==='Enter' && password.trim() && !passSession) {
-                        loadProgress(name.trim()).then(d=>checkLevel8(d));
-                        sessionStorage.setItem('rr-pass-session', JSON.stringify({ savedName: name.trim(), savedPass: password.trim(), leaveTime: null }));
-                        setPassSession(true);
-                      }}}
+                      onKeyDown={e=>{ if(e.key==='Enter' && password.trim() && !passSession) confirmPassword(); }}
                       placeholder={aliasClaimed ? window.T.passwordRequired : window.T.passwordOptional}
                       style={{flex:1,boxSizing:'border-box',padding:'9px 12px',borderRadius:'8px',
                               border:`1px solid ${passwordError?'rgba(248,113,113,.5)':passSession?'rgba(100,200,100,.35)':aliasClaimed?'rgba(255,180,0,.35)':'rgba(255,255,255,.12)'}`,
@@ -3030,15 +3333,12 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
                       </button>
                     ) : password.trim() ? (
-                      <button onClick={()=>{
-                          loadProgress(name.trim()).then(d=>checkLevel8(d));
-                          sessionStorage.setItem('rr-pass-session', JSON.stringify({ savedName: name.trim(), savedPass: password.trim(), leaveTime: null }));
-                          setPassSession(true); setPasswordError('');
-                        }}
+                      <button onClick={confirmPassword} disabled={pwChecking}
                         style={{padding:'9px 13px',borderRadius:'8px',border:'1px solid rgba(156,90,255,.5)',
                                 background:'rgba(156,90,255,.18)',color:'#fff',fontWeight:700,fontSize:'13px',
-                                cursor:'pointer',whiteSpace:'nowrap',flexShrink:0}}>
-                        OK
+                                cursor: pwChecking ? 'wait' : 'pointer',whiteSpace:'nowrap',flexShrink:0,
+                                opacity: pwChecking ? .6 : 1}}>
+                        {pwChecking ? '…' : 'OK'}
                       </button>
                     ) : null}
                   </div>
@@ -4787,13 +5087,19 @@
       const [savedName,       setSavedName]       = useState('');
 
 
-      // Precarga el progreso desde Firebase al arrancar si hay nombre guardado en localStorage
+      // Precarga el progreso desde Firebase al arrancar si hay nombre guardado en localStorage.
+      // Si el alias está protegido por contraseña, NO se precarga aquí: Lobby solo revelará
+      // el progreso guardado cuando se verifique la contraseña correcta (o de inmediato si
+      // el alias es libre/sin proteger).
       useEffect(() => {
         const storedName = localStorage.getItem('rr-player-name');
         if (!storedName) return;
         const load = async () => {
           try {
             if (!window.__fbReady) await new Promise(r => window.addEventListener('fbReady', r, { once: true }));
+            const isRubiking = storedName.trim().toLowerCase() === 'rubiking';
+            const claimed = isRubiking ? false : (await window.__fbCheckAlias?.(storedName) ?? false);
+            if (claimed) return; // protegido: esperar verificación de contraseña en Lobby
             const done = await window.__fbGetSoloLevelsDone?.(storedName);
             if (done && done.length > 0) setSavedDoneLevels(done);
           } catch(e) {}
