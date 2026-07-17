@@ -33,10 +33,40 @@
   /* ── Sonidos — Chrome + Safari/iOS ── */
   (() => {
     let _ctx = null;
+    let _masterGain = null;
+
+    // ── Volumen / silencio global (persistido) ──
+    window.__soundVolume = (() => {
+      const v = parseFloat(localStorage.getItem('mc-sound-volume'));
+      return isNaN(v) ? 1 : Math.min(1, Math.max(0, v));
+    })();
+    window.__soundMuted = localStorage.getItem('mc-sound-muted') === '1';
 
     const getCtx = () => {
       if (!_ctx) _ctx = new (window.AudioContext || window.webkitAudioContext)();
       return _ctx;
+    };
+
+    // Nodo de ganancia maestro: todos los sonidos pasan por aquí antes del destino
+    const getMasterGain = (c) => {
+      if (!_masterGain) {
+        _masterGain = c.createGain();
+        _masterGain.gain.value = window.__soundMuted ? 0 : window.__soundVolume;
+        _masterGain.connect(c.destination);
+      }
+      return _masterGain;
+    };
+
+    window.setSoundVolume = (v) => {
+      window.__soundVolume = Math.min(1, Math.max(0, v));
+      localStorage.setItem('mc-sound-volume', String(window.__soundVolume));
+      if (_masterGain) _masterGain.gain.value = window.__soundMuted ? 0 : window.__soundVolume;
+    };
+
+    window.setSoundMuted = (m) => {
+      window.__soundMuted = !!m;
+      localStorage.setItem('mc-sound-muted', window.__soundMuted ? '1' : '0');
+      if (_masterGain) _masterGain.gain.value = window.__soundMuted ? 0 : window.__soundVolume;
     };
 
     // Desbloqueo: buffer silencioso (necesario en Safari) + resume
@@ -89,7 +119,7 @@
       const cg = c.createGain();
       cg.gain.setValueAtTime(1.0, t);
       cg.gain.exponentialRampToValueAtTime(0.001, t + 0.014);
-      click.connect(hp); hp.connect(cg); cg.connect(c.destination);
+      click.connect(hp); hp.connect(cg); cg.connect(getMasterGain(c));
       click.start(t);
       const osc = c.createOscillator(), og = c.createGain();
       osc.type = 'sine';
@@ -97,7 +127,7 @@
       osc.frequency.exponentialRampToValueAtTime(70, t + 0.045);
       og.gain.setValueAtTime(0.55, t);
       og.gain.exponentialRampToValueAtTime(0.001, t + 0.055);
-      osc.connect(og); og.connect(c.destination);
+      osc.connect(og); og.connect(getMasterGain(c));
       osc.start(t); osc.stop(t + 0.06);
     });
 
@@ -113,14 +143,14 @@
       const gn = c.createGain();
       gn.gain.setValueAtTime(0.7, t);
       gn.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
-      src.connect(bp); bp.connect(gn); gn.connect(c.destination);
+      src.connect(bp); bp.connect(gn); gn.connect(getMasterGain(c));
       src.start(t);
       const osc = c.createOscillator(), go = c.createGain();
       osc.frequency.setValueAtTime(200, t);
       osc.frequency.exponentialRampToValueAtTime(160, t + 0.15);
       go.gain.setValueAtTime(0.25, t);
       go.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-      osc.connect(go); go.connect(c.destination);
+      osc.connect(go); go.connect(getMasterGain(c));
       osc.start(t); osc.stop(t + 0.2);
     });
 
@@ -135,7 +165,7 @@
         g.gain.setValueAtTime(0, when);
         g.gain.linearRampToValueAtTime(0.45, when + 0.004);
         g.gain.exponentialRampToValueAtTime(0.001, when + 0.07);
-        osc.connect(g); g.connect(c.destination);
+        osc.connect(g); g.connect(getMasterGain(c));
         osc.start(when); osc.stop(when + 0.08);
       }
     });
@@ -150,7 +180,7 @@
         g.gain.setValueAtTime(0, when);
         g.gain.linearRampToValueAtTime(0.22 - i * 0.04, when + 0.008);
         g.gain.exponentialRampToValueAtTime(0.0008, when + 0.32);
-        osc.connect(g); g.connect(c.destination);
+        osc.connect(g); g.connect(getMasterGain(c));
         osc.start(when); osc.stop(when + 0.34);
       });
     });
@@ -163,7 +193,7 @@
       osc1.frequency.exponentialRampToValueAtTime(1400, t + 0.18);
       g1.gain.setValueAtTime(0.28, t);
       g1.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
-      osc1.connect(g1); g1.connect(c.destination);
+      osc1.connect(g1); g1.connect(getMasterGain(c));
       osc1.start(t); osc1.stop(t + 0.22);
       [880, 1320, 1760].forEach((freq, i) => {
         const when = t + 0.15 + i * 0.04;
@@ -173,7 +203,7 @@
         g.gain.setValueAtTime(0, when);
         g.gain.linearRampToValueAtTime(0.3 - i * 0.06, when + 0.01);
         g.gain.exponentialRampToValueAtTime(0.001, when + 0.35);
-        osc.connect(g); g.connect(c.destination);
+        osc.connect(g); g.connect(getMasterGain(c));
         osc.start(when); osc.stop(when + 0.38);
       });
     });
@@ -234,7 +264,7 @@
         g.gain.setValueAtTime(0.26, when + gate - 0.04);
         g.gain.exponentialRampToValueAtTime(0.001, when + gate);
 
-        osc.connect(lp); osc2.connect(lp); lp.connect(g); g.connect(c.destination);
+        osc.connect(lp); osc2.connect(lp); lp.connect(g); g.connect(getMasterGain(c));
         osc.start(when);  osc.stop(when + gate + 0.02);
         osc2.start(when); osc2.stop(when + gate + 0.02);
         vib.start(when);  vib.stop(when + gate + 0.02);
@@ -334,16 +364,18 @@
     onValue(ref(db, '.info/connected'), snap => window.__fbConnectionState?.(!!snap.val()));
 
     // ── Patrones guardados (galería global, no depende de la partida) ──
-    // Solo Rubiking puede crearlos/eliminarlos (comprobado en el cliente antes de
-    // llamar a estas funciones); cualquier jugador con acceso al editor puede leerlos
-    // y aplicarlos a la partida actual.
+    // Solo Rubiking (u otro jugador con acceso al editor) puede crearlos; una vez
+    // guardado, solo su creador (createdBy) o Rubiking pueden borrarlo/gestionarlo
+    // (comprobado en el cliente antes de llamar a estas funciones). Cualquier jugador
+    // con acceso al editor puede leerlos y aplicarlos a la partida actual.
     const savedPatternsRef = ref(db, 'rubitrack/savedPatterns');
 
-    window.__fbSavePattern = (name, pattern) =>
+    window.__fbSavePattern = (name, pattern, createdBy) =>
       push(savedPatternsRef, {
         name,
         pattern,
         size: Math.round(Math.sqrt(pattern.length)),
+        createdBy: (createdBy || '').trim().toLowerCase(),
         ts: Date.now(),
       });
 
@@ -1634,7 +1666,8 @@
     .rr-saved-use-btn:hover { background:rgba(124,58,237,.45); }
     .rr-saved-del-btn {
       background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.4); color:#ffb3b3;
-      font-size:12px; width:28px; height:28px; border-radius:8px; cursor:pointer; flex-shrink:0;
+      width:28px; height:28px; border-radius:8px; cursor:pointer; flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
     }
     .rr-saved-del-btn:hover { background:rgba(239,68,68,.3); }
     #rr-manual-hint { text-align:center; font-size:10px; color:rgba(255,255,255,.4); margin-top:6px; display:none; }
@@ -1883,6 +1916,7 @@
       { bg:'#ff9800', border:'#e65100', puzzleId:'orange' },
     ];
     window.RR_COLORS = RR_COLORS;
+    window._origRrColors = RR_COLORS.map(c => ({ ...c }));
 
     // 7 niveles de dificultad: patternSize = level+1, boardSize = level+3
     window.RR_LEVELS = [
@@ -1927,6 +1961,19 @@
     document.addEventListener('click', e => {
       if(rrOpen&&!document.getElementById('rr-widget').contains(e.target)){ rrOpen=false; document.getElementById('rr-panel').classList.add('hidden'); }
     });
+
+    // Cierra el panel del editor y CUALQUIER modal relacionado (guardar / galería de
+    // patrones guardados). Se llama al salir de una partida para que, si el jugador
+    // (p.ej. Rubiking) dejó algo abierto, no quede visible ni operable para el
+    // siguiente jugador que entre con otro nombre.
+    function rrResetEditorUI() {
+      rrOpen = false;
+      document.getElementById('rr-panel')?.classList.add('hidden');
+      window.rrToggleManualMode?.(false);
+      window.rrCloseSaveModal?.();
+      window.rrCloseSavedGallery?.();
+    }
+    window.__rrResetEditorUI = rrResetEditorUI;
 
     // Construye el icono mini del patrón completo (real, no una muestra), con celdas
     // dimensionadas para que el icono entero mida al menos ~72px de lado (el doble del original).
@@ -2307,6 +2354,8 @@
       // Guardar patrones con nombre: solo Rubiking. Ver la galería: cualquiera con acceso al editor.
       if (saveBtn) saveBtn.style.display = rrEditorIsRubiking() ? '' : 'none';
       if (galBtn)  galBtn.style.display  = hasAccess ? '' : 'none';
+      if (!rrEditorIsRubiking()) window.rrCloseSaveModal?.();
+      if (!hasAccess) window.rrCloseSavedGallery?.();
       if (!size && rrManualMode) rrToggleManualMode(false);
       if (!hasAccess && rrManualMode) rrToggleManualMode(false);
     }
@@ -2418,6 +2467,13 @@
       return html;
     }
 
+    // Solo puede gestionar (borrar) un patrón guardado quien lo creó, o Rubiking.
+    function rrCanManagePattern(sp) {
+      if (rrEditorIsRubiking()) return true;
+      const creator = (sp?.createdBy || '').trim().toLowerCase();
+      return !!creator && creator === rrEditorCurrentName();
+    }
+
     function rrRenderSavedList() {
       const list = document.getElementById('rr-saved-list');
       const empty = document.getElementById('rr-saved-empty');
@@ -2428,7 +2484,6 @@
         return;
       }
       if (empty) empty.style.display = 'none';
-      const canDelete = rrEditorIsRubiking();
       list.innerHTML = rrSavedPatternsCache.map(sp => `
         <div class="rr-saved-item">
           ${rrMiniPreviewHTML(sp.pattern)}
@@ -2438,7 +2493,14 @@
           </div>
           <div class="rr-saved-actions">
             <button class="rr-saved-use-btn" onclick="rrApplySavedPattern('${sp.id}')">Usar</button>
-            ${canDelete ? `<button class="rr-saved-del-btn" onclick="rrDeleteSavedPatternClick('${sp.id}')" title="Eliminar">🗑</button>` : ''}
+            ${rrCanManagePattern(sp) ? `<button class="rr-saved-del-btn" onclick="rrDeleteSavedPatternClick('${sp.id}')" title="Eliminar">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 7h16"/>
+                <path d="M9 7V4.6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V7"/>
+                <path d="M6 7l1 13a2 2 0 0 0 2 1.9h6a2 2 0 0 0 2-1.9L18 7"/>
+                <path d="M10 11v6M14 11v6"/>
+              </svg>
+            </button>` : ''}
           </div>
         </div>
       `).join('');
@@ -2484,9 +2546,12 @@
     window.rrApplySavedPattern = rrApplySavedPattern;
 
     function rrDeleteSavedPatternClick(id) {
-      if (!rrEditorIsRubiking()) return;
       const sp = rrSavedPatternsCache.find(s => s.id === id);
       if (!sp) return;
+      if (!rrCanManagePattern(sp)) {
+        window.showDiscreteToast?.('🔒', 'Solo quien creó este patrón (o Rubiking) puede eliminarlo', '#f59e0b');
+        return;
+      }
       if (!confirm(`¿Eliminar el patrón "${sp.name}"?`)) return;
       window.__fbDeleteSavedPattern?.(id);
     }
@@ -2519,7 +2584,9 @@
         return;
       }
       if (!window.rrPattern || !window.rrPattern.length) return;
-      window.__fbSavePattern?.(name, [...window.rrPattern]);
+      // Se registra quién lo crea (el nombre actual) para que, una vez guardado, solo
+      // ese jugador o Rubiking puedan eliminarlo/gestionarlo más adelante.
+      window.__fbSavePattern?.(name, [...window.rrPattern], rrEditorCurrentName());
       window.showDiscreteToast?.('💾', `Patrón "${name}" guardado`, '#22c55e');
       rrCloseSaveModal();
     }
@@ -2551,19 +2618,59 @@
       { bg:'#FF8C00', border:'#C46400', puzzleId:'orange' },
     ];
 
+    /* ─── Modo daltónico (rojo/verde → violeta/azul cielo) ─── */
+    // Global state persisted in localStorage; all components read window.__colorblindMode
+    window.__colorblindMode = localStorage.getItem('mc-colorblind') === '1';
+    const CB_SWAP = {
+      red:   { bg:"#7C3AED", shine:"#A78BFA", shadow:"#4C1D95" }, // violeta
+      green: { bg:"#0EA5E9", shine:"#7DD3FC", shadow:"#075985" }, // azul cielo
+    };
+    const CB_SWAP_RR = {
+      red:   { bg:'#7C3AED', border:'#4C1D95' },
+      green: { bg:'#0EA5E9', border:'#075985' },
+    };
+
+    // Recalcula window.RR_COLORS a partir del estado actual de pride + daltónico
+    function refreshRRColors() {
+      const src = window.__prideMode ? PRIDE_RR_COLORS : (window._origRrColors || window.RR_COLORS);
+      src.forEach((c, i) => { window.RR_COLORS[i] = { ...c }; });
+      if (window.__colorblindMode) {
+        window.RR_COLORS.forEach(c => {
+          const swap = CB_SWAP_RR[c.puzzleId];
+          if (swap) { c.bg = swap.bg; c.border = swap.border; }
+        });
+      }
+    }
+
     function setPrideMode(on) {
       window.__prideMode = on;
       localStorage.setItem('mc-pride', on ? '1' : '0');
-      // Update RR_COLORS widget colors
-      if (on) {
-        window._origRrColors = window._origRrColors || [...window.RR_COLORS];
-        PRIDE_RR_COLORS.forEach((c, i) => { window.RR_COLORS[i] = c; });
-      } else {
-        if (window._origRrColors) window._origRrColors.forEach((c, i) => { window.RR_COLORS[i] = c; });
-      }
+      window._origRrColors = window._origRrColors || [...window.RR_COLORS];
+      refreshRRColors();
       // Dispatch event so React components re-render
       window.dispatchEvent(new CustomEvent('prideModeChange', { detail: on }));
     }
+
+    function setColorblindMode(on) {
+      window.__colorblindMode = !!on;
+      localStorage.setItem('mc-colorblind', window.__colorblindMode ? '1' : '0');
+      refreshRRColors();
+      window.dispatchEvent(new CustomEvent('colorblindModeChange', { detail: window.__colorblindMode }));
+    }
+    window.setColorblindMode = setColorblindMode;
+
+    function useColorblindMode() {
+      const [cb, setCb] = useState(!!window.__colorblindMode);
+      useEffect(() => {
+        const handler = (e) => setCb(e.detail);
+        window.addEventListener('colorblindModeChange', handler);
+        return () => window.removeEventListener('colorblindModeChange', handler);
+      }, []);
+      return cb;
+    }
+
+    // Aplica el estado guardado (por si mc-colorblind ya estaba activo antes de cargar)
+    refreshRRColors();
 
     const COLORS = [
       { id:"blue",   bg:"#0D3B8E", shine:"#1A5FC8", shadow:"#061E50" },
@@ -2586,7 +2693,17 @@
       return pride;
     }
 
-    function getColorMap(pride) { return pride ? prideColorMap : colorMap; }
+    function applyColorblindToMap(map) {
+      const out = { ...map };
+      Object.keys(CB_SWAP).forEach(id => {
+        if (out[id]) out[id] = { ...out[id], ...CB_SWAP[id] };
+      });
+      return out;
+    }
+    function getColorMap(pride, colorblind) {
+      const base = pride ? prideColorMap : colorMap;
+      return colorblind ? applyColorblindToMap(base) : base;
+    }
     const RR_IDS=['white','green','yellow','blue','red','orange'];
     // Probabilidad de que se dispare el power-up de remontada al cumplirse la condición
     const RR_SABOTAGE_CHANCE = 0.5;
@@ -3784,6 +3901,144 @@
       );
     }
 
+    /* ─── Panel de configuración: sonido, accesibilidad, usuario, anuncios ─── */
+    function SettingsModal({ onClose, playerName }) {
+      const colorblind = useColorblindMode();
+      const [muted,  setMuted]  = useState(()=>!!window.__soundMuted);
+      const [volume, setVolume] = useState(()=>window.__soundVolume ?? 1);
+      const [name,   setName]   = useState(()=>localStorage.getItem('rr-player-name') || playerName || '');
+      const [nameSaved, setNameSaved] = useState(false);
+      const [premium, setPremium] = useState(()=>localStorage.getItem('mc-premium') === '1');
+
+      const toggleMute = () => {
+        const next = !muted;
+        setMuted(next);
+        window.setSoundMuted?.(next);
+        if (!next) window.playClack?.();
+      };
+
+      const onVolumeChange = (e) => {
+        const v = parseFloat(e.target.value);
+        setVolume(v);
+        window.setSoundVolume?.(v);
+      };
+
+      const saveName = () => {
+        const trimmed = name.trim();
+        if (!trimmed) return;
+        localStorage.setItem('rr-player-name', trimmed);
+        setNameSaved(true);
+        window.playChime?.();
+        setTimeout(()=>setNameSaved(false), 1800);
+      };
+
+      const togglePremium = () => {
+        if (premium) return; // ya activo, no hay "cancelar" desde aquí
+        // NOTA: esta app no tiene una pasarela de pago real conectada (Stripe / Google Play
+        // Billing / App Store). Este interruptor solo guarda la preferencia localmente; para
+        // cobrar de verdad hace falta integrar un procesador de pagos en un backend.
+        const next = true;
+        setPremium(next);
+        localStorage.setItem('mc-premium', '1');
+        window.__isPremium = next;
+        window.dispatchEvent(new CustomEvent('premiumChange', { detail: next }));
+        window.playChime?.();
+      };
+
+      const Toggle = ({ on, onClick, disabled }) => (
+        <button onClick={onClick} disabled={disabled} style={{
+          width:'44px', height:'24px', borderRadius:'999px', border:'none', cursor: disabled?'default':'pointer',
+          flexShrink:0, background: on ? 'rgba(156,90,255,.65)' : 'rgba(255,255,255,.15)',
+          position:'relative', transition:'background .2s', opacity: disabled?0.6:1,
+        }}>
+          <span style={{
+            position:'absolute', top:'2px', left: on ? '22px' : '2px', width:'20px', height:'20px',
+            borderRadius:'50%', background:'#fff', transition:'left .2s', boxShadow:'0 1px 4px rgba(0,0,0,.4)',
+          }}/>
+        </button>
+      );
+
+      const sectionTitle = { fontSize:'11px', color:'rgba(255,255,255,.4)', letterSpacing:'.1em',
+        textTransform:'uppercase', marginTop:'18px', marginBottom:'10px', fontWeight:700 };
+      const row = { display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px' };
+      const hint = { fontSize:'10px', color:'rgba(255,255,255,.32)', marginTop:'6px', lineHeight:1.4 };
+
+      return (
+        <div style={{position:'fixed',inset:0,zIndex:7100,display:'flex',alignItems:'center',justifyContent:'center',
+                     background:'rgba(0,0,0,.82)',backdropFilter:'blur(8px)'}} onClick={onClose}>
+          <div style={{background:'rgba(12,8,30,.97)',border:'1px solid rgba(156,90,255,.3)',borderRadius:'20px',
+                       padding:'20px 16px',width:'min(96vw,420px)',maxHeight:'92vh',overflowY:'auto',
+                       boxShadow:'0 30px 80px rgba(0,0,0,.8)'}} onClick={e=>e.stopPropagation()}>
+
+            {/* Header */}
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div style={{color:'#fff',fontSize:'16px',fontWeight:800}}>⚙️ Configuración</div>
+              <button onClick={onClose} style={{background:'none',border:'none',color:'rgba(255,255,255,.4)',fontSize:'22px',cursor:'pointer',lineHeight:1}}>×</button>
+            </div>
+
+            {/* ── Sonido ── */}
+            <div style={sectionTitle}>🔊 Sonido</div>
+            <div style={row}>
+              <span style={{color:'#ddd',fontSize:'13px'}}>Silenciar</span>
+              <Toggle on={muted} onClick={toggleMute}/>
+            </div>
+            <div style={{...row, marginTop:'12px'}}>
+              <span style={{color:'rgba(255,255,255,.6)',fontSize:'12px',whiteSpace:'nowrap'}}>Volumen</span>
+              <input type="range" min="0" max="1" step="0.05" value={volume} disabled={muted}
+                     onChange={onVolumeChange}
+                     style={{flex:1, accentColor:'#9c5aff', opacity: muted?0.4:1}}/>
+            </div>
+
+            {/* ── Accesibilidad ── */}
+            <div style={sectionTitle}>👁️ Accesibilidad</div>
+            <div style={row}>
+              <div>
+                <div style={{color:'#ddd',fontSize:'13px'}}>Modo daltónico</div>
+                <div style={hint}>Cambia el rojo y el verde de las fichas por violeta y azul cielo.</div>
+              </div>
+              <Toggle on={colorblind} onClick={()=>setColorblindMode(!colorblind)}/>
+            </div>
+
+            {/* ── Usuario ── */}
+            <div style={sectionTitle}>👤 Usuario</div>
+            <div style={{display:'flex',gap:'8px'}}>
+              <input value={name} onChange={e=>setName(e.target.value)} maxLength={18} placeholder="Tu nombre"
+                     style={{flex:1,background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.12)',
+                             borderRadius:'10px',padding:'8px 10px',color:'#fff',fontSize:'13px',outline:'none',
+                             fontFamily:"'Trebuchet MS','Segoe UI',sans-serif"}}/>
+              <button onClick={saveName} style={{background: nameSaved ? 'rgba(74,222,128,.25)' : 'rgba(156,90,255,.35)',
+                      border: nameSaved ? '1px solid rgba(74,222,128,.5)' : 'none', borderRadius:'10px',
+                      padding:'8px 14px', color: nameSaved ? '#4ade80' : '#e0c8ff', fontWeight:700, fontSize:'12px',
+                      cursor:'pointer', whiteSpace:'nowrap'}}>
+                {nameSaved ? '✓ Guardado' : 'Guardar'}
+              </button>
+            </div>
+            <div style={hint}>Se aplicará en tu próxima partida (no cambia tu nombre en la partida activa).</div>
+
+            {/* ── Quitar anuncios ── */}
+            <div style={sectionTitle}>✨ Sin anuncios</div>
+            <div style={row}>
+              <span style={{color:'#ddd',fontSize:'13px'}}>{premium ? 'Anuncios desactivados' : 'Quitar anuncios'}</span>
+              <button onClick={togglePremium} disabled={premium} style={{
+                background: premium ? 'rgba(74,222,128,.2)' : 'linear-gradient(135deg,#7c3aed,#4f1fbf)',
+                border: premium ? '1px solid rgba(74,222,128,.5)' : 'none',
+                borderRadius:'10px', padding:'8px 16px', color: premium ? '#4ade80' : '#fff',
+                fontWeight:700, fontSize:'12px', cursor: premium ? 'default' : 'pointer', whiteSpace:'nowrap',
+              }}>
+                {premium ? '✓ Activo' : 'Comprar'}
+              </button>
+            </div>
+            <div style={hint}>
+              Esta demo no tiene una pasarela de pago real conectada (Stripe, Google Play Billing, App Store, etc.).
+              El botón guarda tu preferencia en este dispositivo; para cobrar de verdad hace falta integrar
+              un procesador de pagos desde un backend.
+            </div>
+
+          </div>
+        </div>
+      );
+    }
+
         function TutorialOverlay({ step, hl, onNext, onClose }) {
       if (!step || !hl) return null;
       const { pat, ctr, voice, invite } = hl;
@@ -3986,7 +4241,9 @@
       const [hintMove,      setHintMove]      = useState(null);
       const [usedHints,     setUsedHints]     = useState(false);
       const pride = usePrideMode();
+      const colorblind = useColorblindMode();
       const [pridePreview, setPridePreview] = useState(false);
+      const [showSettings, setShowSettings] = useState(false);
 
       // Toggle persistente de fichas Pride durante la partida
       useEffect(() => {
@@ -4320,6 +4577,10 @@
           widget.style.display = '';
         }
         return () => {
+          // Cerrar panel, modo manual y cualquier modal (guardar / galería) que haya
+          // quedado abierto: si no, seguirían visibles y operables para el próximo
+          // jugador que entre con otro nombre (p.ej. tras salir de "Rubiking").
+          window.__rrResetEditorUI?.();
           if (widget) {
             widget.style.display = 'none';
             // Importante: devolver el widget a un contenedor estable (body) ANTES de que
@@ -4714,6 +4975,13 @@
                   <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
                 </svg>
               </button>
+              <button className="help-btn" onClick={()=>setShowSettings(true)} title="Configuración">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c89fff"
+                     strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 3 13.09H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+              </button>
               <div style={{position:'relative'}}>
                 <button className="help-btn" onClick={openTutorial} title={window.T.helpTitle}>?</button>
                 {showTutHint && (
@@ -4820,17 +5088,6 @@
 
           </div>
 
-          {/* Debug: fichas correctas propias vs rivales — para verificar la condición del Sudden Swap */}
-          {activePl.length > 1 && (
-            <div style={{textAlign:'center', fontSize:'10.5px', color:'#9a90b5', marginBottom:'6px'}}>
-              🎯 Vos: {myCorrectCount} fichas
-              {otherProgressState.length > 0 && (
-                <> · Rival{otherProgressState.length>1?'es':''}: {otherProgressState.map(p=>`${p.name} (${p.correct})`).join(', ')}</>
-              )}
-              {matchIndexRef.current < 2 && <> · Sudden Swap se activa desde tu 2ª partida</>}
-            </div>
-          )}
-
           {/* Board */}
           <div style={{position:'relative'}} ref={boardRef}>
             {/* Column labels A-... */}
@@ -4914,7 +5171,7 @@
                     )}
                   </div>;
                 }
-                const c=getColorMap(effectivePride)[tile.colorId], isAdj=canMove(idx,ei,boardSize,mask);
+                const c=getColorMap(effectivePride, colorblind)[tile.colorId], isAdj=canMove(idx,ei,boardSize,mask);
                 const col = idx % boardSize;
                 const row = Math.floor(idx / boardSize);
                 const coord = String.fromCharCode(65+col) + (row+1);
@@ -5057,6 +5314,7 @@
 
           {/* Confirm modal */}
           {showScores && <ScoresModal onClose={()=>setShowScores(false)} playerName={playerName} currentLevel={level}/>}
+          {showSettings && <SettingsModal onClose={()=>setShowSettings(false)} playerName={playerName}/>}
           {showInvite && <InviteModal onClose={()=>setShowInvite(false)} gameCode={gameCode}/>}
           {showConfirm && (
             <div className="confirm-backdrop" onClick={()=>setShowConfirm(false)}>
