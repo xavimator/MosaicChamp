@@ -2139,10 +2139,75 @@
     let lastResetTs=0;
     window.__fbResetReceived = ts => { if(ts<=lastResetTs)return; lastResetTs=ts; window.dispatchEvent(new CustomEvent('rrGlobalReset',{detail:ts})); };
 
+    // Confetti — cuadrados de colores que salen disparados del panel de patrón (#rr-widget).
+    // Se dispara para TODOS los participantes (se llama desde __fbNotifReceived, que ya
+    // recibe el evento de "finish" vía Firebase para cada cliente conectado a la partida).
+    window.playConfetti = function(count) {
+      const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduceMotion) return;
+      const origin = document.getElementById('rr-widget');
+      if (!origin) return;
+      const rect = origin.getBoundingClientRect();
+      const ox = rect.left + rect.width / 2;
+      const oy = rect.top + rect.height / 2;
+
+      const COLORS = ['#FF6B6B','#FFD93D','#6BCB77','#4D96FF','#C77DFF','#FF9F45','#00D2D3','#FF6FA5','#B8FF66'];
+      const N = count || 54;
+
+      const layer = document.createElement('div');
+      layer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9600;overflow:visible;';
+      document.body.appendChild(layer);
+
+      const pieces = [];
+      for (let i = 0; i < N; i++) {
+        const size = 5 + Math.random() * 5;
+        const el = document.createElement('div');
+        el.style.cssText = `position:absolute;left:${ox}px;top:${oy}px;width:${size}px;height:${size}px;` +
+          `margin:${-size/2}px 0 0 ${-size/2}px;background:${COLORS[i % COLORS.length]};` +
+          `border-radius:1px;will-change:transform,opacity;`;
+        layer.appendChild(el);
+        const ang = Math.random() * Math.PI * 2;
+        const speed = 3 + Math.random() * 6.5;
+        pieces.push({
+          el,
+          x: 0, y: 0,
+          vx: Math.cos(ang) * speed,
+          vy: Math.sin(ang) * speed - 4.5, // ligero impulso hacia arriba al salir
+          rot: Math.random() * 360,
+          vr: (Math.random() - 0.5) * 20,
+          life: 0,
+          maxLife: 68 + Math.random() * 42,
+        });
+      }
+
+      const gravity = 0.28, drag = 0.985;
+      function tick() {
+        let alive = false;
+        pieces.forEach(p => {
+          if (p.life > p.maxLife) return;
+          alive = true;
+          p.vy += gravity;
+          p.vx *= drag;
+          p.x += p.vx;
+          p.y += p.vy;
+          p.rot += p.vr;
+          p.life++;
+          const fadeStart = p.maxLife - 20;
+          const opacity = p.life > fadeStart ? Math.max(0, (p.maxLife - p.life) / 20) : 1;
+          p.el.style.transform = `translate(${p.x}px,${p.y}px) rotate(${p.rot}deg)`;
+          p.el.style.opacity = opacity;
+        });
+        if (alive) requestAnimationFrame(tick);
+        else layer.remove();
+      }
+      requestAnimationFrame(tick);
+    };
+
     // Finish notif — aparece debajo del patrón de muestra (rr-widget)
     let finishNotifTimer = null;
     window.__fbNotifReceived = item => {
       window.playWhoosh?.();
+      window.playConfetti?.();
       const area = document.getElementById('finish-notif-area');
       if (!area) return;
       if (finishNotifTimer) clearTimeout(finishNotifTimer);
