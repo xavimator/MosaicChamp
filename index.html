@@ -392,6 +392,23 @@
 
     window.__fbDeleteSavedPattern = (id) => remove(ref(db, `rubitrack/savedPatterns/${id}`));
 
+    // ── Temporadas del año (global, no depende de la partida) ──
+    // Cualquiera puede leer la configuración activa; solo Rubiking puede escribirla
+    // (comprobado en el cliente antes de llamar a __fbSaveSeasons). Al guardar, el
+    // cambio se propaga en tiempo real a todos los jugadores conectados, estén donde estén.
+    const seasonsRef = ref(db, 'rubitrack/seasons');
+
+    window.__fbListenSeasons = (callback) =>
+      onValue(seasonsRef, snap => callback(snap.val() || null));
+
+    window.__fbSaveSeasons = (config) => set(seasonsRef, { ...config, ts: Date.now() });
+
+    // Nos suscribimos ya mismo: la config de temporadas debe aplicarse aunque el
+    // jugador nunca abra el panel de patrón. El callback usa optional chaining porque
+    // rrApplySeasonsConfig se define más abajo, en otro <script>, y para cuando Firebase
+    // responda (siempre async) ya estará disponible.
+    window.__fbListenSeasons(cfg => { if (cfg) window.__rrApplySeasonsConfig?.(cfg); });
+
     // ── Per-game listeners ──
     let unsubs = [];
     function detach() { unsubs.forEach(fn => fn()); unsubs = []; }
@@ -1437,6 +1454,17 @@
     *, *::before, *::after { box-sizing:border-box; margin:0; padding:0;
         -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
     html, body { height:100%; background:#0a0818; overflow:hidden; overscroll-behavior:none; }
+    :root { --rr-icon-color:#c89fff; }
+    /* ── Temporada de Verano y Vacaciones ── */
+    body.rr-season-verano { --rr-icon-color:#0e6b64; }
+    body.rr-season-verano .lobby-wrap {
+      background: linear-gradient(to top,
+        #E4CE9B 0%, #E4CE9B 12%,
+        #3FA9A0 18%, #66C6D9 26%,
+        #7FD4F0 40%, #4FA8E8 62%,
+        #1E5FC0 82%, #0B2E6B 100%
+      );
+    }
     body { position:fixed; inset:0; overflow:hidden; overscroll-behavior:none; }
     #root { height:100%; overflow:hidden; }
     :root { --tile:clamp(50px,calc((100vw - 64px)/5),62px); }
@@ -1506,7 +1534,7 @@
       animation:fadeUp .5s cubic-bezier(.34,1.2,.64,1);
       display:flex; flex-direction:column; gap:16px;
     }
-    .lobby-label { font-size:11px; color:rgba(255,255,255,.35); letter-spacing:.12em; text-transform:uppercase; margin-bottom:2px; }
+    .lobby-label { font-size:11px; color:rgba(255,255,255,.88); letter-spacing:.12em; text-transform:uppercase; margin-bottom:2px; }
     .lobby-input {
       width:100%; padding:12px 16px; border-radius:12px;
       border:1.5px solid rgba(255,255,255,.12); background:rgba(255,255,255,.06);
@@ -1514,7 +1542,7 @@
       font-family:'Trebuchet MS','Segoe UI',sans-serif; transition:border-color .2s;
     }
     .lobby-input:focus { border-color:rgba(156,90,255,.6); }
-    .lobby-input::placeholder { color:rgba(255,255,255,.2); }
+    .lobby-input::placeholder { color:rgba(255,255,255,.85); }
     .lobby-divider { height:1px; background:rgba(255,255,255,.08); margin:4px 0; }
     .lobby-btn {
       width:100%; padding:8px; border-radius:9px; border:none; cursor:pointer;
@@ -1524,7 +1552,7 @@
     .lobby-btn:active { transform:scale(0.97); }
     .lobby-btn.primary { background:linear-gradient(135deg,#7c3aed,#4f1fbf); color:#fff; }
     .lobby-btn.primary:hover { filter:brightness(1.15); }
-    .lobby-btn.secondary { background:rgba(255,255,255,.07); color:rgba(255,255,255,.7); border:1.5px solid rgba(255,255,255,.12); }
+    .lobby-btn.secondary { background:rgba(255,255,255,.07); color:rgba(255,255,255,.93); border:1.5px solid rgba(255,255,255,.12); }
     .lobby-btn.secondary:hover { background:rgba(255,255,255,.12); }
     .lobby-btn:disabled { opacity:.4; cursor:not-allowed; }
     .lobby-error { font-size:12px; color:#f87171; text-align:center; animation:fadeUp .3s ease; }
@@ -1548,7 +1576,7 @@
       align-self:flex-start;
     }
     .game-code-badge:hover { background:rgba(156,90,255,.15); }
-    .game-code-badge .code-label { font-size:7px; color:rgba(255,255,255,.35); letter-spacing:.12em; text-transform:uppercase; }
+    .game-code-badge .code-label { font-size:7px; color:rgba(255,255,255,.88); letter-spacing:.12em; text-transform:uppercase; }
     .game-code-badge .code-value { font-size:11px; font-weight:900; color:#c89fff; letter-spacing:.15em; }
     .game-code-badge .copy-icon  { font-size:9px; opacity:.5; }
     .copied-hint { font-size:10px; color:#22c55e; animation:fadeUp .2s ease; }
@@ -1586,7 +1614,7 @@
     #rr-panel-header { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:2px; }
     #rr-panel h3 { color:#fff; font-size:16px; font-weight:700; }
     .rr-tm { color:#9b59b6; font-size:9px; letter-spacing:4px; text-transform:uppercase; text-align:center; margin-bottom:10px; }
-    #rr-status-text { text-align:center; font-size:10px; color:rgba(255,255,255,.3); margin-bottom:10px; min-height:14px; }
+    #rr-status-text { text-align:center; font-size:10px; color:rgba(255,255,255,.87); margin-bottom:10px; min-height:14px; }
     #rr-players { margin-bottom:10px; display:flex; flex-wrap:wrap; gap:5px; justify-content:center; min-height:16px; }
     .rr-player-chip {
       display:flex; flex-direction:column; align-items:flex-start;
@@ -1599,7 +1627,7 @@
     .rr-player-chip .dot.moving   { background:#60a5fa; animation:movingPulse .8s ease-in-out infinite; }
     .rr-player-chip .dot.finished { background:#FFE566; }
     .rr-chip-name   { flex:1; }
-    .rr-chip-status { font-size:9px; color:rgba(255,255,255,.35); padding-left:10px; }
+    .rr-chip-status { font-size:9px; color:rgba(255,255,255,.88); padding-left:10px; }
     .rr-chip-time   { font-size:9px; color:#FFE566; font-weight:700; padding-left:10px; }
     #rr-grid { display:grid; grid-template-columns:repeat(3,var(--tile)); gap:5px; margin-bottom:13px; justify-content:center; }
     .rrcell { width:var(--tile); height:var(--tile); border-radius:8px; border:2px solid #333; transition:background .4s,border-color .4s; position:relative; overflow:hidden; }
@@ -1632,7 +1660,7 @@
     .rr-modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
     .rr-modal-header h3 { color:#fff; font-size:15px; font-weight:700; }
     .rr-modal-close {
-      background:rgba(255,255,255,.08); border:none; color:#c89fff; width:26px; height:26px; border-radius:50%;
+      background:rgba(255,255,255,.08); border:none; color:var(--rr-icon-color,#c89fff); width:26px; height:26px; border-radius:50%;
       cursor:pointer; font-size:13px; line-height:1; flex-shrink:0;
     }
     .rr-modal-close:hover { background:rgba(255,255,255,.18); }
@@ -1647,7 +1675,7 @@
     }
     .rr-save-confirm-btn:hover { background:#6d28d9; }
     .rr-saved-list { overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
-    .rr-saved-empty { text-align:center; font-size:12px; color:rgba(255,255,255,.4); padding:14px 0; }
+    .rr-saved-empty { text-align:center; font-size:12px; color:rgba(255,255,255,.88); padding:14px 0; }
     .rr-saved-item {
       display:flex; align-items:center; gap:10px; background:rgba(255,255,255,.05);
       border:1px solid rgba(156,90,255,.2); border-radius:12px; padding:8px 10px;
@@ -1657,7 +1685,37 @@
     .rr-mini-empty { background:transparent; border-color:transparent; }
     .rr-saved-info { flex:1; min-width:0; }
     .rr-saved-name { color:#fff; font-size:12.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .rr-saved-size { color:rgba(255,255,255,.4); font-size:10.5px; margin-top:1px; }
+    .rr-saved-size { color:rgba(255,255,255,.88); font-size:10.5px; margin-top:1px; }
+
+    /* ── Seasons admin modal (Rubiking) ── */
+    .rr-modal-box-lg { max-width:420px; }
+    .rr-season-override-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+    .rr-season-override-row label { color:rgba(255,255,255,.91); font-size:11px; white-space:nowrap; }
+    #rr-season-override-select, .rr-season-row select, .rr-season-row input {
+      background:rgba(255,255,255,.07); border:1.5px solid rgba(156,90,255,.35); border-radius:8px;
+      color:#fff; font-size:12px; padding:5px 6px; outline:none;
+    }
+    #rr-season-override-select { flex:1; padding:7px 8px; }
+    .rr-season-active-line { text-align:center; font-size:11.5px; color:rgba(255,255,255,.9); margin-bottom:12px; }
+    .rr-season-active-line strong { color:#c89fff; }
+    .rr-seasons-list { overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+    .rr-season-row {
+      background:rgba(255,255,255,.05); border:1px solid rgba(156,90,255,.2); border-radius:10px;
+      padding:8px 10px;
+    }
+    .rr-season-row-name { color:#fff; font-size:12px; font-weight:700; margin-bottom:6px; }
+    .rr-season-active-tag { color:#4ade80; font-weight:700; font-size:10px; }
+    .rr-season-row-dates { display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
+    .rr-season-row-dates span { color:rgba(255,255,255,.88); font-size:10.5px; }
+    .rr-season-row-dates select { flex-shrink:0; }
+    .rr-season-row-dates input[type="number"] { width:44px; flex-shrink:0; }
+    .rr-seasons-actions { display:flex; gap:8px; }
+    .rr-seasons-actions button { flex:1; }
+    .rr-seasons-reset-btn {
+      background:rgba(255,255,255,.08); color:rgba(255,255,255,.93); border:1.5px solid rgba(255,255,255,.15);
+      border-radius:9px; font-size:12.5px; font-weight:700; cursor:pointer; padding:10px; transition:background .2s;
+    }
+    .rr-seasons-reset-btn:hover { background:rgba(255,255,255,.15); }
     .rr-saved-actions { display:flex; align-items:center; gap:6px; flex-shrink:0; }
     .rr-saved-use-btn {
       background:rgba(124,58,237,.25); border:1px solid rgba(156,90,255,.6); color:#e9d9ff;
@@ -1670,7 +1728,7 @@
       display:flex; align-items:center; justify-content:center;
     }
     .rr-saved-del-btn:hover { background:rgba(239,68,68,.3); }
-    #rr-manual-hint { text-align:center; font-size:10px; color:rgba(255,255,255,.4); margin-top:6px; display:none; }
+    #rr-manual-hint { text-align:center; font-size:10px; color:rgba(255,255,255,.88); margin-top:6px; display:none; }
     #rr-grid.rr-manual-active .rrcell { cursor:pointer; }
     #rr-shuffle:hover    { background:#6d28d9; }
     #rr-shuffle:disabled { opacity:.4; cursor:not-allowed; }
@@ -1697,9 +1755,9 @@
     .toast-row { display:flex; align-items:flex-start; gap:12px; }
     .toast-emoji { font-size:20px; flex-shrink:0; }
     .toast-title { font-family:'Pacifico',cursive; font-size:13px; background:linear-gradient(90deg,#FFE566,#FFA85C); -webkit-background-clip:text; -webkit-text-fill-color:transparent; margin-bottom:2px; }
-    .toast-msg  { font-size:11px; color:rgba(255,255,255,.5); }
-    .toast-meta { font-size:10px; color:rgba(255,255,255,.3); margin-top:3px; }
-    .toast-discrete { background:rgba(6,4,20,.88); border:1px solid rgba(255,255,255,.1); border-radius:10px; padding:7px 13px; font-size:11px; color:rgba(255,255,255,.5); display:flex; align-items:center; gap:7px; animation:toastIn .3s cubic-bezier(.34,1.4,.64,1); }
+    .toast-msg  { font-size:11px; color:rgba(255,255,255,.9); }
+    .toast-meta { font-size:10px; color:rgba(255,255,255,.87); margin-top:3px; }
+    .toast-discrete { background:rgba(6,4,20,.88); border:1px solid rgba(255,255,255,.1); border-radius:10px; padding:7px 13px; font-size:11px; color:rgba(255,255,255,.9); display:flex; align-items:center; gap:7px; animation:toastIn .3s cubic-bezier(.34,1.4,.64,1); }
     .toast-discrete.out { animation:toastOut .3s ease forwards; }
     .td-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
 
@@ -1708,18 +1766,18 @@
     .confirm-box { background:linear-gradient(145deg,#12103a,#0a0818); border:1.5px solid rgba(156,90,255,.35); border-radius:20px; padding:28px 28px 22px; text-align:center; box-shadow:0 24px 60px rgba(0,0,0,.7); animation:modalIn .35s cubic-bezier(.34,1.4,.64,1); max-width:300px; width:90%; }
     .confirm-box .icon { font-size:36px; margin-bottom:10px; }
     .confirm-box h4 { color:#fff; font-size:16px; font-weight:800; margin-bottom:6px; }
-    .confirm-box p  { color:rgba(255,255,255,.45); font-size:12px; line-height:1.5; margin-bottom:20px; }
+    .confirm-box p  { color:rgba(255,255,255,.89); font-size:12px; line-height:1.5; margin-bottom:20px; }
     .confirm-btns   { display:flex; gap:10px; justify-content:center; }
     .confirm-btn-yes { flex:1; padding:10px; border-radius:10px; border:none; background:linear-gradient(135deg,#7c3aed,#4f1fbf); color:#fff; font-size:13px; font-weight:700; cursor:pointer; transition:filter .2s; }
     .confirm-btn-yes:hover { filter:brightness(1.2); }
-    .confirm-btn-no  { flex:1; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,.15); background:rgba(255,255,255,.07); color:rgba(255,255,255,.6); font-size:13px; font-weight:600; cursor:pointer; }
+    .confirm-btn-no  { flex:1; padding:10px; border-radius:10px; border:1px solid rgba(255,255,255,.15); background:rgba(255,255,255,.07); color:rgba(255,255,255,.92); font-size:13px; font-weight:600; cursor:pointer; }
     .confirm-btn-no:hover { background:rgba(255,255,255,.13); }
 
     /* ══ Name input ══ */
     .name-input-wrap { display:flex; align-items:center; gap:8px; background:rgba(255,255,255,.05); border-radius:12px; padding:10px 16px; border:1px solid rgba(255,255,255,.1); width:100%; max-width:340px; }
-    .name-input-wrap label { font-size:11px; color:rgba(255,255,255,.4); letter-spacing:.1em; text-transform:uppercase; white-space:nowrap; }
+    .name-input-wrap label { font-size:11px; color:rgba(255,255,255,.88); letter-spacing:.1em; text-transform:uppercase; white-space:nowrap; }
     .name-input-wrap input { flex:1; background:transparent; border:none; outline:none; color:#fff; font-size:15px; font-weight:600; font-family:'Trebuchet MS','Segoe UI',sans-serif; }
-    .name-input-wrap input::placeholder { color:rgba(255,255,255,.2); }
+    .name-input-wrap input::placeholder { color:rgba(255,255,255,.85); }
 
     /* ══ Leave button ══ */
     .leave-btn { background:rgba(34,197,94,.12); border:1px solid rgba(74,222,128,.5); border-radius:8px; color:#4ade80; font-size:11px; font-weight:700; padding:5px 12px; cursor:pointer; transition:all .2s; letter-spacing:.08em; box-shadow:0 0 10px rgba(74,222,128,.25); }
@@ -1779,7 +1837,7 @@
     .help-btn {
       width:38px; height:38px; border-radius:50%; flex-shrink:0;
       border:1.5px solid rgba(156,90,255,.45);
-      background:rgba(10,8,24,.9); color:#c89fff;
+      background:rgba(10,8,24,.9); color:var(--rr-icon-color,#c89fff);
       font-size:20px; font-weight:700; line-height:1;
       cursor:pointer; display:flex; align-items:center; justify-content:center;
       backdrop-filter:blur(14px); transition:all .2s;
@@ -1805,7 +1863,7 @@
     <div id="rr-panel" class="hidden">
       <div id="rr-panel-header">
         <h3 id="rr-panel-title">Pattern</h3>
-        <span id="rr-level-badge" style="font-size:11px;color:rgba(255,255,255,.4);font-weight:600;"></span>
+        <span id="rr-level-badge" style="font-size:11px;color:rgba(255,255,255,.88);font-weight:600;"></span>
         <div id="rr-sync-dot-panel" style="width:7px;height:7px;border-radius:50%;background:#444;transition:background .4s;"></div>
       </div>
       <div id="rr-offline-badge" style="display:none;margin:4px auto 6px;padding:3px 10px;border-radius:20px;
@@ -1822,7 +1880,7 @@
       <button id="rr-shuffle" onclick="rrShuffle()" disabled></button>
       <div id="rr-pattern-tools">
         <button id="rr-image-btn" class="rr-tool-btn" onclick="rrImageButtonClick()" title="Desde imagen">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c89fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rr-icon-color,#c89fff)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
             <path d="M2.6 8.4a1.9 1.9 0 0 1 1.9-1.9h4.1l1.8 2h7a1.9 1.9 0 0 1 1.9 1.9v6.3a1.9 1.9 0 0 1-1.9 1.9H4.5a1.9 1.9 0 0 1-1.9-1.9z"/>
             <rect x="12.6" y="1.6" width="4.6" height="4.6" rx="1" transform="rotate(-14 14.9 3.9)"/>
             <rect x="16.6" y="5.2" width="3.8" height="3.8" rx="0.9" transform="rotate(11 18.5 7.1)"/>
@@ -1838,35 +1896,43 @@
               <polygon points="3,21.6 15.2,10.4 15.2,16 8.6,21.6" fill="#ffd23f"/>
               <polygon points="8.6,21.6 15.2,16 15.2,21.6" fill="#4da6ff"/>
             </g>
-            <rect x="3" y="8.6" width="13" height="13" rx="2.3" stroke="#c89fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M20.8 2.2L13.4 9.6" stroke="#c89fff" stroke-width="3.1" stroke-linecap="round"/>
-            <path d="M10.4 6.6a3.1 3.1 0 0 1 3.4-.6" stroke="#c89fff" stroke-width="1.2" stroke-linecap="round"/>
-            <path d="M9.2 4.2a6 6 0 0 1 6.6-1.1" stroke="#c89fff" stroke-width="1.2" stroke-linecap="round"/>
+            <rect x="3" y="8.6" width="13" height="13" rx="2.3" stroke="var(--rr-icon-color,#c89fff)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M20.8 2.2L13.4 9.6" stroke="var(--rr-icon-color,#c89fff)" stroke-width="3.1" stroke-linecap="round"/>
+            <path d="M10.4 6.6a3.1 3.1 0 0 1 3.4-.6" stroke="var(--rr-icon-color,#c89fff)" stroke-width="1.2" stroke-linecap="round"/>
+            <path d="M9.2 4.2a6 6 0 0 1 6.6-1.1" stroke="var(--rr-icon-color,#c89fff)" stroke-width="1.2" stroke-linecap="round"/>
           </svg>
         </button>
         <button id="rr-validate-btn" class="rr-tool-btn" onclick="rrValidatePattern()" title="Validar patrón (rellena el tablero con tiles suficientes)">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c89fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rr-icon-color,#c89fff)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="3" width="18" height="18" rx="3.2"/>
             <path d="M7.3 12.6l3.1 3.1 6.3-7.4"/>
           </svg>
         </button>
         <button id="rr-save-btn" class="rr-tool-btn" onclick="rrOpenSaveModal()" title="Guardar patrón con nombre">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c89fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rr-icon-color,#c89fff)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4.5 3.5h12l3 3v13a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-15a1 1 0 0 1 1-1z"/>
             <path d="M7.5 3.5v5h7v-5"/>
             <rect x="7.5" y="13.5" width="9" height="6.5"/>
           </svg>
         </button>
         <button id="rr-gallery-btn" class="rr-tool-btn" onclick="rrOpenSavedGallery()" title="Patrones guardados">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c89fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rr-icon-color,#c89fff)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 6.5a1.5 1.5 0 0 1 1.5-1.5h4.4l1.6 2h9a1.5 1.5 0 0 1 1.5 1.5v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z"/>
+          </svg>
+        </button>
+        <button id="rr-seasons-btn" class="rr-tool-btn" onclick="rrOpenSeasonsAdmin()" title="Temporadas del año" style="display:none;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rr-icon-color,#c89fff)" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3.5" y="4.5" width="17" height="16" rx="2.2"/>
+            <path d="M3.5 9.2h17"/>
+            <path d="M8 2.6v3.4M16 2.6v3.4"/>
+            <path d="M7.5 13h2.6M7.5 16.4h2.6M13.9 13h2.6M13.9 16.4h2.6"/>
           </svg>
         </button>
       </div>
       <div id="rr-validate-hint" style="text-align:center;font-size:10px;color:rgba(34,197,94,.6);margin-top:4px;display:none;">Tablero actualizado con colores suficientes</div>
       <input id="rr-image-input" type="file" accept="image/*" style="display:none" onchange="rrHandleImageFile(this.files[0])">
       <div style="margin-top:10px;text-align:center;">
-        <a href="licenses.html" style="font-size:11px;color:rgba(255,255,255,.25);text-decoration:none;letter-spacing:.03em;" target="_blank">Licencias de terceros</a>
+        <a href="licenses.html" style="font-size:11px;color:rgba(255,255,255,.86);text-decoration:none;letter-spacing:.03em;" target="_blank">Licencias de terceros</a>
       </div>
     </div>
   </div>
@@ -1893,6 +1959,26 @@
       </div>
       <div id="rr-saved-list" class="rr-saved-list"></div>
       <div id="rr-saved-empty" class="rr-saved-empty" style="display:none;">Todavía no hay patrones guardados.</div>
+    </div>
+  </div>
+
+  <!-- ══ Temporadas del año (solo Rubiking) ══ -->
+  <div id="rr-seasons-overlay" class="rr-modal-overlay hidden" onclick="if(event.target===this) rrCloseSeasonsAdmin()">
+    <div class="rr-modal-box rr-modal-box-lg">
+      <div class="rr-modal-header">
+        <h3>🗓️ Temporadas</h3>
+        <button class="rr-modal-close" onclick="rrCloseSeasonsAdmin()">✕</button>
+      </div>
+      <div class="rr-season-active-line">Activa ahora: <strong id="rr-season-active-label">—</strong></div>
+      <div class="rr-season-override-row">
+        <label>Forzar:</label>
+        <select id="rr-season-override-select"></select>
+      </div>
+      <div id="rr-seasons-list" class="rr-seasons-list"></div>
+      <div class="rr-seasons-actions">
+        <button class="rr-seasons-reset-btn" onclick="rrSeasonsResetDefaults()">Restablecer</button>
+        <button class="rr-save-confirm-btn" onclick="rrSeasonsSave()">Guardar</button>
+      </div>
     </div>
   </div>
 
@@ -2211,7 +2297,7 @@
       const area = document.getElementById('finish-notif-area');
       if (!area) return;
       if (finishNotifTimer) clearTimeout(finishNotifTimer);
-      area.innerHTML = `<div class="finish-notif"><span style="font-size:18px">🏁</span><div><div style="font-size:12px;font-weight:800;color:#FFD27A;margin-bottom:2px;">${window.T.finishToast(item.name)}</div><div style="font-size:10px;color:rgba(255,255,255,.45)">${window.T.finishToastSub}</div><div style="font-size:10px;color:rgba(255,255,255,.3);margin-top:2px">⏱ ${item.time} · ${item.moves} mov</div></div></div>`;
+      area.innerHTML = `<div class="finish-notif"><span style="font-size:18px">🏁</span><div><div style="font-size:12px;font-weight:800;color:#FFD27A;margin-bottom:2px;">${window.T.finishToast(item.name)}</div><div style="font-size:10px;color:rgba(255,255,255,.89)">${window.T.finishToastSub}</div><div style="font-size:10px;color:rgba(255,255,255,.87);margin-top:2px">⏱ ${item.time} · ${item.moves} mov</div></div></div>`;
       area.style.display = '';
       finishNotifTimer = setTimeout(() => { area.style.display = 'none'; area.innerHTML = ''; }, 5000);
     };
@@ -2405,6 +2491,189 @@
     }
     window.rrShowEditorUnlockNotif = rrShowEditorUnlockNotif;
 
+    // ═══════════════════════════════════════════════════════════════════
+    // ── Temporadas del año ──
+    // Cada temporada tiene un id fijo (se usa en el código para activar
+    // efectos/skins más adelante), un nombre en ES/EN, y un rango de fechas
+    // por defecto (mes,día). Si dos temporadas comparten el mismo día límite
+    // (p.ej. 15 de mayo), gana la que aparece PRIMERO en esta lista: por eso
+    // el orden importa y no hay que reordenarlo sin querer.
+    // ═══════════════════════════════════════════════════════════════════
+    const RR_SEASONS_DEFAULT = [
+      { id:'new_year',       es:'Año Nuevo',                       en:'New Year',                 start:[1,1],   end:[1,31]  },
+      { id:'carnavalentin',  es:'Carnavalentín',                   en:'Carnivalentine',           start:[2,1],   end:[3,1]   },
+      { id:'mujer',          es:'Día de la Mujer',                 en:"Women's Day",              start:[3,2],   end:[3,25]  },
+      { id:'libro_rosa',     es:'Día del Libro y la Rosa',         en:'Book & Rose Day',          start:[4,25],  end:[5,1]   },
+      { id:'madre',          es:'Día de la Madre',                 en:"Mother's Day",             start:[5,2],   end:[5,15]  },
+      { id:'museos',         es:'Día de los Museos',               en:'Museums Day',              start:[5,15],  end:[6,1]   },
+      { id:'conservacion',   es:'Conservación del Planeta',        en:'Planet Conservation',      start:[6,2],   end:[6,27]  },
+      { id:'pride',          es:'Pride',                           en:'Pride',                    start:[6,28],  end:[7,6]   },
+      { id:'san_fermin',     es:'San Fermín',                      en:'San Fermín',               start:[7,7],   end:[7,14]  },
+      { id:'verano',         es:'Verano y Vacaciones',             en:'Summer & Vacation',        start:[7,15],  end:[8,25]  },
+      { id:'vuelta_colegio', es:'Vuelta al Colegio',               en:'Back to School',           start:[8,26],  end:[10,1]  },
+      { id:'otono',          es:'Otoño',                           en:'Autumn',                   start:[10,1],  end:[10,25] },
+      { id:'dia_muertos',    es:'Día de los Muertos / Halloween',  en:'Day of the Dead / Halloween', start:[10,26], end:[11,25] },
+      { id:'loud_secrets',   es:'Loud Secrets',                    en:'Loud Secrets',             start:[11,25], end:[12,20] },
+      { id:'festividades',   es:'Festividades Familiares',         en:'Family Festivities',       start:[12,20], end:[12,31] },
+    ];
+    window.RR_SEASONS_DEFAULT = RR_SEASONS_DEFAULT;
+
+    // Estado en memoria: { dates:{id:[[sm,sd],[em,ed]]}, manualOverride:id|null, updatedBy }
+    window.__rrSeasonsConfig = null;
+    // id de la temporada activa ahora mismo (o null si estamos en un hueco sin temporada)
+    window.__rrActiveSeason = null;
+
+    function rrSeasonsEffectiveList() {
+      const overrides = (window.__rrSeasonsConfig && window.__rrSeasonsConfig.dates) || {};
+      return RR_SEASONS_DEFAULT.map(s => {
+        const o = overrides[s.id];
+        return (o && Array.isArray(o[0]) && Array.isArray(o[1])) ? { ...s, start:o[0], end:o[1] } : s;
+      });
+    }
+    window.__rrSeasonsEffectiveList = rrSeasonsEffectiveList;
+
+    function rrDateInSeason(season, m, d) {
+      const [sm,sd] = season.start, [em,ed] = season.end;
+      const sv = sm*100+sd, ev = em*100+ed, cv = m*100+d;
+      return sv <= ev ? (cv >= sv && cv <= ev) : (cv >= sv || cv <= ev); // soporta cruzar fin de año
+    }
+
+    function rrComputeAutoSeason(date) {
+      date = date || new Date();
+      const m = date.getMonth()+1, d = date.getDate();
+      const list = rrSeasonsEffectiveList();
+      for (let i=0;i<list.length;i++) if (rrDateInSeason(list[i], m, d)) return list[i].id;
+      return null;
+    }
+    window.__rrComputeAutoSeason = rrComputeAutoSeason;
+
+    // Refleja la temporada activa en <body> como clase CSS (para fondos/iconos automáticos
+    // que no dependen del toggle personal de "modo alternativo" por temporada).
+    function rrApplySeasonBodyClass(seasonId) {
+      Array.from(document.body.classList).forEach(c => {
+        if (c.indexOf('rr-season-') === 0) document.body.classList.remove(c);
+      });
+      if (seasonId) document.body.classList.add('rr-season-' + seasonId);
+    }
+
+    function rrRecomputeActiveSeason() {
+      const manual = window.__rrSeasonsConfig && window.__rrSeasonsConfig.manualOverride;
+      const next = manual || rrComputeAutoSeason();
+      if (next !== window.__rrActiveSeason) {
+        window.__rrActiveSeason = next;
+        rrApplySeasonBodyClass(next);
+        // Otros módulos (efectos visuales de cada temporada) se enganchan a este evento.
+        window.dispatchEvent(new CustomEvent('rrSeasonChange', { detail: next }));
+      }
+      window.rrRenderSeasonsAdmin?.();
+    }
+    window.__rrRecomputeActiveSeason = rrRecomputeActiveSeason;
+
+    function rrApplySeasonsConfig(config) {
+      window.__rrSeasonsConfig = config || { dates:{}, manualOverride:null };
+      try { localStorage.setItem('rr-seasons-config', JSON.stringify(window.__rrSeasonsConfig)); } catch(e) {}
+      rrRecomputeActiveSeason();
+    }
+    window.__rrApplySeasonsConfig = rrApplySeasonsConfig;
+
+    // Carga inicial desde caché local (instantáneo) mientras llega la config de Firebase
+    (function rrInitSeasonsFromCache() {
+      let cached = null;
+      try { cached = JSON.parse(localStorage.getItem('rr-seasons-config') || 'null'); } catch(e) {}
+      window.__rrSeasonsConfig = cached || { dates:{}, manualOverride:null };
+      rrRecomputeActiveSeason();
+    })();
+
+    // Por si la pestaña queda abierta de un día para otro (o durante una temporada larga),
+    // revisamos periódicamente si toca cambiar de temporada automática.
+    setInterval(rrRecomputeActiveSeason, 30*60*1000);
+
+    // ── Panel de administración de temporadas (solo Rubiking) ──
+    const RR_MONTH_NAMES = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    function rrMonthOptions(selected) {
+      return RR_MONTH_NAMES.map((name,i) =>
+        `<option value="${i+1}" ${i+1===selected?'selected':''}>${name}</option>`).join('');
+    }
+
+    function rrRenderSeasonsAdmin() {
+      const list = document.getElementById('rr-seasons-list');
+      if (!list || document.getElementById('rr-seasons-overlay')?.classList.contains('hidden')) return;
+
+      const sel = document.getElementById('rr-season-override-select');
+      const manual = (window.__rrSeasonsConfig && window.__rrSeasonsConfig.manualOverride) || '';
+      if (sel) {
+        sel.innerHTML = `<option value="">Automático (según fecha)</option>` +
+          RR_SEASONS_DEFAULT.map(s => `<option value="${s.id}">${s.es}</option>`).join('');
+        sel.value = manual;
+      }
+
+      const activeInfo = RR_SEASONS_DEFAULT.find(s => s.id === window.__rrActiveSeason);
+      const activeLabel = document.getElementById('rr-season-active-label');
+      if (activeLabel) activeLabel.textContent = activeInfo ? activeInfo.es : 'Ninguna (fuera de temporada)';
+
+      const effective = rrSeasonsEffectiveList();
+      list.innerHTML = effective.map(s => `
+        <div class="rr-season-row" data-season-id="${s.id}">
+          <div class="rr-season-row-name">${s.es}${window.__rrActiveSeason===s.id ? ' <span class="rr-season-active-tag">● activa</span>' : ''}</div>
+          <div class="rr-season-row-dates">
+            <span>Del</span>
+            <select data-field="sm">${rrMonthOptions(s.start[0])}</select>
+            <input type="number" min="1" max="31" value="${s.start[1]}" data-field="sd">
+            <span>al</span>
+            <select data-field="em">${rrMonthOptions(s.end[0])}</select>
+            <input type="number" min="1" max="31" value="${s.end[1]}" data-field="ed">
+          </div>
+        </div>
+      `).join('');
+    }
+    window.rrRenderSeasonsAdmin = rrRenderSeasonsAdmin;
+
+    function rrOpenSeasonsAdmin() {
+      if (!rrEditorIsRubiking()) return;
+      document.getElementById('rr-seasons-overlay')?.classList.remove('hidden');
+      rrRenderSeasonsAdmin();
+    }
+    window.rrOpenSeasonsAdmin = rrOpenSeasonsAdmin;
+
+    function rrCloseSeasonsAdmin() {
+      document.getElementById('rr-seasons-overlay')?.classList.add('hidden');
+    }
+    window.rrCloseSeasonsAdmin = rrCloseSeasonsAdmin;
+
+    function rrSeasonsSave() {
+      if (!rrEditorIsRubiking()) return;
+      const rows = document.querySelectorAll('#rr-seasons-list .rr-season-row');
+      const dates = {};
+      let hasError = false;
+      rows.forEach(row => {
+        const id = row.getAttribute('data-season-id');
+        const sm = parseInt(row.querySelector('[data-field="sm"]').value, 10);
+        const sd = parseInt(row.querySelector('[data-field="sd"]').value, 10);
+        const em = parseInt(row.querySelector('[data-field="em"]').value, 10);
+        const ed = parseInt(row.querySelector('[data-field="ed"]').value, 10);
+        if (!sm || !sd || !em || !ed || sd<1 || sd>31 || ed<1 || ed>31) { hasError = true; return; }
+        dates[id] = [[sm,sd],[em,ed]];
+      });
+      if (hasError) { window.showDiscreteToast?.('⚠️', 'Revisa las fechas: hay algún campo vacío o inválido', '#ef4444'); return; }
+      const manualOverride = document.getElementById('rr-season-override-select')?.value || null;
+      const config = { dates, manualOverride, updatedBy: rrEditorCurrentName() };
+      rrApplySeasonsConfig(config);       // aplicar ya mismo en este dispositivo
+      window.__fbSaveSeasons?.(config);   // propagar a todos los jugadores
+      window.showDiscreteToast?.('🗓️', 'Temporadas actualizadas para todos', '#9c5aff');
+      rrRenderSeasonsAdmin();
+    }
+    window.rrSeasonsSave = rrSeasonsSave;
+
+    function rrSeasonsResetDefaults() {
+      if (!rrEditorIsRubiking()) return;
+      const config = { dates:{}, manualOverride:null, updatedBy: rrEditorCurrentName() };
+      rrApplySeasonsConfig(config);
+      window.__fbSaveSeasons?.(config);
+      window.showDiscreteToast?.('↩️', 'Temporadas restablecidas a las fechas por defecto', '#9c5aff');
+      rrRenderSeasonsAdmin();
+    }
+    window.rrSeasonsResetDefaults = rrSeasonsResetDefaults;
+
     function rrSyncPatternTools() {
       const size = rrPatternSize();
       const imgBtn = document.getElementById('rr-image-btn');
@@ -2412,14 +2681,16 @@
       const valBtn = document.getElementById('rr-validate-btn');
       const saveBtn = document.getElementById('rr-save-btn');
       const galBtn  = document.getElementById('rr-gallery-btn');
+      const seasonsBtn = document.getElementById('rr-seasons-btn');
       const hasAccess = rrEditorHasAccess();
       if (imgBtn) { imgBtn.style.display = hasAccess ? '' : 'none'; imgBtn.disabled = !size; }
       if (manBtn) { manBtn.style.display = hasAccess ? '' : 'none'; manBtn.disabled = !size; }
       if (valBtn) valBtn.disabled = !(window.rrPattern && window.rrPattern.length);
-      // Guardar patrones con nombre: solo Rubiking. Ver la galería: cualquiera con acceso al editor.
+      // Guardar patrones con nombre y temporadas: solo Rubiking. Ver la galería: cualquiera con acceso al editor.
       if (saveBtn) saveBtn.style.display = rrEditorIsRubiking() ? '' : 'none';
       if (galBtn)  galBtn.style.display  = hasAccess ? '' : 'none';
-      if (!rrEditorIsRubiking()) window.rrCloseSaveModal?.();
+      if (seasonsBtn) seasonsBtn.style.display = rrEditorIsRubiking() ? '' : 'none';
+      if (!rrEditorIsRubiking()) { window.rrCloseSaveModal?.(); window.rrCloseSeasonsAdmin?.(); }
       if (!hasAccess) window.rrCloseSavedGallery?.();
       if (!size && rrManualMode) rrToggleManualMode(false);
       if (!hasAccess && rrManualMode) rrToggleManualMode(false);
@@ -2695,9 +2966,13 @@
       green: { bg:'#0EA5E9', border:'#075985' },
     };
 
-    // Recalcula window.RR_COLORS a partir del estado actual de pride + daltónico
+    // Recalcula window.RR_COLORS a partir del estado actual de temporada + pride + daltónico
     function refreshRRColors() {
-      const src = window.__prideMode ? PRIDE_RR_COLORS : (window._origRrColors || window.RR_COLORS);
+      const theme = (window.__RR_SEASON_THEMES || {})[window.__rrActiveSeason] || null;
+      let src;
+      if (window.__seasonAltMode && theme) src = theme.rrColors;
+      else if (window.__prideMode) src = PRIDE_RR_COLORS;
+      else src = window._origRrColors || window.RR_COLORS;
       src.forEach((c, i) => { window.RR_COLORS[i] = { ...c }; });
       if (window.__colorblindMode) {
         window.RR_COLORS.forEach(c => {
@@ -2737,6 +3012,90 @@
     // Aplica el estado guardado (por si mc-colorblind ya estaba activo antes de cargar)
     refreshRRColors();
 
+    /* ─── Temporadas con tema visual propio (fichas alternativas) ───
+       Cada temporada que quiera un "modo alternativo" de colores para las fichas
+       (activable con el mismo gesto de mantener pulsado el título, igual que Pride)
+       se registra aquí. Más temporadas se irán añadiendo con el tiempo. */
+    window.__RR_SEASON_THEMES = {};
+
+    // Verano y Vacaciones: arena, azul cielo, amarillo sol, turquesa pastel,
+    // naranja pastel y rosa pastel — sustituyen a los 6 colores de siempre.
+    const SUMMER_COLORS = [
+      { id:"white",  bg:"#E4CE9B", shine:"#F3E6C4", shadow:"#B89A5E" }, // arena
+      { id:"blue",   bg:"#6EC3F4", shine:"#A8DFFB", shadow:"#2E86C9" }, // azul cielo
+      { id:"yellow", bg:"#FFD93D", shine:"#FFEB85", shadow:"#E8A700" }, // amarillo sol
+      { id:"green",  bg:"#7FD8C6", shine:"#B2ECDF", shadow:"#3FA692" }, // turquesa pastel
+      { id:"orange", bg:"#FFB870", shine:"#FFD9AC", shadow:"#E8863C" }, // naranja pastel
+      { id:"red",    bg:"#FFB6C9", shine:"#FFD6E2", shadow:"#E8809E" }, // rosa pastel
+    ];
+    const SUMMER_RR_COLORS = [
+      { bg:'#E4CE9B', border:'#B89A5E', puzzleId:'white'  },
+      { bg:'#7FD8C6', border:'#3FA692', puzzleId:'green'  },
+      { bg:'#FFD93D', border:'#E8A700', puzzleId:'yellow' },
+      { bg:'#6EC3F4', border:'#2E86C9', puzzleId:'blue'   },
+      { bg:'#FFB6C9', border:'#E8809E', puzzleId:'red'    },
+      { bg:'#FFB870', border:'#E8863C', puzzleId:'orange' },
+    ];
+    const summerColorMap = {}; SUMMER_COLORS.forEach(c => { summerColorMap[c.id] = c; });
+
+    window.__RR_SEASON_THEMES.verano = {
+      colorMap: summerColorMap,
+      rrColors: SUMMER_RR_COLORS,
+      gradient: 'linear-gradient(90deg,#E4CE9B,#FFD93D,#7FD8C6,#6EC3F4,#FFB870,#FFB6C9)',
+      bgGradient: 'linear-gradient(to top,#E4CE9B 0%,#E4CE9B 12%,#3FA9A0 18%,#66C6D9 26%,#7FD4F0 40%,#4FA8E8 62%,#1E5FC0 82%,#0B2E6B 100%)',
+      hideStars: true,
+      hintOn:  <>Mantén pulsado el título<br/>para desactivar VACACIONES</>,
+      hintOff: <>Toca y mantén el título<br/>para VACACIONES</>,
+    };
+
+    // Devuelve el tema visual de la temporada activa ahora mismo, o null si no tiene uno.
+    function rrCurrentSeasonTheme() {
+      return (window.__RR_SEASON_THEMES || {})[window.__rrActiveSeason] || null;
+    }
+
+    // Estado del "modo alternativo" — se guarda por temporada (mc-season-alt-<id>) para
+    // que activar el modo en una temporada no deje, sin querer, otra encendida más tarde.
+    function rrSeasonAltKey(seasonId) { return `mc-season-alt-${seasonId}`; }
+    function rrSeasonAltGet(seasonId) {
+      return !!seasonId && localStorage.getItem(rrSeasonAltKey(seasonId)) === '1';
+    }
+    window.__seasonAltMode = rrSeasonAltGet(window.__rrActiveSeason);
+
+    function setSeasonAltMode(on) {
+      const seasonId = window.__rrActiveSeason;
+      if (!rrCurrentSeasonTheme()) return; // la temporada activa no tiene tema propio
+      window.__seasonAltMode = !!on;
+      localStorage.setItem(rrSeasonAltKey(seasonId), window.__seasonAltMode ? '1' : '0');
+      refreshRRColors();
+      window.dispatchEvent(new CustomEvent('seasonAltModeChange', { detail: window.__seasonAltMode }));
+    }
+    window.setSeasonAltMode = setSeasonAltMode;
+
+    function useSeasonAltMode() {
+      const [v, setV] = useState(!!window.__seasonAltMode);
+      useEffect(() => {
+        const h  = (e) => setV(e.detail);
+        const sh = () => setV(!!window.__seasonAltMode);
+        window.addEventListener('seasonAltModeChange', h);
+        window.addEventListener('rrSeasonChange', sh);
+        return () => {
+          window.removeEventListener('seasonAltModeChange', h);
+          window.removeEventListener('rrSeasonChange', sh);
+        };
+      }, []);
+      return v;
+    }
+
+    function useActiveSeason() {
+      const [s, setS] = useState(window.__rrActiveSeason);
+      useEffect(() => {
+        const h = (e) => setS(e.detail);
+        window.addEventListener('rrSeasonChange', h);
+        return () => window.removeEventListener('rrSeasonChange', h);
+      }, []);
+      return s;
+    }
+
     const COLORS = [
       { id:"blue",   bg:"#0D3B8E", shine:"#1A5FC8", shadow:"#061E50" },
       { id:"green",  bg:"#0A6B2E", shine:"#13A346", shadow:"#053A18" },
@@ -2765,8 +3124,11 @@
       });
       return out;
     }
-    function getColorMap(pride, colorblind) {
-      const base = pride ? prideColorMap : colorMap;
+    function getColorMap(pride, colorblind, seasonAlt) {
+      const theme = rrCurrentSeasonTheme();
+      let base;
+      if (seasonAlt && theme) base = theme.colorMap;
+      else base = pride ? prideColorMap : colorMap;
       return colorblind ? applyColorblindToMap(base) : base;
     }
     const RR_IDS=['white','green','yellow','blue','red','orange'];
@@ -2886,6 +3248,10 @@
 
     function PrideToast({ onActivate, children }) {
       const pride = usePrideMode();
+      const seasonAlt = useSeasonAltMode();
+      const activeSeason = useActiveSeason();
+      const theme = window.__RR_SEASON_THEMES[activeSeason] || null;
+      const isOn = theme ? seasonAlt : pride;
       const [holding,  setHolding]  = useState(false);
       const [progress, setProgress] = useState(0);
       const lpRef         = useRef(null);
@@ -2942,17 +3308,19 @@
             letterSpacing:'.02em', pointerEvents:'none',
             padding:'0 12px',
           }}>
-            {pride
-              ? (holding ? 'Aguanta…' : <>Mantén pulsado el título<br/>para desactivar PRIDE</>)
-              : (holding ? 'Aguanta…' : <>Mantén pulsado el título<br/>para mostrar tu PRIDE</>)
+            {holding
+              ? 'Aguanta…'
+              : theme
+                ? (isOn ? theme.hintOn : theme.hintOff)
+                : (pride ? <>Mantén pulsado el título<br/>para desactivar PRIDE</> : <>Mantén pulsado el título<br/>para mostrar tu PRIDE</>)
             }
           </div>
-          {/* Barra de progreso arcoíris */}
+          {/* Barra de progreso */}
           {holding && (
             <div style={{
               position:'absolute', bottom:0, left:0, height:'3px',
               width:`${progress*100}%`,
-              background:'linear-gradient(90deg,#E40303,#FF8C00,#FFED00,#008026,#004CFF,#732982)',
+              background: theme ? theme.gradient : 'linear-gradient(90deg,#E40303,#FF8C00,#FFED00,#008026,#004CFF,#732982)',
               transition:'none', pointerEvents:'none',
             }}/>
           )}
@@ -2960,9 +3328,15 @@
       );
     }
 
-    /* ─── Title with long-press Pride toggle ─── */
+    /* ─── Title with long-press Pride/seasonal toggle ─── */
     function MosaicTitle({ style, interactive = true }) {
       const pride = usePrideMode();
+      const seasonAlt = useSeasonAltMode();
+      const activeSeason = useActiveSeason();
+      const theme = window.__RR_SEASON_THEMES[activeSeason] || null;
+      const themeRef = useRef(theme);
+      useEffect(() => { themeRef.current = theme; }, [theme]);
+
       const [prideTiles, setPrideTiles] = useState(false);
       const [holding,  setHolding]  = useState(false);
       const [progress, setProgress] = useState(0);
@@ -2976,6 +3350,13 @@
 
       useEffect(() => {
         lpRef.current = makeLongPress(() => {
+          // Si la temporada activa tiene tema propio (p.ej. Verano), el gesto
+          // alterna ese modo global en vez del preview local de Pride.
+          if (themeRef.current) {
+            setSeasonAltMode(!window.__seasonAltMode);
+            window.playChime?.();
+            return;
+          }
           const next = !prideTilesRef.current;
           prideTilesRef.current = next;
           setPrideTiles(next);
@@ -3002,7 +3383,10 @@
         return () => window.removeEventListener('prideTileToggle', handler);
       }, []);
 
-      const effectivePride = pride || prideTiles;
+      const effectivePride = theme ? seasonAlt : (pride || prideTiles);
+      const activeGradient = theme
+        ? theme.gradient
+        : 'linear-gradient(90deg,#E40303,#FF8C00,#FFED00,#008026,#004CFF,#732982)';
 
       const onStartRef = useRef(null);
       const onStopRef  = useRef(null);
@@ -3046,7 +3430,7 @@
               fontSize:'1.3em', letterSpacing:'-0.01em', whiteSpace:'nowrap', pointerEvents:'none',
               textShadow: effectivePride ? 'none' : '0 2px 4px rgba(0,0,0,.55)',
               ...(effectivePride ? {
-                background:'linear-gradient(90deg,#E40303,#FF8C00,#FFED00,#008026,#004CFF,#732982)',
+                background: activeGradient,
                 WebkitBackgroundClip:'text', backgroundClip:'text', WebkitTextFillColor:'transparent',
               } : { color:'#c7c7d1' }),
             }}
@@ -3055,9 +3439,7 @@
             <div style={{
               position:'absolute', bottom:-4, left:0, height:'4px', borderRadius:'2px',
               width:`${progress*100}%`,
-              background: effectivePride
-                ? 'rgba(255,255,255,.8)'
-                : 'linear-gradient(90deg,#E40303,#FF8C00,#FFED00,#008026,#004CFF,#732982)',
+              background: effectivePride ? 'rgba(255,255,255,.8)' : activeGradient,
               transition:'none', zIndex:20, pointerEvents:'none',
             }}/>
           )}
@@ -3101,6 +3483,8 @@
         const saved = parseInt(localStorage.getItem('rr-level'),10);
         return (saved>=1 && saved<=8) ? saved : 2;
       });
+      const activeSeason = useActiveSeason(); // re-renderiza si Rubiking cambia la temporada en vivo
+      const seasonTheme  = window.__RR_SEASON_THEMES[activeSeason] || null;
 
       const nameOk = name.trim().length > 0;
       const [rankName, setRankName] = useState('');
@@ -3441,8 +3825,13 @@
 
       return (
         <div className="lobby-wrap">
-          <Stars/>
-          <PrideToast onActivate={() => { setPrideMode(!window.__prideMode); window.playChime?.(); }}>
+          {!seasonTheme?.hideStars && <Stars/>}
+          <PrideToast onActivate={() => {
+            const theme = window.__RR_SEASON_THEMES[window.__rrActiveSeason];
+            if (theme) setSeasonAltMode(!window.__seasonAltMode);
+            else setPrideMode(!window.__prideMode);
+            window.playChime?.();
+          }}>
             <MosaicTitle style={{width:'100%',justifyContent:'center'}} interactive={false}/>
           </PrideToast>
           {fbOnline === false && (
@@ -3483,7 +3872,7 @@
                     </button>
                     <button onClick={()=>setRankName('')}
                             style={{padding:'5px 8px',borderRadius:'6px',border:'1px solid rgba(255,255,255,.1)',
-                                   background:'rgba(255,255,255,.05)',color:'rgba(255,255,255,.4)',
+                                   background:'rgba(255,255,255,.05)',color:'rgba(255,255,255,.88)',
                                    fontSize:'11px',cursor:'pointer'}}>
                       {window.T.continueAnyway}
                     </button>
@@ -3615,7 +4004,7 @@
                                border:'1px solid transparent',background:'transparent'}}/>
                 )}
               </div>
-              <div style={{marginTop:'7px',fontSize:'11px',color:'rgba(255,255,255,.4)',textAlign:'center'}}>
+              <div style={{marginTop:'7px',fontSize:'11px',color:'rgba(255,255,255,.88)',textAlign:'center'}}>
                 {window.RR_LEVEL_INFO(level).special==='cross' ? (
                   <span style={{color:'#FFD27A',fontWeight:800}}>✛ {window.T.mosaicCross} · 11×11</span>
                 ) : (
@@ -3632,7 +4021,7 @@
               {showCodePanel && (
                 <div style={{marginTop:'10px',padding:'12px',borderRadius:'10px',
                              background:'rgba(255,255,255,.04)',border:'1px solid rgba(255,255,255,.1)'}}>
-                  <div style={{fontSize:'11px',color:'rgba(255,255,255,.5)',marginBottom:'8px'}}>{window.T.haveCode}</div>
+                  <div style={{fontSize:'11px',color:'rgba(255,255,255,.9)',marginBottom:'8px'}}>{window.T.haveCode}</div>
                   <div style={{display:'flex',gap:'6px'}}>
                     <input value={codeInput} onChange={e=>{setCodeInput(e.target.value);setCodeMsg('');}}
                            placeholder={window.T.level8CodePlaceholder}
@@ -3652,7 +4041,7 @@
               )}
 
               {level8Unlocked && myUnlockCode && (
-                <div style={{marginTop:'8px',fontSize:'11px',color:'rgba(255,255,255,.4)',textAlign:'center'}}>
+                <div style={{marginTop:'8px',fontSize:'11px',color:'rgba(255,255,255,.88)',textAlign:'center'}}>
                   {window.T.yourCode}: <span style={{color:'#FFD27A',fontWeight:800,letterSpacing:'.1em'}}>{myUnlockCode}</span>
                 </div>
               )}
@@ -3691,7 +4080,7 @@
           {/* Active games list */}
           {games.length > 0 && (
             <div style={{width:'100%',maxWidth:'360px',marginTop:'20px'}}>
-              <div style={{fontSize:'10px',color:'rgba(255,255,255,.3)',letterSpacing:'.15em',
+              <div style={{fontSize:'10px',color:'rgba(255,255,255,.87)',letterSpacing:'.15em',
                            textTransform:'uppercase',textAlign:'center',marginBottom:'10px'}}>
                 {window.T.activeGames}
               </div>
@@ -3711,7 +4100,7 @@
                     <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
                       <span style={{fontSize:'16px'}}>🎮</span>
                       <span style={{fontSize:'14px',fontWeight:600,color:'rgba(255,255,255,.85)'}}>{g.host}</span>
-                      <span style={{fontSize:'10px',fontWeight:700,color:'rgba(255,255,255,.4)',
+                      <span style={{fontSize:'10px',fontWeight:700,color:'rgba(255,255,255,.88)',
                                     background:'rgba(255,255,255,.06)',padding:'2px 7px',borderRadius:'6px'}}>
                         {window.T.levelShort(g.level||2)}
                       </span>
@@ -3757,7 +4146,7 @@
             {/* Header */}
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',width:'100%',marginBottom:'16px'}}>
               <div style={{color:'#fff',fontSize:'16px',fontWeight:800}}>📲 {window.T.inviteTitle}</div>
-              <button onClick={onClose} style={{background:'none',border:'none',color:'rgba(255,255,255,.4)',fontSize:'22px',cursor:'pointer',lineHeight:1}}>×</button>
+              <button onClick={onClose} style={{background:'none',border:'none',color:'rgba(255,255,255,.88)',fontSize:'22px',cursor:'pointer',lineHeight:1}}>×</button>
             </div>
 
             {/* QR */}
@@ -3772,7 +4161,7 @@
             </div>
 
             {/* URL */}
-            <div style={{color:'rgba(255,255,255,.4)',fontSize:'11px',marginBottom:'18px',
+            <div style={{color:'rgba(255,255,255,.88)',fontSize:'11px',marginBottom:'18px',
                          maxWidth:'100%',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>
               {url}
             </div>
@@ -3844,7 +4233,7 @@
                 {hl?'👤 ':''}{s.name}
               </td>
               <td style={{padding:'5px 3px',textAlign:'right',color:'#c89fff',fontSize:'11px',whiteSpace:'nowrap'}}>
-                {s[wKey]}<span style={{color:'rgba(255,255,255,.3)',marginLeft:'4px'}}>{f(s[tKey])}</span>
+                {s[wKey]}<span style={{color:'rgba(255,255,255,.87)',marginLeft:'4px'}}>{f(s[tKey])}</span>
               </td>
             </tr>
           );
@@ -3854,7 +4243,7 @@
             <tbody>
               {t9.map((s,i)=>Row(s,i+1,icons[i]||i+1))}
               {own&&<React.Fragment>
-                <tr><td colSpan={3} style={{textAlign:'center',color:'rgba(255,255,255,.15)',fontSize:'10px',padding:'2px'}}>···</td></tr>
+                <tr><td colSpan={3} style={{textAlign:'center',color:'rgba(255,255,255,.84)',fontSize:'10px',padding:'2px'}}>···</td></tr>
                 {Row(own,oi+1,oi+1)}
               </React.Fragment>}
             </tbody>
@@ -3880,7 +4269,7 @@
             {/* Header */}
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
               <div style={{color:'#fff',fontSize:'16px',fontWeight:800}}>👑 {window.T.scoresTitle}</div>
-              <button onClick={onClose} style={{background:'none',border:'none',color:'rgba(255,255,255,.4)',fontSize:'22px',cursor:'pointer',lineHeight:1}}>×</button>
+              <button onClick={onClose} style={{background:'none',border:'none',color:'rgba(255,255,255,.88)',fontSize:'22px',cursor:'pointer',lineHeight:1}}>×</button>
             </div>
 
             {/* Level tabs */}
@@ -3896,7 +4285,7 @@
             {/* ── Global tab ── */}
             {tab === 0 && <>
               {c3.length>0 && <>
-                <div style={{textAlign:'center',fontSize:'10px',color:'rgba(255,255,255,.3)',letterSpacing:'.12em',
+                <div style={{textAlign:'center',fontSize:'10px',color:'rgba(255,255,255,.87)',letterSpacing:'.12em',
                              textTransform:'uppercase',marginBottom:'8px'}}>{window.T.combinedLabel}</div>
                 <div style={{display:'flex',alignItems:'flex-end',justifyContent:'center',gap:'6px',marginBottom:'20px'}}>
                   {podOrd.map((s,i)=>(
@@ -3905,7 +4294,7 @@
                                    maxWidth:'100%',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',textAlign:'center',padding:'0 2px'}}>
                         {mine(s)?'👤 ':''}{s.name}
                       </div>
-                      <div style={{fontSize:'10px',color:'rgba(255,255,255,.35)'}}>{s.winsTotal}W · {f(s.bestSecTotal)}</div>
+                      <div style={{fontSize:'10px',color:'rgba(255,255,255,.88)'}}>{s.winsTotal}W · {f(s.bestSecTotal)}</div>
                       <div style={{fontSize:i===1?'26px':'20px'}}>👑</div>
                       <div style={{width:'100%',background:podCol[i],border:`1px solid ${podBdr[i]}`,
                                    borderRadius:'6px 6px 0 0',height:`${podH[i]}px`,
@@ -3919,17 +4308,17 @@
               </>}
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
                 <div>
-                  <div style={{fontSize:'10px',color:'rgba(255,255,255,.4)',letterSpacing:'.1em',
+                  <div style={{fontSize:'10px',color:'rgba(255,255,255,.88)',letterSpacing:'.1em',
                                textTransform:'uppercase',marginBottom:'6px'}}>🥇 {window.T.multiLabel}</div>
                   {global.multi.length===0
-                    ? <div style={{color:'rgba(255,255,255,.2)',fontSize:'11px'}}>{window.T.noScores}</div>
+                    ? <div style={{color:'rgba(255,255,255,.85)',fontSize:'11px'}}>{window.T.noScores}</div>
                     : Col(global.multi,'winsMulti','bestSecMulti',['🥇','🥈','🥉'])}
                 </div>
                 <div>
-                  <div style={{fontSize:'10px',color:'rgba(255,255,255,.4)',letterSpacing:'.1em',
+                  <div style={{fontSize:'10px',color:'rgba(255,255,255,.88)',letterSpacing:'.1em',
                                textTransform:'uppercase',marginBottom:'6px'}}>⚔️ {window.T.soloLabel}</div>
                   {global.solo.length===0
-                    ? <div style={{color:'rgba(255,255,255,.2)',fontSize:'11px'}}>{window.T.noScores}</div>
+                    ? <div style={{color:'rgba(255,255,255,.85)',fontSize:'11px'}}>{window.T.noScores}</div>
                     : Col(global.solo,'winsSolo','bestSecSolo',['⚔️','⚔️','⚔️'])}
                 </div>
               </div>
@@ -3938,23 +4327,23 @@
             {/* ── Level tab ── */}
             {tab >= 1 && tab <= 8 && (
               <div>
-                <div style={{fontSize:'11px',color:'rgba(255,255,255,.3)',letterSpacing:'.1em',textTransform:'uppercase',
+                <div style={{fontSize:'11px',color:'rgba(255,255,255,.87)',letterSpacing:'.1em',textTransform:'uppercase',
                              textAlign:'center',marginBottom:'12px'}}>
                   {window.T.levelLabel} {tab}
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px'}}>
                   <div>
-                    <div style={{fontSize:'10px',color:'rgba(255,255,255,.4)',letterSpacing:'.1em',
+                    <div style={{fontSize:'10px',color:'rgba(255,255,255,.88)',letterSpacing:'.1em',
                                  textTransform:'uppercase',marginBottom:'6px'}}>🥇 {window.T.multiLabel}</div>
                     {lvData.multi.length===0
-                      ? <div style={{color:'rgba(255,255,255,.2)',fontSize:'11px'}}>{window.T.noScores}</div>
+                      ? <div style={{color:'rgba(255,255,255,.85)',fontSize:'11px'}}>{window.T.noScores}</div>
                       : Col(lvData.multi,'winsMulti','bestSecMulti',['🥇','🥈','🥉'])}
                   </div>
                   <div>
-                    <div style={{fontSize:'10px',color:'rgba(255,255,255,.4)',letterSpacing:'.1em',
+                    <div style={{fontSize:'10px',color:'rgba(255,255,255,.88)',letterSpacing:'.1em',
                                  textTransform:'uppercase',marginBottom:'6px'}}>⚔️ {window.T.soloLabel}</div>
                     {lvData.solo.length===0
-                      ? <div style={{color:'rgba(255,255,255,.2)',fontSize:'11px'}}>{window.T.noScores}</div>
+                      ? <div style={{color:'rgba(255,255,255,.85)',fontSize:'11px'}}>{window.T.noScores}</div>
                       : Col(lvData.solo,'winsSolo','bestSecSolo',['⚔️','⚔️','⚔️'])}
                   </div>
                 </div>
@@ -4023,10 +4412,10 @@
         </button>
       );
 
-      const sectionTitle = { fontSize:'11px', color:'rgba(255,255,255,.4)', letterSpacing:'.1em',
+      const sectionTitle = { fontSize:'11px', color:'rgba(255,255,255,.88)', letterSpacing:'.1em',
         textTransform:'uppercase', marginTop:'18px', marginBottom:'10px', fontWeight:700 };
       const row = { display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px' };
-      const hint = { fontSize:'10px', color:'rgba(255,255,255,.32)', marginTop:'6px', lineHeight:1.4 };
+      const hint = { fontSize:'10px', color:'rgba(255,255,255,.87)', marginTop:'6px', lineHeight:1.4 };
 
       return (
         <div style={{position:'fixed',inset:0,zIndex:7100,display:'flex',alignItems:'center',justifyContent:'center',
@@ -4038,7 +4427,7 @@
             {/* Header */}
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
               <div style={{color:'#fff',fontSize:'16px',fontWeight:800}}>⚙️ Configuración</div>
-              <button onClick={onClose} style={{background:'none',border:'none',color:'rgba(255,255,255,.4)',fontSize:'22px',cursor:'pointer',lineHeight:1}}>×</button>
+              <button onClick={onClose} style={{background:'none',border:'none',color:'rgba(255,255,255,.88)',fontSize:'22px',cursor:'pointer',lineHeight:1}}>×</button>
             </div>
 
             {/* ── Sonido ── */}
@@ -4048,7 +4437,7 @@
               <Toggle on={muted} onClick={toggleMute}/>
             </div>
             <div style={{...row, marginTop:'12px'}}>
-              <span style={{color:'rgba(255,255,255,.6)',fontSize:'12px',whiteSpace:'nowrap'}}>Volumen</span>
+              <span style={{color:'rgba(255,255,255,.92)',fontSize:'12px',whiteSpace:'nowrap'}}>Volumen</span>
               <input type="range" min="0" max="1" step="0.05" value={volume} disabled={muted}
                      onChange={onVolumeChange}
                      style={{flex:1, accentColor:'#9c5aff', opacity: muted?0.4:1}}/>
@@ -4268,7 +4657,7 @@
 
           {/* hint */}
           <div style={{position:'absolute',bottom:22,left:'50%',transform:'translateX(-50%)',
-                       color:'rgba(255,255,255,.28)',fontSize:'11px',letterSpacing:'.14em',
+                       color:'rgba(255,255,255,.86)',fontSize:'11px',letterSpacing:'.14em',
                        pointerEvents:'none'}}>
             {(step===1 || (step===2 && voice) || step===3 || (step===4 && invite)) ? window.T.tutContinue : window.T.tutClose}
           </div>
@@ -4307,6 +4696,9 @@
       const [usedHints,     setUsedHints]     = useState(false);
       const pride = usePrideMode();
       const colorblind = useColorblindMode();
+      const seasonAlt = useSeasonAltMode();
+      const activeSeason = useActiveSeason();
+      const seasonTheme = window.__RR_SEASON_THEMES[activeSeason] || null;
       const [pridePreview, setPridePreview] = useState(false);
       const [showSettings, setShowSettings] = useState(false);
 
@@ -4984,11 +5376,11 @@
         <div
           style={{
           height:'100vh', height:'100dvh',
-          background:'radial-gradient(ellipse at 30% 20%,#1a1035 0%,#0a0818 60%,#000508 100%)',
+          background: (seasonTheme && seasonTheme.bgGradient) || 'radial-gradient(ellipse at 30% 20%,#1a1035 0%,#0a0818 60%,#000508 100%)',
           display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-start',
           fontFamily:"'Trebuchet MS','Segoe UI',sans-serif",paddingTop:'6px',paddingBottom:'8px',paddingLeft:'14px',paddingRight:'14px',position:'relative',overflow:'hidden',
         }}>
-          <Stars/>
+          {!seasonTheme?.hideStars && <Stars/>}
 
           {/* Fila 2: Voz/Trofeo/Invite/Ayuda/Salir (izq., círculos iguales) — Pattern widget (der.) — arriba de todo, alineados por arriba */}
           <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:'8px',
@@ -5034,14 +5426,14 @@
                    }
                    setShowInvite(true);
                  }}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c89fff"
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rr-icon-color,#c89fff)"
                      strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
                   <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
                 </svg>
               </button>
               <button className="help-btn" onClick={()=>setShowSettings(true)} title="Configuración">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c89fff"
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rr-icon-color,#c89fff)"
                      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="3"/>
                   <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82A1.65 1.65 0 0 0 3 13.09H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
@@ -5161,7 +5553,7 @@
               <div/>
               {Array.from({length:boardSize},(_,i)=>String.fromCharCode(65+i)).map(l=>(
                 <div key={l} style={{textAlign:'center',fontSize:'10px',fontWeight:700,
-                                     color:'rgba(255,255,255,.3)',letterSpacing:'.05em'}}>{l}</div>
+                                     color:'rgba(255,255,255,.87)',letterSpacing:'.05em'}}>{l}</div>
               ))}
             </div>
             <div style={{display:'flex',gap:'5px'}}>
@@ -5171,7 +5563,7 @@
                 {Array.from({length:boardSize},(_,i)=>i+1).map(n=>(
                   <div key={n} style={{width:'16px',height:'var(--tile)',display:'flex',alignItems:'center',
                                        justifyContent:'center',fontSize:'10px',fontWeight:700,
-                                       color:'rgba(255,255,255,.3)'}}>{n}</div>
+                                       color:'rgba(255,255,255,.87)'}}>{n}</div>
                 ))}
               </div>
               <div style={{position:'relative',display:'grid',gridTemplateColumns:`repeat(${boardSize},var(--tile))`,gap:'5px',padding:'12px',background:'rgba(255,255,255,.04)',borderRadius:'16px',border:'1px solid rgba(255,255,255,.08)',boxShadow:'0 20px 60px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.1)',WebkitTransform:'translateZ(0)',transform:'translateZ(0)',isolation:'isolate'}}>
@@ -5236,7 +5628,7 @@
                     )}
                   </div>;
                 }
-                const c=getColorMap(effectivePride, colorblind)[tile.colorId], isAdj=canMove(idx,ei,boardSize,mask);
+                const c=getColorMap(effectivePride, colorblind, seasonAlt)[tile.colorId], isAdj=canMove(idx,ei,boardSize,mask);
                 const col = idx % boardSize;
                 const row = Math.floor(idx / boardSize);
                 const coord = String.fromCharCode(65+col) + (row+1);
@@ -5303,7 +5695,7 @@
                 {[{label:window.T.moves,value:moves},{label:window.T.time,value:fmt(time)}].map(s=>(
                   <div key={s.label} style={{textAlign:'center'}}>
                     <div style={{fontSize:'18px',fontWeight:800,color:'#fff',lineHeight:1}}>{s.value}</div>
-                    <div style={{fontSize:'8px',color:'rgba(255,255,255,.4)',letterSpacing:'.1em',marginTop:'2px'}}>{s.label}</div>
+                    <div style={{fontSize:'8px',color:'rgba(255,255,255,.88)',letterSpacing:'.1em',marginTop:'2px'}}>{s.label}</div>
                   </div>
                 ))}
               </div>
@@ -5311,7 +5703,7 @@
                 style={{flexShrink:0,padding:'8px 12px',borderRadius:'10px',border:'1px solid rgba(255,255,255,.15)',
                         background:'rgba(255,255,255,.07)',color:'#fff',fontSize:'16px',fontWeight:700,
                         cursor:'pointer',transition:'all .2s',display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c89fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rr-icon-color,#c89fff)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3.5 12a8.5 8.5 0 1 0 2.8-6.3"/>
                   <path d="M3 3.5v5h5"/>
                 </svg>
