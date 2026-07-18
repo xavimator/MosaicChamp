@@ -3342,7 +3342,7 @@
       useEffect(() => { onActivateRef.current = onActivate; }, [onActivate]);
 
       useEffect(() => {
-        lpRef.current = makeLongPress(() => onActivateRef.current?.(), 3000);
+        lpRef.current = makeLongPress(() => onActivateRef.current?.(), 2000);
       }, []);
 
       onStartRef.current = (e) => {
@@ -3452,7 +3452,7 @@
           }
           window.dispatchEvent(new CustomEvent('prideTileToggle', { detail: next }));
           window.playChime?.();
-        }, 3000);
+        }, 2000);
       }, []);
 
       // Escucha cambios externos del toggle (por si otro componente lo dispara)
