@@ -1465,6 +1465,12 @@
         #1E5FC0 82%, #0B2E6B 100%
       );
     }
+    /* Fondo del widget de patrón: azul cielo de tono medio (ni muy oscuro ni muy claro) */
+    body.rr-season-verano #rr-toggle,
+    body.rr-season-verano #rr-panel {
+      background:#3D8FCC; border-color:rgba(11,46,107,.55);
+    }
+    body.rr-season-verano #rr-toggle:hover { background:#4A9AD6; border-color:rgba(11,46,107,.8); }
     body { position:fixed; inset:0; overflow:hidden; overscroll-behavior:none; }
     #root { height:100%; overflow:hidden; }
     :root { --tile:clamp(50px,calc((100vw - 64px)/5),62px); }
@@ -1995,11 +2001,11 @@
 
     const RR_COLORS = [
       { bg:'#C8C8D8', border:'#8888A0', puzzleId:'white'  },
-      { bg:'#1b5e20', border:'#0a3d0a', puzzleId:'green'  },
-      { bg:'#ffeb3b', border:'#f9a825', puzzleId:'yellow' },
-      { bg:'#0d47a1', border:'#092f6b', puzzleId:'blue'   },
-      { bg:'#f44336', border:'#b71c1c', puzzleId:'red'    },
-      { bg:'#ff9800', border:'#e65100', puzzleId:'orange' },
+      { bg:'#0A6B2E', border:'#053A18', puzzleId:'green'  },
+      { bg:'#B89200', border:'#6B5500', puzzleId:'yellow' },
+      { bg:'#0D3B8E', border:'#061E50', puzzleId:'blue'   },
+      { bg:'#8B0C0C', border:'#4A0505', puzzleId:'red'    },
+      { bg:'#B84500', border:'#6B2600', puzzleId:'orange' },
     ];
     window.RR_COLORS = RR_COLORS;
     window._origRrColors = RR_COLORS.map(c => ({ ...c }));
@@ -2225,9 +2231,10 @@
     let lastResetTs=0;
     window.__fbResetReceived = ts => { if(ts<=lastResetTs)return; lastResetTs=ts; window.dispatchEvent(new CustomEvent('rrGlobalReset',{detail:ts})); };
 
-    // Confetti — cuadrados de colores que salen disparados del panel de patrón (#rr-widget).
-    // Se dispara para TODOS los participantes (se llama desde __fbNotifReceived, que ya
-    // recibe el evento de "finish" vía Firebase para cada cliente conectado a la partida).
+    // Confetti — o, en modo Vacaciones, gotas de agua y espuma — salen disparadas del
+    // panel de patrón (#rr-widget). Se dispara para TODOS los participantes (se llama
+    // desde __fbNotifReceived, que ya recibe el evento de "finish" vía Firebase para
+    // cada cliente conectado a la partida).
     window.playConfetti = function(count) {
       const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       if (reduceMotion) return;
@@ -2237,7 +2244,9 @@
       const ox = rect.left + rect.width / 2;
       const oy = rect.top + rect.height / 2;
 
-      const COLORS = ['#FF6B6B','#FFD93D','#6BCB77','#4D96FF','#C77DFF','#FF9F45','#00D2D3','#FF6FA5','#B8FF66'];
+      const theme = (window.__RR_SEASON_THEMES || {})[window.__rrActiveSeason] || null;
+      const useWater = !!(window.__seasonAltMode && theme && theme.particleStyle === 'water');
+
       const N = count || 54;
 
       const layer = document.createElement('div');
@@ -2245,25 +2254,73 @@
       document.body.appendChild(layer);
 
       const pieces = [];
-      for (let i = 0; i < N; i++) {
-        const size = 5 + Math.random() * 5;
-        const el = document.createElement('div');
-        el.style.cssText = `position:absolute;left:${ox}px;top:${oy}px;width:${size}px;height:${size}px;` +
-          `margin:${-size/2}px 0 0 ${-size/2}px;background:${COLORS[i % COLORS.length]};` +
-          `border-radius:1px;will-change:transform,opacity;`;
+
+      function addPiece(el, opts) {
         layer.appendChild(el);
-        const ang = Math.random() * Math.PI * 2;
-        const speed = 3 + Math.random() * 6.5;
-        pieces.push({
-          el,
-          x: 0, y: 0,
-          vx: Math.cos(ang) * speed,
-          vy: Math.sin(ang) * speed - 4.5, // ligero impulso hacia arriba al salir
-          rot: Math.random() * 360,
-          vr: (Math.random() - 0.5) * 20,
-          life: 0,
-          maxLife: 68 + Math.random() * 42,
-        });
+        pieces.push(Object.assign({ el, x:0, y:0, rot:0, vr:0, gMul:1, life:0 }, opts));
+      }
+
+      if (useWater) {
+        // Gotas de agua — el doble que las piezas de confeti habituales
+        const DROP_COLORS = ['#4FA8E8', '#6EC3F4', '#A8DFFB', '#2E86C9', '#7FD4F0'];
+        const dropCount = N * 2;
+        for (let i = 0; i < dropCount; i++) {
+          const w = 4 + Math.random() * 4, h = w * 1.4;
+          const el = document.createElement('div');
+          el.style.cssText = `position:absolute;left:${ox}px;top:${oy}px;width:${w}px;height:${h}px;` +
+            `margin:${-h/2}px 0 0 ${-w/2}px;background:${DROP_COLORS[i % DROP_COLORS.length]};` +
+            `border-radius:50% 50% 50% 0;opacity:.9;` +
+            `box-shadow:inset -1px -1px 2px rgba(0,0,0,.18), inset 1px 1px 1px rgba(255,255,255,.55);` +
+            `will-change:transform,opacity;`;
+          const ang = Math.random() * Math.PI * 2;
+          const speed = 2.5 + Math.random() * 6;
+          addPiece(el, {
+            vx: Math.cos(ang) * speed,
+            vy: Math.sin(ang) * speed - 4,
+            rot: 40 + Math.random() * 40 - 20,
+            vr: (Math.random() - 0.5) * 5,
+            gMul: 1,
+            maxLife: 62 + Math.random() * 38,
+          });
+        }
+        // Espuma — burbujas blancas, más ligeras y flotantes
+        const foamCount = Math.round(N * 0.6);
+        for (let i = 0; i < foamCount; i++) {
+          const size = 4 + Math.random() * 6;
+          const el = document.createElement('div');
+          el.style.cssText = `position:absolute;left:${ox}px;top:${oy}px;width:${size}px;height:${size}px;` +
+            `margin:${-size/2}px 0 0 ${-size/2}px;background:rgba(255,255,255,.88);border-radius:50%;` +
+            `box-shadow:0 0 3px rgba(255,255,255,.7), inset -1px -1px 1px rgba(0,0,0,.08);` +
+            `will-change:transform,opacity;`;
+          const ang = Math.random() * Math.PI * 2;
+          const speed = 1.2 + Math.random() * 3;
+          addPiece(el, {
+            vx: Math.cos(ang) * speed,
+            vy: Math.sin(ang) * speed - 2.5,
+            gMul: 0.16, // la espuma flota más antes de caer
+            maxLife: 50 + Math.random() * 34,
+          });
+        }
+      } else {
+        // Confeti clásico — cuadrados de colores
+        const COLORS = ['#FF6B6B','#FFD93D','#6BCB77','#4D96FF','#C77DFF','#FF9F45','#00D2D3','#FF6FA5','#B8FF66'];
+        for (let i = 0; i < N; i++) {
+          const size = 5 + Math.random() * 5;
+          const el = document.createElement('div');
+          el.style.cssText = `position:absolute;left:${ox}px;top:${oy}px;width:${size}px;height:${size}px;` +
+            `margin:${-size/2}px 0 0 ${-size/2}px;background:${COLORS[i % COLORS.length]};` +
+            `border-radius:1px;will-change:transform,opacity;`;
+          const ang = Math.random() * Math.PI * 2;
+          const speed = 3 + Math.random() * 6.5;
+          addPiece(el, {
+            vx: Math.cos(ang) * speed,
+            vy: Math.sin(ang) * speed - 4.5, // ligero impulso hacia arriba al salir
+            rot: Math.random() * 360,
+            vr: (Math.random() - 0.5) * 20,
+            gMul: 1,
+            maxLife: 68 + Math.random() * 42,
+          });
+        }
       }
 
       const gravity = 0.28, drag = 0.985;
@@ -2272,7 +2329,7 @@
         pieces.forEach(p => {
           if (p.life > p.maxLife) return;
           alive = true;
-          p.vy += gravity;
+          p.vy += gravity * p.gMul;
           p.vx *= drag;
           p.x += p.vx;
           p.y += p.vy;
@@ -2547,8 +2604,10 @@
     }
     window.__rrComputeAutoSeason = rrComputeAutoSeason;
 
-    // Refleja la temporada activa en <body> como clase CSS (para fondos/iconos automáticos
-    // que no dependen del toggle personal de "modo alternativo" por temporada).
+    // Refleja el "modo alternativo" (fondo/iconos de la temporada) en <body> como clase CSS.
+    // OJO: esto NO se activa solo porque la temporada esté vigente por fecha — solo cuando
+    // el jugador lo enciende con el gesto de mantener pulsado el título (o si ya lo tenía
+    // activado la última vez que jugó). Por defecto siempre arranca en modo clásico.
     function rrApplySeasonBodyClass(seasonId) {
       Array.from(document.body.classList).forEach(c => {
         if (c.indexOf('rr-season-') === 0) document.body.classList.remove(c);
@@ -2561,7 +2620,9 @@
       const next = manual || rrComputeAutoSeason();
       if (next !== window.__rrActiveSeason) {
         window.__rrActiveSeason = next;
-        rrApplySeasonBodyClass(next);
+        // Al cambiar de temporada, resincroniza el fondo/iconos según la preferencia
+        // personal ya guardada para la nueva temporada (si no hay ninguna, se queda clásico).
+        window.__rrSyncSeasonBodyClass?.();
         // Otros módulos (efectos visuales de cada temporada) se enganchan a este evento.
         window.dispatchEvent(new CustomEvent('rrSeasonChange', { detail: next }));
       }
@@ -2947,11 +3008,11 @@
     // Pride colors for RR_COLORS widget
     const PRIDE_RR_COLORS = [
       { bg:'#732982', border:'#4A1A55', puzzleId:'white'  },
-      { bg:'#007C31', border:'#004D1C', puzzleId:'green'  },
-      { bg:'#FFED00', border:'#C8B400', puzzleId:'yellow' },
-      { bg:'#1565C0', border:'#0D47A1', puzzleId:'blue'   },
-      { bg:'#E40303', border:'#990000', puzzleId:'red'    },
-      { bg:'#FF8C00', border:'#C46400', puzzleId:'orange' },
+      { bg:'#008026', border:'#004D17', puzzleId:'green'  },
+      { bg:'#FFED00', border:'#B8A800', puzzleId:'yellow' },
+      { bg:'#004CFF', border:'#0030B0', puzzleId:'blue'   },
+      { bg:'#E40303', border:'#9A0000', puzzleId:'red'    },
+      { bg:'#FF8C00', border:'#B85E00', puzzleId:'orange' },
     ];
 
     /* ─── Modo daltónico (rojo/verde → violeta/azul cielo) ─── */
@@ -3044,6 +3105,7 @@
       gradient: 'linear-gradient(90deg,#E4CE9B,#FFD93D,#7FD8C6,#6EC3F4,#FFB870,#FFB6C9)',
       bgGradient: 'linear-gradient(to top,#E4CE9B 0%,#E4CE9B 12%,#3FA9A0 18%,#66C6D9 26%,#7FD4F0 40%,#4FA8E8 62%,#1E5FC0 82%,#0B2E6B 100%)',
       hideStars: true,
+      particleStyle: 'water',
       hintOn:  <>Mantén pulsado el título<br/>para desactivar VACACIONES</>,
       hintOff: <>Toca y mantén el título<br/>para VACACIONES</>,
     };
@@ -3060,6 +3122,9 @@
       return !!seasonId && localStorage.getItem(rrSeasonAltKey(seasonId)) === '1';
     }
     window.__seasonAltMode = rrSeasonAltGet(window.__rrActiveSeason);
+    // Aplica ya el fondo/iconos si el jugador ya lo tenía activado en una sesión anterior
+    // (si no, se queda en modo clásico, que es el arranque por defecto).
+    rrApplySeasonBodyClass(window.__seasonAltMode ? window.__rrActiveSeason : null);
 
     function setSeasonAltMode(on) {
       const seasonId = window.__rrActiveSeason;
@@ -3067,9 +3132,19 @@
       window.__seasonAltMode = !!on;
       localStorage.setItem(rrSeasonAltKey(seasonId), window.__seasonAltMode ? '1' : '0');
       refreshRRColors();
+      rrApplySeasonBodyClass(window.__seasonAltMode ? seasonId : null);
       window.dispatchEvent(new CustomEvent('seasonAltModeChange', { detail: window.__seasonAltMode }));
     }
     window.setSeasonAltMode = setSeasonAltMode;
+
+    // Se llama cuando cambia la temporada activa (por fecha o por Rubiking) para
+    // resincronizar el fondo/iconos con la preferencia personal ya guardada, sin
+    // encenderlos nunca automáticamente por el mero hecho de estar en temporada.
+    window.__rrSyncSeasonBodyClass = function() {
+      const theme = rrCurrentSeasonTheme();
+      window.__seasonAltMode = !!(theme && rrSeasonAltGet(window.__rrActiveSeason));
+      rrApplySeasonBodyClass(window.__seasonAltMode ? window.__rrActiveSeason : null);
+    };
 
     function useSeasonAltMode() {
       const [v, setV] = useState(!!window.__seasonAltMode);
@@ -3484,6 +3559,7 @@
         return (saved>=1 && saved<=8) ? saved : 2;
       });
       const activeSeason = useActiveSeason(); // re-renderiza si Rubiking cambia la temporada en vivo
+      const seasonAlt    = useSeasonAltMode();
       const seasonTheme  = window.__RR_SEASON_THEMES[activeSeason] || null;
 
       const nameOk = name.trim().length > 0;
@@ -3825,7 +3901,7 @@
 
       return (
         <div className="lobby-wrap">
-          {!seasonTheme?.hideStars && <Stars/>}
+          {!(seasonAlt && seasonTheme?.hideStars) && <Stars/>}
           <PrideToast onActivate={() => {
             const theme = window.__RR_SEASON_THEMES[window.__rrActiveSeason];
             if (theme) setSeasonAltMode(!window.__seasonAltMode);
@@ -5376,11 +5452,11 @@
         <div
           style={{
           height:'100vh', height:'100dvh',
-          background: (seasonTheme && seasonTheme.bgGradient) || 'radial-gradient(ellipse at 30% 20%,#1a1035 0%,#0a0818 60%,#000508 100%)',
+          background: (seasonAlt && seasonTheme && seasonTheme.bgGradient) || 'radial-gradient(ellipse at 30% 20%,#1a1035 0%,#0a0818 60%,#000508 100%)',
           display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-start',
           fontFamily:"'Trebuchet MS','Segoe UI',sans-serif",paddingTop:'6px',paddingBottom:'8px',paddingLeft:'14px',paddingRight:'14px',position:'relative',overflow:'hidden',
         }}>
-          {!seasonTheme?.hideStars && <Stars/>}
+          {!(seasonAlt && seasonTheme?.hideStars) && <Stars/>}
 
           {/* Fila 2: Voz/Trofeo/Invite/Ayuda/Salir (izq., círculos iguales) — Pattern widget (der.) — arriba de todo, alineados por arriba */}
           <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:'8px',
