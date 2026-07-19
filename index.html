@@ -1565,7 +1565,8 @@
       background:rgba(0,0,0,.06); border-color:rgba(41,41,44,.3); color:#333338;
     }
     body.rr-season-vuelta_colegio .lobby-input::placeholder,
-    body.rr-season-vuelta_colegio .code-input::placeholder { color:rgba(51,51,56,.55); }
+    body.rr-season-vuelta_colegio .code-input::placeholder,
+    body.rr-season-vuelta_colegio .rr-pass-input::placeholder { color:rgba(51,51,56,.55); }
     body.rr-season-vuelta_colegio .lobby-btn.secondary {
       background:rgba(0,0,0,.06); border-color:rgba(41,41,44,.3); color:#333338;
     }
@@ -4159,6 +4160,7 @@
                 <div style={{marginTop:'10px'}}>
                   <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
                     <input type="password" maxLength={17} value={password}
+                      className="rr-pass-input"
                       disabled={passSession}
                       onChange={e=>{setPassword(e.target.value); setPasswordError(''); setPassSession(false);}}
                       onKeyDown={e=>{ if(e.key==='Enter' && password.trim() && !passSession) confirmPassword(); }}
