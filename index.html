@@ -1556,6 +1556,21 @@
       background:rgba(0,0,0,.05); border-color:rgba(41,41,44,.25);
     }
     body.rr-season-vuelta_colegio .rr-chip-time { color:#7A5E00; }
+    /* La tarjeta del lobby y el HUD de la partida también quedan claros para esta
+       temporada, así que su texto base (blanco por defecto) pasa a gris oscuro. */
+    body.rr-season-vuelta_colegio .lobby-card { background:#C7C7CC; border-color:rgba(41,41,44,.35); }
+    body.rr-season-vuelta_colegio .lobby-label { color:#333338; }
+    body.rr-season-vuelta_colegio .lobby-input,
+    body.rr-season-vuelta_colegio .code-input {
+      background:rgba(0,0,0,.06); border-color:rgba(41,41,44,.3); color:#333338;
+    }
+    body.rr-season-vuelta_colegio .lobby-input::placeholder,
+    body.rr-season-vuelta_colegio .code-input::placeholder { color:rgba(51,51,56,.55); }
+    body.rr-season-vuelta_colegio .lobby-btn.secondary {
+      background:rgba(0,0,0,.06); border-color:rgba(41,41,44,.3); color:#333338;
+    }
+    body.rr-season-vuelta_colegio .lobby-btn.secondary:hover { background:rgba(0,0,0,.1); }
+    body.rr-season-vuelta_colegio .lobby-divider { background:rgba(41,41,44,.15); }
     body { position:fixed; inset:0; overflow:hidden; overscroll-behavior:none; }
     #root { height:100%; overflow:hidden; }
     :root { --tile:clamp(50px,calc((100vw - 64px)/5),62px); }
@@ -3740,6 +3755,11 @@
       const activeSeason = useActiveSeason(); // re-renderiza si Rubiking cambia la temporada en vivo
       const seasonAlt    = useSeasonAltMode();
       const seasonTheme  = window.__RR_SEASON_THEMES[activeSeason] || null;
+      // Cuando el tema activo pone fondo claro en la tarjeta del lobby (ahora mismo solo
+      // Vuelta al Colegio), todo el texto por defecto (blanco) debe pasar a gris oscuro
+      // para seguir siendo legible. Los acentos ya coloreados (verde/dorado/rojo/morado)
+      // se dejan tal cual, no son el problema.
+      const darkText = seasonAlt && seasonTheme?.darkText;
 
       const nameOk = name.trim().length > 0;
       const [rankName, setRankName] = useState('');
@@ -4126,8 +4146,8 @@
                       {window.T.changeName}
                     </button>
                     <button onClick={()=>setRankName('')}
-                            style={{padding:'5px 8px',borderRadius:'6px',border:'1px solid rgba(255,255,255,.1)',
-                                   background:'rgba(255,255,255,.05)',color:'rgba(255,255,255,.88)',
+                            style={{padding:'5px 8px',borderRadius:'6px',border:`1px solid ${darkText?'rgba(41,41,44,.3)':'rgba(255,255,255,.1)'}`,
+                                   background:darkText?'rgba(0,0,0,.06)':'rgba(255,255,255,.05)',color:darkText?'#333338':'rgba(255,255,255,.88)',
                                    fontSize:'11px',cursor:'pointer'}}>
                       {window.T.continueAnyway}
                     </button>
@@ -4144,9 +4164,9 @@
                       onKeyDown={e=>{ if(e.key==='Enter' && password.trim() && !passSession) confirmPassword(); }}
                       placeholder={aliasClaimed ? window.T.passwordRequired : window.T.passwordOptional}
                       style={{flex:1,boxSizing:'border-box',padding:'9px 12px',borderRadius:'8px',
-                              border:`1px solid ${passwordError?'rgba(248,113,113,.5)':passSession?'rgba(100,200,100,.35)':aliasClaimed?'rgba(255,180,0,.35)':'rgba(255,255,255,.12)'}`,
-                              background: passSession ? 'rgba(100,200,100,.06)' : 'rgba(255,255,255,.04)',
-                              color:'#fff',fontSize:'12.5px',opacity: passSession ? 0.6 : 1}}/>
+                              border:`1px solid ${passwordError?'rgba(248,113,113,.5)':passSession?'rgba(100,200,100,.35)':aliasClaimed?'rgba(255,180,0,.35)':darkText?'rgba(41,41,44,.3)':'rgba(255,255,255,.12)'}`,
+                              background: passSession ? 'rgba(100,200,100,.06)' : darkText ? 'rgba(0,0,0,.06)' : 'rgba(255,255,255,.04)',
+                              color:darkText?'#333338':'#fff',fontSize:'12.5px',opacity: passSession ? 0.6 : 1}}/>
                     {passSession ? (
                       <button onClick={()=>{
                           sessionStorage.removeItem('rr-pass-session');
@@ -4205,9 +4225,9 @@
                         position:'relative',padding:'8px 4px',borderRadius:'9px',
                         cursor:locked?'not-allowed':'pointer',
                         opacity:locked?0.45:1,
-                        border:`1px solid ${active?'rgba(156,90,255,.8)':completed?'rgba(74,222,128,.5)':isSpecial?'rgba(255,200,80,.55)':'rgba(255,255,255,.12)'}`,
-                        background:active?'rgba(156,90,255,.22)':completed?'rgba(34,197,94,.1)':isSpecial?'rgba(255,200,80,.1)':'rgba(255,255,255,.04)',
-                        color:active?'#fff':completed?'#4ade80':isSpecial?'#FFD27A':'rgba(255,255,255,.65)',
+                        border:`1px solid ${active?'rgba(156,90,255,.8)':completed?'rgba(74,222,128,.5)':isSpecial?'rgba(255,200,80,.55)':darkText?'rgba(41,41,44,.3)':'rgba(255,255,255,.12)'}`,
+                        background:active?'rgba(156,90,255,.22)':completed?'rgba(34,197,94,.1)':isSpecial?'rgba(255,200,80,.1)':darkText?'rgba(0,0,0,.06)':'rgba(255,255,255,.04)',
+                        color:active?'#fff':completed?'#4ade80':isSpecial?'#FFD27A':darkText?'#333338':'rgba(255,255,255,.65)',
                         fontWeight:800,fontSize:'14px',transition:'all .15s',
                         boxShadow:active?'0 0 14px rgba(156,90,255,.4)':completed?'0 0 8px rgba(74,222,128,.25)':isSpecial?'0 0 10px rgba(255,200,80,.35)':'none',
                         animation:isSpecial?'level8In .5s ease':'none',
@@ -4259,7 +4279,7 @@
                                border:'1px solid transparent',background:'transparent'}}/>
                 )}
               </div>
-              <div style={{marginTop:'7px',fontSize:'11px',color:'rgba(255,255,255,.88)',textAlign:'center'}}>
+              <div style={{marginTop:'7px',fontSize:'11px',color:darkText?'rgba(51,51,56,.85)':'rgba(255,255,255,.88)',textAlign:'center'}}>
                 {window.RR_LEVEL_INFO(level).special==='cross' ? (
                   <span style={{color:'#FFD27A',fontWeight:800}}>✛ {window.T.mosaicCross} · 11×11</span>
                 ) : (
@@ -4275,14 +4295,14 @@
 
               {showCodePanel && (
                 <div style={{marginTop:'10px',padding:'12px',borderRadius:'10px',
-                             background:'rgba(255,255,255,.04)',border:'1px solid rgba(255,255,255,.1)'}}>
-                  <div style={{fontSize:'11px',color:'rgba(255,255,255,.9)',marginBottom:'8px'}}>{window.T.haveCode}</div>
+                             background:darkText?'rgba(0,0,0,.06)':'rgba(255,255,255,.04)',border:`1px solid ${darkText?'rgba(41,41,44,.25)':'rgba(255,255,255,.1)'}`}}>
+                  <div style={{fontSize:'11px',color:darkText?'#333338':'rgba(255,255,255,.9)',marginBottom:'8px'}}>{window.T.haveCode}</div>
                   <div style={{display:'flex',gap:'6px'}}>
                     <input value={codeInput} onChange={e=>{setCodeInput(e.target.value);setCodeMsg('');}}
                            placeholder={window.T.level8CodePlaceholder}
                            onKeyDown={e=>e.key==='Enter' && tryRedeemCode()}
-                           style={{flex:1,padding:'8px 10px',borderRadius:'8px',border:'1px solid rgba(255,255,255,.15)',
-                                   background:'rgba(255,255,255,.05)',color:'#fff',fontSize:'12px',letterSpacing:'.1em'}}/>
+                           style={{flex:1,padding:'8px 10px',borderRadius:'8px',border:`1px solid ${darkText?'rgba(41,41,44,.3)':'rgba(255,255,255,.15)'}`,
+                                   background:darkText?'rgba(0,0,0,.06)':'rgba(255,255,255,.05)',color:darkText?'#333338':'#fff',fontSize:'12px',letterSpacing:'.1em'}}/>
                     <button onClick={tryRedeemCode} disabled={codeBusy} title={window.T.unlock}
                       style={{width:'36px',height:'36px',flexShrink:0,padding:0,borderRadius:'8px',
                               border:'none',background:'#7c3aed',color:'#fff',fontSize:'16px',
@@ -4296,7 +4316,7 @@
               )}
 
               {level8Unlocked && myUnlockCode && (
-                <div style={{marginTop:'8px',fontSize:'11px',color:'rgba(255,255,255,.88)',textAlign:'center'}}>
+                <div style={{marginTop:'8px',fontSize:'11px',color:darkText?'rgba(51,51,56,.85)':'rgba(255,255,255,.88)',textAlign:'center'}}>
                   {window.T.yourCode}: <span style={{color:'#FFD27A',fontWeight:800,letterSpacing:'.1em'}}>{myUnlockCode}</span>
                 </div>
               )}
@@ -4335,7 +4355,7 @@
           {/* Active games list */}
           {games.length > 0 && (
             <div style={{width:'100%',maxWidth:'360px',marginTop:'20px'}}>
-              <div style={{fontSize:'10px',color:'rgba(255,255,255,.87)',letterSpacing:'.15em',
+              <div style={{fontSize:'10px',color:darkText?'rgba(51,51,56,.85)':'rgba(255,255,255,.87)',letterSpacing:'.15em',
                            textTransform:'uppercase',textAlign:'center',marginBottom:'10px'}}>
                 {window.T.activeGames}
               </div>
@@ -4344,19 +4364,19 @@
                   <button key={g.code} onClick={()=>handleJoinGame(g.code)} disabled={loading||!nameOk}
                           style={{display:'flex',alignItems:'center',justifyContent:'space-between',
                                   width:'100%',padding:'12px 16px',
-                                  background:'rgba(255,255,255,.04)',
+                                  background:darkText?'rgba(0,0,0,.06)':'rgba(255,255,255,.04)',
                                   border:'1px solid rgba(156,90,255,.2)',
                                   borderRadius:'12px',cursor:'pointer',
-                                  transition:'all .2s',color:'#fff',
+                                  transition:'all .2s',color:darkText?'#333338':'#fff',
                                   backdropFilter:'blur(10px)',
                                   opacity: (loading||!nameOk) ? .45 : 1}}
                           onMouseEnter={e=>{e.currentTarget.style.background='rgba(156,90,255,.12)';e.currentTarget.style.borderColor='rgba(156,90,255,.45)';}}
-                          onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,.04)';e.currentTarget.style.borderColor='rgba(156,90,255,.2)';}}>
+                          onMouseLeave={e=>{e.currentTarget.style.background=darkText?'rgba(0,0,0,.06)':'rgba(255,255,255,.04)';e.currentTarget.style.borderColor='rgba(156,90,255,.2)';}}>
                     <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
                       <span style={{fontSize:'16px'}}>🎮</span>
-                      <span style={{fontSize:'14px',fontWeight:600,color:'rgba(255,255,255,.85)'}}>{g.host}</span>
-                      <span style={{fontSize:'10px',fontWeight:700,color:'rgba(255,255,255,.88)',
-                                    background:'rgba(255,255,255,.06)',padding:'2px 7px',borderRadius:'6px'}}>
+                      <span style={{fontSize:'14px',fontWeight:600,color:darkText?'#333338':'rgba(255,255,255,.85)'}}>{g.host}</span>
+                      <span style={{fontSize:'10px',fontWeight:700,color:darkText?'#333338':'rgba(255,255,255,.88)',
+                                    background:darkText?'rgba(0,0,0,.08)':'rgba(255,255,255,.06)',padding:'2px 7px',borderRadius:'6px'}}>
                         {window.T.levelShort(g.level||2)}
                       </span>
                     </div>
@@ -4954,6 +4974,7 @@
       const seasonAlt = useSeasonAltMode();
       const activeSeason = useActiveSeason();
       const seasonTheme = window.__RR_SEASON_THEMES[activeSeason] || null;
+      const darkText = seasonAlt && seasonTheme?.darkText;
       const [pridePreview, setPridePreview] = useState(false);
       const [showSettings, setShowSettings] = useState(false);
       const [finishOverlayColor, setFinishOverlayColor] = useState(null);
@@ -5805,7 +5826,7 @@
                          padding:'6px 9px',border:'1px solid rgba(255,255,255,.1)',
                          flexShrink:1,minWidth:0}}>
               <span style={{fontSize:'12px',flexShrink:0}}>👤</span>
-              <span style={{color:'#fff',fontWeight:600,fontSize:'12px',
+              <span style={{color:darkText?'#333338':'#fff',fontWeight:600,fontSize:'12px',
                             whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',
                             maxWidth:'90px'}}>
                 {playerName}
@@ -5822,7 +5843,7 @@
               <div/>
               {Array.from({length:boardSize},(_,i)=>String.fromCharCode(65+i)).map(l=>(
                 <div key={l} style={{textAlign:'center',fontSize:'10px',fontWeight:700,
-                                     color:'rgba(255,255,255,.87)',letterSpacing:'.05em'}}>{l}</div>
+                                     color:darkText?'rgba(51,51,56,.85)':'rgba(255,255,255,.87)',letterSpacing:'.05em'}}>{l}</div>
               ))}
             </div>
             <div style={{display:'flex',gap:'5px'}}>
@@ -5832,7 +5853,7 @@
                 {Array.from({length:boardSize},(_,i)=>i+1).map(n=>(
                   <div key={n} style={{width:'16px',height:'var(--tile)',display:'flex',alignItems:'center',
                                        justifyContent:'center',fontSize:'10px',fontWeight:700,
-                                       color:'rgba(255,255,255,.87)'}}>{n}</div>
+                                       color:darkText?'rgba(51,51,56,.85)':'rgba(255,255,255,.87)'}}>{n}</div>
                 ))}
               </div>
               <div style={{position:'relative',display:'grid',gridTemplateColumns:`repeat(${boardSize},var(--tile))`,gap:'5px',padding:'12px',background:'rgba(255,255,255,.04)',borderRadius:'16px',border:'1px solid rgba(255,255,255,.08)',boxShadow:'0 20px 60px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.1)',WebkitTransform:'translateZ(0)',transform:'translateZ(0)',isolation:'isolate'}}>
@@ -5976,19 +5997,19 @@
 
             {/* Stats + Nuevo reto — misma fila, mismo alto */}
             <div style={{display:'flex',alignItems:'stretch',gap:'8px',width:'100%'}}>
-              <div style={{display:'flex',gap:'14px',background:'rgba(255,255,255,.06)',borderRadius:'10px',
-                           padding:'8px 14px',border:'1px solid rgba(255,255,255,.1)',backdropFilter:'blur(8px)',
+              <div style={{display:'flex',gap:'14px',background:darkText?'rgba(0,0,0,.06)':'rgba(255,255,255,.06)',borderRadius:'10px',
+                           padding:'8px 14px',border:`1px solid ${darkText?'rgba(41,41,44,.25)':'rgba(255,255,255,.1)'}`,backdropFilter:'blur(8px)',
                            flexShrink:0}}>
                 {[{label:window.T.moves,value:moves},{label:window.T.time,value:fmt(time)}].map(s=>(
                   <div key={s.label} style={{textAlign:'center'}}>
-                    <div style={{fontSize:'18px',fontWeight:800,color:'#fff',lineHeight:1}}>{s.value}</div>
-                    <div style={{fontSize:'8px',color:'rgba(255,255,255,.88)',letterSpacing:'.1em',marginTop:'2px'}}>{s.label}</div>
+                    <div style={{fontSize:'18px',fontWeight:800,color:darkText?'#333338':'#fff',lineHeight:1}}>{s.value}</div>
+                    <div style={{fontSize:'8px',color:darkText?'rgba(51,51,56,.85)':'rgba(255,255,255,.88)',letterSpacing:'.1em',marginTop:'2px'}}>{s.label}</div>
                   </div>
                 ))}
               </div>
               <button onClick={handleRestart} title={window.T.restartBtn}
-                style={{flexShrink:0,padding:'8px 12px',borderRadius:'10px',border:'1px solid rgba(255,255,255,.15)',
-                        background:'rgba(255,255,255,.07)',color:'#fff',fontSize:'16px',fontWeight:700,
+                style={{flexShrink:0,padding:'8px 12px',borderRadius:'10px',border:`1px solid ${darkText?'rgba(41,41,44,.25)':'rgba(255,255,255,.15)'}`,
+                        background:darkText?'rgba(0,0,0,.06)':'rgba(255,255,255,.07)',color:darkText?'#333338':'#fff',fontSize:'16px',fontWeight:700,
                         cursor:'pointer',transition:'all .2s',display:'flex',alignItems:'center',justifyContent:'center'}}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--rr-icon-color,#c89fff)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3.5 12a8.5 8.5 0 1 0 2.8-6.3"/>
@@ -5996,8 +6017,8 @@
                 </svg>
               </button>
               <button onClick={handleReset}
-                style={{flex:1,padding:'8px 14px',borderRadius:'10px',border:'1px solid rgba(255,255,255,.15)',
-                        background:'rgba(255,255,255,.07)',color:'#fff',fontSize:'12px',fontWeight:700,
+                style={{flex:1,padding:'8px 14px',borderRadius:'10px',border:`1px solid ${darkText?'rgba(41,41,44,.25)':'rgba(255,255,255,.15)'}`,
+                        background:darkText?'rgba(0,0,0,.06)':'rgba(255,255,255,.07)',color:darkText?'#333338':'#fff',fontSize:'12px',fontWeight:700,
                         letterSpacing:'.10em',cursor:'pointer',transition:'all .2s',textTransform:'uppercase'}}>
                 {window.T.newGameBtn}
               </button>
