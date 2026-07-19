@@ -209,6 +209,33 @@
     });
 
 
+    // "Risas" — no puedo incrustar un audio real de niños riendo (no hay forma de
+    // empaquetar un archivo con licencia en este proyecto), así que esto es una
+    // aproximación sintetizada: varias "ja" cortas y agudas, con dos voces desafinadas
+    // entre sí para sugerir más de una risa, y un pequeño "whoop" de tono en cada una.
+    window.playGiggle = () => play(c => {
+      const t = c.currentTime;
+      const notes = 5;
+      for (let i = 0; i < notes; i++) {
+        const when = t + i * 0.12;
+        const dur = 0.09;
+        const base = 520 + Math.random() * 120 + i * 14;
+        [0, 5].forEach((detune, vi) => {
+          const osc = c.createOscillator(), g = c.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(base + detune, when);
+          osc.frequency.linearRampToValueAtTime(base * 1.35 + detune, when + dur * 0.5);
+          osc.frequency.linearRampToValueAtTime(base * 0.92 + detune, when + dur);
+          g.gain.setValueAtTime(0, when);
+          g.gain.linearRampToValueAtTime(vi === 0 ? 0.16 : 0.10, when + 0.015);
+          g.gain.exponentialRampToValueAtTime(0.0008, when + dur);
+          osc.connect(g); g.connect(getMasterGain(c));
+          osc.start(when); osc.stop(when + dur + 0.02);
+        });
+      }
+    });
+
+
     // La Marsellesa — primeras 9 notas del MIDI original (Re mayor, 105 BPM)
     // D4 D4 D4 G4 G4 A4 A4 D5 B4  — "Al-lons-en-fants-de-la-Pa-tri-e"
     window.playMarseillaiseHelp = () => play(c => {
@@ -1471,6 +1498,14 @@
       background:#3D8FCC; border-color:rgba(11,46,107,.55);
     }
     body.rr-season-verano #rr-toggle:hover { background:#4A9AD6; border-color:rgba(11,46,107,.8); }
+
+    /* ── Temporada de Vuelta al Colegio ── */
+    body.rr-season-vuelta_colegio .lobby-wrap {
+      background:
+        linear-gradient(rgba(94,150,212,.16) 1px,transparent 1px) 0 0/26px 26px,
+        linear-gradient(90deg,rgba(94,150,212,.16) 1px,transparent 1px) 0 0/26px 26px,
+        #EAEAED;
+    }
     body { position:fixed; inset:0; overflow:hidden; overscroll-behavior:none; }
     #root { height:100%; overflow:hidden; }
     :root { --tile:clamp(50px,calc((100vw - 64px)/5),62px); }
@@ -2249,7 +2284,8 @@
       const oy = rect.top + rect.height / 2;
 
       const theme = (window.__RR_SEASON_THEMES || {})[window.__rrActiveSeason] || null;
-      const useWater = !!(window.__seasonAltMode && theme && theme.particleStyle === 'water');
+      const useWater    = !!(window.__seasonAltMode && theme && theme.particleStyle === 'water');
+      const useShavings = !!(window.__seasonAltMode && theme && theme.particleStyle === 'shavings');
 
       const N = count || 54;
 
@@ -2305,6 +2341,43 @@
             maxLife: 50 + Math.random() * 34,
           });
         }
+      } else if (useShavings) {
+        // Virutas de lápiz de color — líneas cortas, unas rectas y otras onduladas
+        const SHAVING_COLORS = ['#F5E642','#E91E8C','#17C3D6','#4A4A4E','#C7C7CC','#B98A5A'];
+        const svgNS = 'http://www.w3.org/2000/svg';
+        for (let i = 0; i < N; i++) {
+          const color = SHAVING_COLORS[i % SHAVING_COLORS.length];
+          const len = 10 + Math.random() * 11;
+          const wavy = Math.random() < 0.6;
+          const w = len + 6;
+          const svg = document.createElementNS(svgNS, 'svg');
+          svg.setAttribute('width', w);
+          svg.setAttribute('height', 10);
+          svg.setAttribute('viewBox', `0 0 ${w} 10`);
+          svg.style.cssText = `position:absolute;left:${ox}px;top:${oy}px;` +
+            `margin:-5px 0 0 ${-w/2}px;overflow:visible;will-change:transform,opacity;`;
+          const path = document.createElementNS(svgNS, 'path');
+          const mid = (Math.random() < 0.5 ? 1 : 9);
+          const d = wavy
+            ? `M2,5 Q${(len*0.5).toFixed(1)},${mid} ${len}, 5`
+            : `M2,5 L${len},5`;
+          path.setAttribute('d', d);
+          path.setAttribute('stroke', color);
+          path.setAttribute('stroke-width', (1.6 + Math.random()*1.3).toFixed(1));
+          path.setAttribute('stroke-linecap', 'round');
+          path.setAttribute('fill', 'none');
+          svg.appendChild(path);
+          const ang = Math.random() * Math.PI * 2;
+          const speed = 3 + Math.random() * 6;
+          addPiece(svg, {
+            vx: Math.cos(ang) * speed,
+            vy: Math.sin(ang) * speed - 4,
+            rot: Math.random() * 360,
+            vr: (Math.random() - 0.5) * 16,
+            gMul: 1,
+            maxLife: 66 + Math.random() * 40,
+          });
+        }
       } else {
         // Confeti clásico — cuadrados de colores
         const COLORS = ['#FF6B6B','#FFD93D','#6BCB77','#4D96FF','#C77DFF','#FF9F45','#00D2D3','#FF6FA5','#B8FF66'];
@@ -2353,7 +2426,12 @@
     // Finish notif — aparece debajo del patrón de muestra (rr-widget)
     let finishNotifTimer = null;
     window.__fbNotifReceived = item => {
-      window.playWhoosh?.();
+      const theme = (window.__RR_SEASON_THEMES || {})[window.__rrActiveSeason] || null;
+      if (window.__seasonAltMode && theme && theme.finishSound === 'giggle') {
+        window.playGiggle?.();
+      } else {
+        window.playWhoosh?.();
+      }
       window.playConfetti?.();
       const area = document.getElementById('finish-notif-area');
       if (!area) return;
@@ -3114,6 +3192,43 @@
       hintOff: <>Toca y mantén el título<br/>para VACACIONES</>,
     };
 
+    // Vuelta al Colegio: amarillo limón, magenta, cian, gris oscuro, gris claro y
+    // marrón claro — tonos "acrílico" (mate, saturado, sin brillo plástico).
+    const SCHOOL_COLORS = [
+      { id:"white",  bg:"#C7C7CC", shine:"#E4E4E8", shadow:"#96969C" }, // gris claro
+      { id:"blue",   bg:"#17C3D6", shine:"#6BE0EE", shadow:"#0E8A98" }, // cian
+      { id:"yellow", bg:"#F5E642", shine:"#FFF48A", shadow:"#C9B816" }, // amarillo limón
+      { id:"green",  bg:"#4A4A4E", shine:"#6E6E74", shadow:"#29292C" }, // gris oscuro
+      { id:"orange", bg:"#B98A5A", shine:"#D9B384", shadow:"#7D5C36" }, // marrón claro
+      { id:"red",    bg:"#E91E8C", shine:"#FF6BC4", shadow:"#A10F63" }, // magenta
+    ];
+    const SCHOOL_RR_COLORS = [
+      { bg:'#C7C7CC', border:'#96969C', puzzleId:'white'  },
+      { bg:'#4A4A4E', border:'#29292C', puzzleId:'green'  },
+      { bg:'#F5E642', border:'#C9B816', puzzleId:'yellow' },
+      { bg:'#17C3D6', border:'#0E8A98', puzzleId:'blue'   },
+      { bg:'#E91E8C', border:'#A10F63', puzzleId:'red'    },
+      { bg:'#B98A5A', border:'#7D5C36', puzzleId:'orange' },
+    ];
+    const schoolColorMap = {}; SCHOOL_COLORS.forEach(c => { schoolColorMap[c.id] = c; });
+    // Fondo: gris claro con una cuadrícula azul muy tenue, tipo papel cuadriculado.
+    const SCHOOL_BG = 'linear-gradient(rgba(94,150,212,.16) 1px,transparent 1px) 0 0/26px 26px,' +
+                       'linear-gradient(90deg,rgba(94,150,212,.16) 1px,transparent 1px) 0 0/26px 26px,#EAEAED';
+
+    window.__RR_SEASON_THEMES.vuelta_colegio = {
+      colorMap: schoolColorMap,
+      rrColors: SCHOOL_RR_COLORS,
+      gradient: 'linear-gradient(90deg,#F5E642,#E91E8C,#17C3D6,#4A4A4E,#C7C7CC,#B98A5A)',
+      bgGradient: SCHOOL_BG,
+      hideStars: true,
+      particleStyle: 'shavings',
+      pastelOverlay: true, // la máscara de "terminado" usa un color aleatorio de la paleta, en pastel
+      finishSound: 'giggle',
+      tileTexture: 'crayon',
+      hintOn:  <>Mantén pulsado el título<br/>para desactivar VUELTA AL COLE</>,
+      hintOff: <>Toca y mantén el título<br/>para VUELTA AL COLE</>,
+    };
+
     // Devuelve el tema visual de la temporada activa ahora mismo, o null si no tiene uno.
     function rrCurrentSeasonTheme() {
       return (window.__RR_SEASON_THEMES || {})[window.__rrActiveSeason] || null;
@@ -3194,6 +3309,17 @@
         return () => window.removeEventListener('prideModeChange', handler);
       }, []);
       return pride;
+    }
+
+    // Aclara un color hex mezclándolo con blanco, para máscaras "pastel" a partir
+    // de un color de ficha ya existente (usado por la temporada de Vuelta al Colegio).
+    function rrPastelize(hex, mixWithWhite = 0.42, alpha = 0.91) {
+      const h = hex.replace('#', '');
+      const r = parseInt(h.substring(0,2), 16), g = parseInt(h.substring(2,4), 16), b = parseInt(h.substring(4,6), 16);
+      const pr = Math.round(r + (255 - r) * mixWithWhite);
+      const pg = Math.round(g + (255 - g) * mixWithWhite);
+      const pb = Math.round(b + (255 - b) * mixWithWhite);
+      return `rgba(${pr},${pg},${pb},${alpha})`;
     }
 
     function applyColorblindToMap(map) {
@@ -4778,6 +4904,20 @@
       const seasonTheme = window.__RR_SEASON_THEMES[activeSeason] || null;
       const [pridePreview, setPridePreview] = useState(false);
       const [showSettings, setShowSettings] = useState(false);
+      const [finishOverlayColor, setFinishOverlayColor] = useState(null);
+
+      // Al terminar, si la temporada activa pide una máscara "pastelizada" aleatoria
+      // (Vuelta al Colegio), elige un color de la paleta de esa temporada y lo aclara.
+      useEffect(() => {
+        if (!finished) { setFinishOverlayColor(null); return; }
+        if (seasonAlt && seasonTheme && seasonTheme.pastelOverlay && seasonTheme.colorMap) {
+          const options = Object.values(seasonTheme.colorMap);
+          const pick = options[Math.floor(Math.random() * options.length)];
+          setFinishOverlayColor(pick ? rrPastelize(pick.bg) : null);
+        } else {
+          setFinishOverlayColor(null);
+        }
+      }, [finished, seasonAlt, seasonTheme]);
 
       // Toggle persistente de fichas Pride durante la partida
       useEffect(() => {
@@ -5709,6 +5849,11 @@
                 const col = idx % boardSize;
                 const row = Math.floor(idx / boardSize);
                 const coord = String.fromCharCode(65+col) + (row+1);
+                // "Dibujado a mano": textura de trazos cruzados tipo crayón (Vuelta al Colegio).
+                // El ángulo varía un poco por ficha para que no se vea como un patrón repetido.
+                const crayonMode = seasonAlt && seasonTheme?.tileTexture === 'crayon';
+                const crayonA1 = 100 + (idx * 37) % 40;
+                const crayonA2 = 55  + (idx * 53) % 40;
                 return (
                   <button key={`${tile.colorId}-${tile.num}`} className="tile-btn"
                           data-tut={isCenter?'center':undefined}
@@ -5718,7 +5863,12 @@
                           style={{
                     width:'var(--tile)',height:'var(--tile)',borderRadius:'8px',border:'none',
                     cursor:isAdj?'pointer':'default',
-                    background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`,
+                    background: crayonMode
+                      ? `repeating-linear-gradient(${crayonA1}deg,rgba(0,0,0,.14) 0px,rgba(0,0,0,.14) 1px,transparent 1.5px,transparent 5px),`+
+                        `repeating-linear-gradient(${crayonA2}deg,rgba(255,255,255,.12) 0px,rgba(255,255,255,.12) 1px,transparent 1.5px,transparent 6px),`+
+                        `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`
+                      : `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`,
+                    backgroundBlendMode: crayonMode ? 'multiply, overlay, normal' : undefined,
                     boxShadow:idx===sabotageFlashIdx
                       ? `0 0 0 4px rgba(168,85,247,1),0 0 34px 10px rgba(168,85,247,.9)`
                       : idx===hintMove
@@ -5756,7 +5906,7 @@
                   </button>
                 );
               })}
-              {finished && <div className="finished-frame"><div className="finished-text">{window.T.finished}</div>{usedHints && <div className="finished-text" style={{fontSize:'clamp(16px,4vw,26px)',animationDelay:'.2s'}}>…with a little help</div>}</div>}
+              {finished && <div className="finished-frame" style={finishOverlayColor ? {'--rr-finished-overlay':finishOverlayColor} : undefined}><div className="finished-text">{window.T.finished}</div>{usedHints && <div className="finished-text" style={{fontSize:'clamp(16px,4vw,26px)',animationDelay:'.2s'}}>…with a little help</div>}</div>}
             </div>{/* end grid */}
             </div>{/* end flex row (row labels + grid) */}
           </div>{/* end board wrapper */}
