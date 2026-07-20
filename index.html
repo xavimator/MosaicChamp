@@ -3278,6 +3278,21 @@
     ];
     const schoolColorMap = {}; SCHOOL_COLORS.forEach(c => { schoolColorMap[c.id] = c; });
     // Fondo: gris claro con una cuadrícula azul muy tenue, tipo papel cuadriculado.
+    // Contorno de "scribble" (garabato) provisto por el usuario como SVG — el path original
+    // solo tiene segmentos rectos (M/L/Z) así que se convirtió directamente a un polygon()
+    // de CSS (coordenadas en % sobre el viewBox 600×600 original). Se usa como clip-path
+    // en las fichas de Vuelta al Colegio para que cada ficha tenga forma de garabato en vez
+    // de un cuadrado con esquinas redondeadas.
+    const SCRIBBLE_CLIP = 'polygon(69.68% 50.00%, 68.55% 52.45%, 69.98% 55.35%, 70.45% 58.47%, '+
+      '69.02% 60.98%, 68.38% 64.10%, 67.80% 67.80%, 67.00% 72.15%, 62.88% 72.32%, 58.40% 70.27%, '+
+      '56.08% 72.70%, 52.73% 70.78%, 50.00% 71.42%, 47.28% 70.58%, 44.00% 72.37%, 40.55% 72.82%, '+
+      '36.33% 73.67%, 32.98% 72.18%, 29.73% 70.27%, 29.63% 65.63%, 30.12% 61.48%, 31.58% 57.63%, '+
+      '32.05% 54.82%, 31.98% 52.37%, 30.33% 50.00%, 31.15% 47.52%, 31.47% 45.03%, 30.30% 41.83%, '+
+      '31.77% 39.47%, 31.78% 36.02%, 29.25% 29.25%, 32.62% 27.35%, 36.73% 27.03%, 41.57% 29.65%, '+
+      '44.32% 28.82%, 46.90% 26.43%, 50.00% 28.65%, 52.85% 28.37%, 55.85% 28.15%, 58.75% 28.90%, '+
+      '62.22% 28.83%, 67.95% 26.60%, 68.93% 31.07%, 70.78% 34.05%, 67.98% 39.62%, 68.05% 42.52%, '+
+      '70.15% 44.60%, 67.90% 47.65%)';
+
     const SCHOOL_BG = 'linear-gradient(rgba(70,115,175,.38) 1px,transparent 1px) 0 0/26px 26px,' +
                        'linear-gradient(90deg,rgba(70,115,175,.38) 1px,transparent 1px) 0 0/26px 26px,#EAEAED';
 
@@ -3291,6 +3306,7 @@
       pastelOverlay: true, // la máscara de "terminado" usa un color aleatorio de la paleta, en pastel
       finishSound: 'giggle',
       tileTexture: 'crayon',
+      tileShape: 'scribble', // la ficha se recorta con el contorno de scribble (ver SCRIBBLE_CLIP)
       darkText: true, // fondo claro → el texto bajo el título pasa a gris oscuro (ver renderizado del hint)
       hintOn:  <>Mantén pulsado el título<br/>para desactivar VUELTA AL COLE</>,
       hintOff: <>Toca y mantén el título<br/>para VUELTA AL COLE</>,
@@ -5927,6 +5943,7 @@
                 // "Dibujado a mano": textura de trazos cruzados tipo crayón (Vuelta al Colegio).
                 // El ángulo varía un poco por ficha para que no se vea como un patrón repetido.
                 const crayonMode = seasonAlt && seasonTheme?.tileTexture === 'crayon';
+                const scribbleMode = seasonAlt && seasonTheme?.tileShape === 'scribble';
                 // Tres capas de trazos cruzados, cada una con su propio ángulo Y espaciado
                 // variando por ficha (no solo el ángulo), para que el rayado se vea más
                 // denso y ninguna ficha repita exactamente el mismo patrón de crayón.
@@ -5945,17 +5962,18 @@
                           style={{
                     width:'var(--tile)',height:'var(--tile)',borderRadius:'8px',border:'none',
                     cursor:isAdj?'pointer':'default',
-                    background: crayonMode
+                    background: scribbleMode ? 'transparent' : (crayonMode
                       ? `repeating-linear-gradient(${crayonA1}deg,rgba(0,0,0,.18) 0px,rgba(0,0,0,.18) 1px,transparent 1.5px,transparent ${crayonG1}px),`+
                         `repeating-linear-gradient(${crayonA2}deg,rgba(0,0,0,.13) 0px,rgba(0,0,0,.13) 1px,transparent 1.5px,transparent ${crayonG2}px),`+
                         `repeating-linear-gradient(${crayonA3}deg,rgba(255,255,255,.14) 0px,rgba(255,255,255,.14) 1px,transparent 1.3px,transparent ${crayonG3}px),`+
                         `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`
-                      : `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`,
-                    backgroundBlendMode: crayonMode ? 'multiply, multiply, overlay, normal' : undefined,
+                      : `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`),
+                    backgroundBlendMode: scribbleMode ? undefined : (crayonMode ? 'multiply, multiply, overlay, normal' : undefined),
                     boxShadow:idx===sabotageFlashIdx
                       ? `0 0 0 4px rgba(168,85,247,1),0 0 34px 10px rgba(168,85,247,.9)`
                       : idx===hintMove
                       ? `0 4px 0 ${c.shadow},0 0 0 3px rgba(0,220,255,.9),0 0 18px rgba(0,220,255,.7),inset 0 1px 0 rgba(255,255,255,.25)`
+                      : scribbleMode ? 'none'
                       : `0 4px 0 ${c.shadow},0 6px 16px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.25)`,
                     transition:'transform .1s,filter .1s,box-shadow .2s',
                     transform:isAdj?'scale(1.02) translateZ(0)':'translateZ(0)',
@@ -5963,7 +5981,22 @@
                     animation:idx===sabotageFlashIdx?'rrSabotageFlash .7s ease-out':idx===lastMoved?'tileSlide .15s ease':idx===hintMove?'hintTilePulse 0.9s ease-in-out infinite':'none',
                     position:'relative',overflow:'hidden',
                   }}>
+                    {scribbleMode ? (
+                      <div style={{
+                        position:'absolute',inset:0,clipPath:SCRIBBLE_CLIP,
+                        background:
+                          `radial-gradient(ellipse 60% 45% at 32% 18%,rgba(255,255,255,.5),transparent 60%),`+
+                          `repeating-linear-gradient(${crayonA1}deg,rgba(0,0,0,.18) 0px,rgba(0,0,0,.18) 1px,transparent 1.5px,transparent ${crayonG1}px),`+
+                          `repeating-linear-gradient(${crayonA2}deg,rgba(0,0,0,.13) 0px,rgba(0,0,0,.13) 1px,transparent 1.5px,transparent ${crayonG2}px),`+
+                          `repeating-linear-gradient(${crayonA3}deg,rgba(255,255,255,.14) 0px,rgba(255,255,255,.14) 1px,transparent 1.3px,transparent ${crayonG3}px),`+
+                          `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`,
+                        backgroundBlendMode:'screen, multiply, multiply, overlay, normal',
+                        filter:`drop-shadow(2px 4px 0 ${c.shadow}) drop-shadow(0 4px 8px rgba(0,0,0,.35))`,
+                        pointerEvents:'none',
+                      }}/>
+                    ) : (
                     <div style={{position:'absolute',top:0,left:0,right:0,height:'45%',borderRadius:'8px 8px 50% 50%',background:'linear-gradient(to bottom,rgba(255,255,255,.2),transparent)',pointerEvents:'none'}}/>
+                    )}
                     {idx===sabotageFlashIdx && (
                       <div style={{
                         position:'absolute', inset:'-45%', pointerEvents:'none',
