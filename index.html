@@ -3703,7 +3703,7 @@
       useEffect(() => { onActivateRef.current = onActivate; }, [onActivate]);
 
       useEffect(() => {
-        lpRef.current = makeLongPress(() => onActivateRef.current?.(), 2000);
+        lpRef.current = makeLongPress(() => onActivateRef.current?.(), 1000);
       }, []);
 
       onStartRef.current = (e) => {
@@ -3814,7 +3814,7 @@
           }
           window.dispatchEvent(new CustomEvent('prideTileToggle', { detail: next }));
           window.playChime?.();
-        }, 2000);
+        }, 1000);
       }, []);
 
       // Escucha cambios externos del toggle (por si otro componente lo dispara)
@@ -6130,9 +6130,11 @@
                         WebkitMaskSize:'100% 100%', maskSize:'100% 100%',
                         WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
                         WebkitMaskPosition:'center', maskPosition:'center',
-                        background: `${c.bg} url(${SCRIBBLE_EMBOSS_URL})`,
+                        background: crayonMode
+                          ? `url(${SCHOOL_CHARCOAL_URL}),${c.bg}`
+                          : `${c.bg} url(${SCRIBBLE_EMBOSS_URL})`,
                         backgroundSize: '100% 100%',
-                        backgroundBlendMode: 'overlay',
+                        backgroundBlendMode: crayonMode ? 'multiply' : 'overlay',
                         filter:`drop-shadow(2px 4px 0 ${c.shadow}) drop-shadow(0 4px 8px rgba(0,0,0,.35))`,
                         pointerEvents:'none',
                       }}/>
