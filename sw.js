@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v65';
+const CACHE_NAME = 'mosaicchamp-v66';
 
 // Recursos que se precachean en la instalación
 const PRECACHE = [
