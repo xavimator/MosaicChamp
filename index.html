@@ -1151,7 +1151,7 @@
         codeExpired: 'Ese código ha caducado',
         yourCode: 'Tu código',
         newGame: '¡Acepto el reto!',
-        joinWithCode: '🔗 Unirse con código',
+        joinWithCode: 'Unirse con código',
         gameCode: 'Código de partida',
         codePlaceholder: 'XXXX',
         activeGames: 'Partidas en curso',
@@ -1176,7 +1176,7 @@
         exitBtn: '✕ Salir',
         gameLabel: 'Partida',
         inviteLabel: 'Invitar',
-        inviteLink: '🔗 Link',
+        inviteLink: 'Link',
         inviteText: (code) => `¡Únete! Código: ${code}`,
         copiedOk: '✓ OK',
         copyTitle: 'Copiar',
@@ -1235,7 +1235,7 @@
         codeExpired: 'Aquest codi ha caducat',
         yourCode: 'El teu codi',
         newGame: 'Accepto el repte!',
-        joinWithCode: '🔗 Unir-se amb codi',
+        joinWithCode: 'Unir-se amb codi',
         gameCode: 'Codi de partida',
         codePlaceholder: 'XXXX',
         activeGames: 'Partides en curs',
@@ -1258,7 +1258,7 @@
         exitBtn: '✕ Sortir',
         gameLabel: 'Partida',
         inviteLabel: 'Convidar',
-        inviteLink: '🔗 Enllaç',
+        inviteLink: 'Enllaç',
         inviteText: (code) => `Uneix-te! Codi: ${code}`,
         copiedOk: '✓ OK',
         copyTitle: 'Copiar',
@@ -1312,7 +1312,7 @@
         codeExpired: 'That code has expired',
         yourCode: 'Your code',
         newGame: 'I accept the challenge!',
-        joinWithCode: '🔗 Join with code',
+        joinWithCode: 'Join with code',
         gameCode: 'Game code',
         codePlaceholder: 'XXXX',
         activeGames: 'Games in progress',
@@ -1335,7 +1335,7 @@
         exitBtn: '✕ Leave',
         gameLabel: 'Game',
         inviteLabel: 'Invite',
-        inviteLink: '🔗 Link',
+        inviteLink: 'Link',
         inviteText: (code) => `Join me! Code: ${code}`,
         copiedOk: '✓ OK',
         copyTitle: 'Copy',
@@ -1389,7 +1389,7 @@
         codeExpired: 'Ce code a expir\u00e9',
         yourCode: 'Ton code',
         newGame: "J'accepte le d\u00e9fi\u00a0!",
-        joinWithCode: '🔗 Rejoindre avec un code',
+        joinWithCode: 'Rejoindre avec un code',
         gameCode: 'Code de partie',
         codePlaceholder: 'XXXX',
         activeGames: 'Parties en cours',
@@ -1412,7 +1412,7 @@
         exitBtn: '✕ Quitter',
         gameLabel: 'Partie',
         inviteLabel: 'Inviter',
-        inviteLink: '🔗 Lien',
+        inviteLink: 'Lien',
         inviteText: (code) => `Rejoins-moi ! Code : ${code}`,
         copiedOk: '✓ OK',
         copyTitle: 'Copier',
@@ -1466,7 +1466,7 @@
         codeExpired: 'Dieser Code ist abgelaufen',
         yourCode: 'Dein Code',
         newGame: 'Ich nehme die Herausforderung an!',
-        joinWithCode: '🔗 Mit Code beitreten',
+        joinWithCode: 'Mit Code beitreten',
         gameCode: 'Spielcode',
         codePlaceholder: 'XXXX',
         activeGames: 'Laufende Spiele',
@@ -1489,7 +1489,7 @@
         exitBtn: '✕ Verlassen',
         gameLabel: 'Spiel',
         inviteLabel: 'Einladen',
-        inviteLink: '🔗 Link',
+        inviteLink: 'Link',
         inviteText: (code) => `Mach mit! Code: ${code}`,
         copiedOk: '✓ OK',
         copyTitle: 'Kopieren',
@@ -1543,7 +1543,7 @@
         codeExpired: 'Esse c\u00f3digo expirou',
         yourCode: 'Teu c\u00f3digo',
         newGame: 'Aceito o desafio!',
-        joinWithCode: '🔗 Entrar com código',
+        joinWithCode: 'Entrar com código',
         gameCode: 'Código da partida',
         codePlaceholder: 'XXXX',
         activeGames: 'Partidas em curso',
@@ -1566,7 +1566,7 @@
         exitBtn: '✕ Sair',
         gameLabel: 'Partida',
         inviteLabel: 'Convidar',
-        inviteLink: '🔗 Link',
+        inviteLink: 'Link',
         inviteText: (code) => `Junta-te! Código: ${code}`,
         copiedOk: '✓ OK',
         copyTitle: 'Copiar',
@@ -1620,7 +1620,7 @@
         codeExpired: 'Questo codice \u00e8 scaduto',
         yourCode: 'Il tuo codice',
         newGame: 'Accetto la sfida!',
-        joinWithCode: '🔗 Unisciti con codice',
+        joinWithCode: 'Unisciti con codice',
         gameCode: 'Codice partita',
         codePlaceholder: 'XXXX',
         activeGames: 'Partite in corso',
@@ -1643,7 +1643,7 @@
         exitBtn: '✕ Esci',
         gameLabel: 'Partita',
         inviteLabel: 'Invita',
-        inviteLink: '🔗 Link',
+        inviteLink: 'Link',
         inviteText: (code) => `Unisciti! Codice: ${code}`,
         copiedOk: '✓ OK',
         copyTitle: 'Copia',
@@ -4472,8 +4472,13 @@
                     ) : null}
                   </div>
                   {aliasClaimed && !passwordError && (
-                    <div style={{marginTop:'5px',fontSize:'10.5px',color: passSession ? 'rgba(100,200,100,.8)' : 'rgba(255,200,80,.75)'}}>
-                      {passSession ? '✓ Sesión activa' : `🔒 ${window.T.aliasProtected}`}
+                    <div style={{marginTop:'5px',fontSize:'10.5px',color: passSession ? 'rgba(100,200,100,.8)' : 'rgba(255,200,80,.75)',display:'flex',alignItems:'center',gap:'4px'}}>
+                      {passSession ? '✓ Sesión activa' : (<>
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+                          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                        </svg>
+                        {window.T.aliasProtected}
+                      </>)}
                     </div>
                   )}
                   {passwordError && (
@@ -4515,7 +4520,11 @@
                         boxShadow:active?'0 0 14px rgba(156,90,255,.4)':completed?'0 0 8px rgba(74,222,128,.25)':isSpecial?'0 0 10px rgba(255,200,80,.35)':'none',
                         animation:isSpecial?'level8In .5s ease':'none',
                       }}>
-                      {locked ? '🔒' : completed && !active ? '✓' : isSpecial ? (
+                      {locked ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                        </svg>
+                      ) : completed && !active ? '✓' : isSpecial ? (
                         <span style={{position:'relative',display:'inline-block'}}>
                           8
                           <span style={{position:'absolute',top:'-9px',left:'-11px',fontSize:'9px',
@@ -4542,8 +4551,11 @@
                           boxShadow:'0 6px 24px rgba(0,0,0,.7)',
                           animation:'fadeUp .2s ease',
                         }}>
-                          <span style={{display:'block',textAlign:'center',lineHeight:1.6}}>
-                            🔒 gana el nivel {lv.level-1}<br/>para jugar
+                          <span style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'5px',textAlign:'center',lineHeight:1.6}}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+                              <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                            </svg>
+                            gana el nivel {lv.level-1}<br/>para jugar
                           </span>
                           <div style={{
                             position:'absolute',top:'100%',left:'50%',transform:'translateX(-50%)',
@@ -4614,7 +4626,12 @@
 
             {/* Join */}
             {!showJoin
-              ? <button className="lobby-btn secondary" disabled={!nameOk} onClick={()=>{ setShowJoin(true); setError(''); }}>
+              ? <button className="lobby-btn secondary" disabled={!nameOk} onClick={()=>{ setShowJoin(true); setError(''); }}
+                  style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'7px'}}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                  </svg>
                   {window.T.joinWithCode}
                 </button>
               : <div>
@@ -4730,8 +4747,14 @@
                             border:`1px solid ${copied?'rgba(34,197,94,.5)':'rgba(255,255,255,.15)'}`,
                             background:copied?'rgba(34,197,94,.15)':'rgba(255,255,255,.07)',
                             color:copied?'#22c55e':'#fff',fontSize:'13px',fontWeight:700,cursor:'pointer',
-                            transition:'all .2s'}}>
-                {copied ? window.T.copiedOk : window.T.inviteLink}
+                            transition:'all .2s',display:'flex',alignItems:'center',justifyContent:'center',gap:'7px'}}>
+                {copied ? window.T.copiedOk : (<>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                  </svg>
+                  {window.T.inviteLink}
+                </>)}
               </button>
               {navigator.share && (
                 <button onClick={doShare} style={{flex:1,padding:'11px 0',borderRadius:'10px',
@@ -5842,6 +5865,7 @@
 
         if (!finishedRef.current && checkMatch(nt,rrPat,CENTER)) {
           finishedRef.current=true; setFinished(true);
+          window.__adsOnLevelComplete?.();
           const ft=fmt(time+1), fm=moves+1;
           if (usedHints) {
             window.playMarseillaiseHelp?.();
@@ -6423,6 +6447,10 @@
       const [savedDoneLevels, setSavedDoneLevels] = useState([]);
       const [savedName,       setSavedName]       = useState('');
 
+      // Inicializa AdMob (no-op si no estamos dentro de la app nativa empaquetada,
+      // o si el jugador ya compró quitar anuncios).
+      useEffect(() => { window.__adsInit?.(); }, []);
+
 
       // Precarga el progreso desde Firebase al arrancar si hay nombre guardado en localStorage.
       // Si el alias está protegido por contraseña, NO se precarga aquí: Lobby solo revelará
@@ -6499,6 +6527,87 @@
     }
 
     ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+  </script>
+  <script>
+    // ─────────────────────────────────────────────────────────
+    //  MosaicChamp — Gestión de anuncios (AdMob vía Capacitor)
+    //  No-op seguro fuera de la app nativa empaquetada (navegador web normal),
+    //  y no-op si el jugador ya compró "quitar anuncios" (Google Play Billing).
+    // ─────────────────────────────────────────────────────────
+    (function () {
+      // IDs de PRUEBA oficiales de Google (siempre sirven anuncios de prueba, nunca
+      // reales, y no generan cobros ni cuentan para tu cuenta de AdMob). Sustituir
+      // por los IDs reales de tu cuenta AdMob antes de publicar en Play Store.
+      const ADMOB_APP_ID          = 'ca-app-pub-3234891574457942~7156728411'; // App ID real (AdMob)
+      const AD_UNIT_BANNER        = 'ca-app-pub-3234891574457942/5173442763'; // Banner real (AdMob)
+      const AD_UNIT_INTERSTITIAL  = 'ca-app-pub-3234891574457942/2534957121'; // Interstitial real (AdMob)
+
+      // No más de un intersticial cada 3 niveles completados, y nunca separados
+      // por menos de 3 minutos (lo que ocurra más tarde de las dos condiciones).
+      const MIN_LEVELS_BETWEEN_ADS = 3;
+      const MIN_MS_BETWEEN_ADS     = 3 * 60 * 1000;
+
+      let levelsSinceLastAd = 0;
+      let lastAdTs = 0;
+      let interstitialReady = false;
+
+      function isNative() {
+        return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+      }
+      function isAdFree() {
+        return localStorage.getItem('mc-ads-removed') === '1';
+      }
+      function getAdMob() {
+        // Expuesto por el plugin @capacitor-community/admob una vez añadido al proyecto nativo.
+        return window.Capacitor?.Plugins?.AdMob || null;
+      }
+
+      async function initAds() {
+        if (!isNative() || isAdFree()) return;
+        const AdMob = getAdMob();
+        if (!AdMob) return;
+        try {
+          await AdMob.initialize({ requestTrackingAuthorization: true, testingDevices: [], initializeForTesting: false });
+          await AdMob.showBanner({ adId: AD_UNIT_BANNER, position: 'BOTTOM_CENTER', margin: 0, isTesting: false });
+          await AdMob.prepareInterstitial({ adId: AD_UNIT_INTERSTITIAL, isTesting: false });
+          interstitialReady = true;
+        } catch (e) { console.warn('AdMob init error:', e); }
+      }
+
+      async function onLevelComplete() {
+        if (!isNative() || isAdFree()) return;
+        levelsSinceLastAd++;
+        const now = Date.now();
+        const dueByLevels = levelsSinceLastAd >= MIN_LEVELS_BETWEEN_ADS;
+        const dueByTime   = (now - lastAdTs) >= MIN_MS_BETWEEN_ADS;
+        if (!dueByLevels || !dueByTime || !interstitialReady) return;
+        const AdMob = getAdMob();
+        if (!AdMob) return;
+        try {
+          await AdMob.showInterstitial();
+          levelsSinceLastAd = 0;
+          lastAdTs = now;
+          interstitialReady = false;
+          AdMob.prepareInterstitial({ adId: AD_UNIT_INTERSTITIAL, isTesting: false })
+            .then(() => { interstitialReady = true; })
+            .catch(() => {});
+        } catch (e) { console.warn('AdMob interstitial error:', e); }
+      }
+
+      async function removeAds() {
+        // Se llama SOLO tras confirmar una compra válida de Google Play Billing
+        // (ver window.__iapPurchaseRemoveAds). Nunca desde un botón directo.
+        localStorage.setItem('mc-ads-removed', '1');
+        if (!isNative()) return;
+        const AdMob = getAdMob();
+        try { await AdMob?.hideBanner(); } catch (e) {}
+      }
+
+      window.__adsInit             = initAds;
+      window.__adsOnLevelComplete  = onLevelComplete;
+      window.__adsRemoveAds        = removeAds;
+      window.__adsIsAdFree         = isAdFree;
+    })();
   </script>
 </body>
 </html>
