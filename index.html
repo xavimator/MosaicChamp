@@ -6130,27 +6130,27 @@
                         WebkitMaskSize:'100% 100%', maskSize:'100% 100%',
                         WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
                         WebkitMaskPosition:'center', maskPosition:'center',
-                        background: crayonMode
-                          ? `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`
-                          : `${c.bg} url(${SCRIBBLE_EMBOSS_URL})`,
+                        // Sin relleno de color de fondo: solo recorta la silueta scribble.
+                        // Donde no hay trazo de carboncillo (dentro o fuera de la silueta)
+                        // se ve la transparencia real de la ficha.
+                        background: crayonMode ? 'transparent' : `${c.bg} url(${SCRIBBLE_EMBOSS_URL})`,
                         backgroundSize: crayonMode ? undefined : '100% 100%',
                         backgroundBlendMode: crayonMode ? undefined : 'overlay',
                         filter:`drop-shadow(2px 4px 0 ${c.shadow}) drop-shadow(0 4px 8px rgba(0,0,0,.35))`,
                         pointerEvents:'none',
                       }}>
                         {crayonMode && (
-                          // Grano de carboncillo aplicado como MASCARA (no imagen con color propio):
-                          // el color lo pone la propia ficha (c.shadow, su tono mas oscuro), y fuera
-                          // de los trazos queda transparente -- se ve el color plano de abajo.
-                          // Tamano del patron ampliado un 30% (130%) respecto a la ficha.
+                          // Grano de carboncillo puro como MASCARA sobre transparencia:
+                          // el color lo pone c.shadow (tono propio de la ficha), sin ningun
+                          // cuadrado de color de relleno debajo. Tamano ampliado otro 30%
+                          // (130% -> 169%) respecto a la ficha.
                           <div style={{
                             position:'absolute', inset:0,
                             WebkitMaskImage:`url(${SCHOOL_CHARCOAL_URL})`, maskImage:`url(${SCHOOL_CHARCOAL_URL})`,
-                            WebkitMaskSize:'130% 130%', maskSize:'130% 130%',
+                            WebkitMaskSize:'169% 169%', maskSize:'169% 169%',
                             WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
                             WebkitMaskPosition:'center', maskPosition:'center',
                             background: c.shadow,
-                            opacity:.62,
                             pointerEvents:'none',
                           }}/>
                         )}
