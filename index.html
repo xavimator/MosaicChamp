@@ -540,9 +540,9 @@
     const auth = getAuth(app);
     // TODO: sustituir por el UID real que muestra Firebase Console → Authentication → Users
     // tras crear la cuenta. Hasta entonces, nadie podrá autenticarse como Rubiking (fail-safe).
-    const RUBIKING_UID   = 'PENDIENTE_UID_RUBIKING';
+    const RUBIKING_UID   = 'YLKA6leWJBcqX1EtyZpBV9z1PSu2';
     // El email no es secreto (sin la contraseña no sirve de nada) — solo identifica la cuenta.
-    const RUBIKING_EMAIL = 'PENDIENTE_EMAIL_RUBIKING';
+    const RUBIKING_EMAIL = 'xavimator@me.com';
 
     let rubikingAuthed = false;
     const rubikingAuthListeners = new Set();
@@ -3450,20 +3450,20 @@
     // Vuelta al Colegio: amarillo limón, magenta, cian, gris oscuro, gris claro y
     // marrón claro — tonos "acrílico" (mate, saturado, sin brillo plástico).
     const SCHOOL_COLORS = [
-      { id:"white",  bg:"#F0F0F2", shine:"#FAFAFB", shadow:"#D5D5DA" }, // crema/gris muy claro
-      { id:"blue",   bg:"#A9E4EF", shine:"#D6F4F9", shadow:"#74C6D6" }, // celeste pastel
-      { id:"yellow", bg:"#FFEB99", shine:"#FFF7CC", shadow:"#F0D466" }, // amarillo mantequilla
-      { id:"green",  bg:"#A8DCC0", shine:"#D2EFE0", shadow:"#79BE9C" }, // menta pastel
-      { id:"orange", bg:"#F0C89A", shine:"#F8DFC0", shadow:"#D6A369" }, // melocotón pastel
-      { id:"red",    bg:"#F5A8CE", shine:"#FBD2E7", shadow:"#E070AC" }, // rosa pastel
+      { id:"white",  bg:"#F3F1EC", shine:"#F8F8F7", shadow:"#C4B997" }, // crema
+      { id:"blue",   bg:"#82D8ED", shine:"#C6E8F1", shadow:"#16AED4" }, // celeste
+      { id:"yellow", bg:"#FAE180", shine:"#F8EFC9", shadow:"#F2C202" }, // amarillo mantequilla
+      { id:"green",  bg:"#78E2B4", shine:"#BAE8D4", shadow:"#1FB775" }, // menta
+      { id:"orange", bg:"#F1B87E", shine:"#F3DBC4", shadow:"#DA7510" }, // melocotón
+      { id:"red",    bg:"#F18EBF", shine:"#F5D1E3", shadow:"#E6147D" }, // rosa
     ];
     const SCHOOL_RR_COLORS = [
-      { bg:'#F0F0F2', border:'#D5D5DA', puzzleId:'white'  },
-      { bg:'#A8DCC0', border:'#79BE9C', puzzleId:'green'  },
-      { bg:'#FFEB99', border:'#F0D466', puzzleId:'yellow' },
-      { bg:'#A9E4EF', border:'#74C6D6', puzzleId:'blue'   },
-      { bg:'#F5A8CE', border:'#E070AC', puzzleId:'red'    },
-      { bg:'#F0C89A', border:'#D6A369', puzzleId:'orange' },
+      { bg:'#F3F1EC', border:'#C4B997', puzzleId:'white'  },
+      { bg:'#78E2B4', border:'#1FB775', puzzleId:'green'  },
+      { bg:'#FAE180', border:'#F2C202', puzzleId:'yellow' },
+      { bg:'#82D8ED', border:'#16AED4', puzzleId:'blue'   },
+      { bg:'#F18EBF', border:'#E6147D', puzzleId:'red'    },
+      { bg:'#F1B87E', border:'#DA7510', puzzleId:'orange' },
     ];
     const schoolColorMap = {}; SCHOOL_COLORS.forEach(c => { schoolColorMap[c.id] = c; });
     // Fondo: gris claro con una cuadrícula azul muy tenue, tipo papel cuadriculado.
@@ -6362,17 +6362,27 @@
               </button>
             </div>
             <div style={{display:'flex',gap:'10px',alignItems:'center',flexWrap:'wrap',justifyContent:'center'}}>
-              {finished && (fromInvite || level <= 7) && !window.RR_LEVEL_INFO(level).special && (
+              {finished && (fromInvite || level <= 7) && !window.RR_LEVEL_INFO(level).special && (() => {
+                const schoolMode = seasonAlt && activeSeason === 'vuelta_colegio';
+                return (
                 <button onClick={()=>{ if(typeof onLevelUp==='function') onLevelUp(level+1, level); }}
                   style={{padding:'11px 20px',borderRadius:'10px',cursor:'pointer',fontSize:'13px',
                           fontWeight:800,letterSpacing:'.08em',textTransform:'uppercase',
-                          border:'1px solid rgba(255,215,0,.6)',
-                          background:'linear-gradient(135deg,rgba(255,215,0,.2),rgba(255,150,0,.15))',
-                          color:'#FFD700',boxShadow:'0 0 18px rgba(255,215,0,.35)',
+                          display:'flex',alignItems:'center',gap:'8px',
+                          border: schoolMode ? '1px solid rgba(13,148,136,.55)' : '1px solid rgba(255,215,0,.6)',
+                          background: schoolMode
+                            ? 'linear-gradient(135deg,rgba(45,212,191,.22),rgba(13,148,136,.16))'
+                            : 'linear-gradient(135deg,rgba(255,215,0,.2),rgba(255,150,0,.15))',
+                          color: schoolMode ? '#0d9488' : '#FFD700',
+                          boxShadow: schoolMode ? '0 0 18px rgba(45,212,191,.35)' : '0 0 18px rgba(255,215,0,.35)',
                           animation:'levelUpPulse 1.4s ease-in-out infinite'}}>
-                  ⬆ Level Up
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+                    <path d="M12 19V5"/><path d="M5 12l7-7 7 7"/>
+                  </svg>
+                  Level Up
                 </button>
-              )}
+                );
+              })()}
               {(playerName.toLowerCase()==='yy' || (playerName.toLowerCase()==='rubiking' && rubikingAuthedGame)) && !finished && (
                 <button onClick={handleAutoSolve}
                   title="Auto-resolve (Rubiking only)"
