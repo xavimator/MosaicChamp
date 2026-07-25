@@ -2147,7 +2147,8 @@
     @keyframes finishNotifIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
     .finish-notif { animation:finishNotifIn .35s cubic-bezier(.34,1.4,.64,1); background:rgba(6,4,20,.92); border:1.5px solid rgba(34,197,94,.35); border-radius:12px; padding:10px 16px; display:flex; align-items:center; gap:10px; backdrop-filter:blur(12px); box-shadow:0 4px 20px rgba(0,0,0,.5); }
     #finish-notif-area {
-      position:absolute; top:100%; left:0; right:0; margin-top:8px;
+      position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:8px;
+      width:max-content; max-width:min(280px,80vw);
       z-index:60; pointer-events:none;
     }
 
