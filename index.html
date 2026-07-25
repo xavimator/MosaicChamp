@@ -512,7 +512,7 @@
     */
     import { initializeApp }   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getDatabase, ref, set, push, get, remove, onValue, onChildAdded, off,
-             query, orderByChild, startAfter }
+             query, orderByChild, startAfter, runTransaction }
                                from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
     import { getMessaging, getToken, onMessage, isSupported as isMessagingSupported }
                                from "https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js";
@@ -635,6 +635,48 @@
 
     window.__fbDeleteSavedPattern = (id) => remove(ref(db, `rubitrack/savedPatterns/${id}`));
 
+    // ── Patrones-letra: subconjunto de los guardados llamados "letra_a".."letra_z" ──
+    // Se usan para la "ronda especial" (ver rrShuffle): al ganar varias partidas
+    // seguidas, al jugador líder se le premia con el patrón que lleve su inicial.
+    // ── Patrones-temporada: subconjunto llamados "{idTemporada}_algo" (ej. "pride_flag") ──
+    // Se usan para colar de vez en cuando un patrón temático de la temporada activa.
+    // Ambas suscripciones van siempre activas (no dependen de que alguien abra el editor).
+    window.__rrLetterPatterns = {};   // { 'A': {pattern:[...], size:N, ts}, ... }
+    window.__rrSeasonalPatterns = {}; // { 'pride': [{pattern:[...], name, ts}, ...], ... }
+    window.rrNormalizeLetter = s => (s || '').trim().toUpperCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const rrLetterPatternRe = /^LETRA[_\s-]*([A-Z])$/;
+    onValue(savedPatternsRef, snap => {
+      const letterMap = {};
+      const seasonalMap = {};
+      const seasonIds = (window.RR_SEASONS_DEFAULT || []).map(s => s.id);
+      const seasonRe = seasonIds.length
+        ? new RegExp('^(' + seasonIds.join('|') + ')_.+$', 'i')
+        : null;
+      snap.forEach(child => {
+        const v = child.val();
+        if (!v || !Array.isArray(v.pattern)) return;
+        const nm = (v.name || '').trim();
+        const lm = rrLetterPatternRe.exec(rrNormalizeLetter(nm));
+        if (lm) {
+          const letter = lm[1];
+          if (!letterMap[letter] || (v.ts || 0) > (letterMap[letter].ts || 0)) letterMap[letter] = v;
+          return; // un patrón no es a la vez "letra" y "temporada"
+        }
+        if (seasonRe) {
+          const sm = seasonRe.exec(nm);
+          if (sm) {
+            const seasonId = seasonIds.find(id => id.toLowerCase() === sm[1].toLowerCase());
+            if (seasonId) {
+              (seasonalMap[seasonId] = seasonalMap[seasonId] || []).push(v);
+            }
+          }
+        }
+      });
+      window.__rrLetterPatterns = letterMap;
+      window.__rrSeasonalPatterns = seasonalMap;
+    });
+
     // ── Temporadas del año (global, no depende de la partida) ──
     // Cualquiera puede leer la configuración activa; solo Rubiking puede escribirla
     // (comprobado en el cliente antes de llamar a __fbSaveSeasons). Al guardar, el
@@ -654,7 +696,7 @@
 
     // ── Per-game listeners ──
     let unsubs = [];
-    function detach() { unsubs.forEach(fn => fn()); unsubs = []; }
+    function detach() { unsubs.forEach(fn => fn()); unsubs = []; window.__rrRoundMeta = null; }
 
     window.__fbJoinGame = async function(code) {
       detach();
@@ -667,6 +709,26 @@
         if (d && Array.isArray(d)) window.__fbPatternReceived?.(d);
       }));
       window.__fbSetPattern = p => set(patRef, p);
+
+      // Ronda: contador de partidas/victorias de la sala + patrón-letra especial.
+      // Ver rrShuffle / rrPickSpecialPattern y handleTile (registro de victoria).
+      const roundMetaRef = ref(db, `${base}/roundMeta`);
+      window.__rrRoundMeta = null;
+      unsubs.push(onValue(roundMetaRef, snap => {
+        window.__rrRoundMeta = snap.val() || null;
+        window.dispatchEvent(new CustomEvent('rrRoundMetaChange', { detail: window.__rrRoundMeta }));
+      }));
+      window.__fbRoundMetaTransaction = (updateFn) => runTransaction(roundMetaRef, curr => updateFn(curr || null));
+      window.__fbRegisterRoundWin = (playerName) => runTransaction(roundMetaRef, curr => {
+        const meta = curr || { gamesPlayed: 0, wins: {}, usedLetters: {}, nextCheckAt: 3, activeSpecialFor: null, roundClaimed: false };
+        if (meta.roundClaimed) return meta; // esta ronda ya tiene ganador registrado — no cuenta dos veces
+        const key = (playerName || '').trim().toLowerCase();
+        if (!key) return meta;
+        const wasSpecial = !!meta.activeSpecialFor && meta.activeSpecialFor.trim().toLowerCase() === key;
+        const wins = { ...(meta.wins || {}) };
+        wins[key] = (wins[key] || 0) + (wasSpecial ? 2 : 1); // doble puntos si era la ronda especial
+        return { ...meta, wins, gamesPlayed: (meta.gamesPlayed || 0) + 1, roundClaimed: true };
+      });
 
       // Reset
       const rstRef = ref(db, `${base}/reset`);
@@ -2040,6 +2102,8 @@
       font-family:'Pacifico',cursive; font-size:clamp(28px,7vw,44px);
       background:linear-gradient(135deg,#FFE566,#FFA85C,#F57A7A);
       -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+      -webkit-text-stroke:1.5px rgba(40,40,46,.88);
+      paint-order:stroke fill;
       animation:finishPop .65s cubic-bezier(.34,1.56,.64,1), glowPulse 2s ease-in-out 1s infinite;
       text-align:center; line-height:1.1; padding:8px 16px;
     }
@@ -2242,6 +2306,10 @@
       </div>
       <input id="rr-save-name-input" type="text" maxlength="24" placeholder="Nombre del patrón"
              class="rr-save-input" onkeydown="if(event.key==='Enter') rrConfirmSavePattern()">
+      <div style="font-size:11px;color:rgba(255,255,255,.55);margin:6px 2px 10px;line-height:1.4">
+        💡 "letra_x" (ej. "letra_a") = patrón especial de esa inicial en la sala.<br>
+        💡 "temporada_algo" (ej. "pride_flag") = aparece de vez en cuando durante esa temporada.
+      </div>
       <button id="rr-save-confirm-btn" class="rr-save-confirm-btn" onclick="rrConfirmSavePattern()">Guardar</button>
     </div>
   </div>
@@ -2495,6 +2563,7 @@
       showDiscreteToast('🔔', [title, body].filter(Boolean).join(' — '), '#7c3aed');
     };
     window.__fbPresenceReceived = function(players) {
+      window.__rrActivePlayers = players.map(p => p.name).filter(Boolean);
       const cur=new Set(players.map(p=>p.name));
       cur.forEach(n=>{ if(!_prevNames.has(n)&&_prevNames.size>0) showDiscreteToast('🟢', window.T.connected(n),'#22c55e'); });
       _prevNames.forEach(n=>{ if(!cur.has(n)) showDiscreteToast('⚪', window.T.disconnected(n),'#6b7280'); });
@@ -2507,6 +2576,18 @@
       }).join('') : '';
       window.dispatchEvent(new CustomEvent('rrPresenceChange',{detail:players}));
     };
+
+    // Ronda especial de patrón-letra: avisa a TODOS los jugadores de la sala
+    // (no solo a quien lanzó la partida) cuando arranca, mostrando quién la
+    // recibe y recordando el doble de puntos.
+    let _prevSpecialFor = null;
+    window.addEventListener('rrRoundMetaChange', e => {
+      const forName = e.detail?.activeSpecialFor || null;
+      if (forName && forName !== _prevSpecialFor) {
+        showDiscreteToast('🔤', `¡Ronda especial de ${forName}! Doble puntos a quien la complete primero`, '#f59e0b');
+      }
+      _prevSpecialFor = forName;
+    });
 
     window.__fbProgressReceived = function(list) {
       window.dispatchEvent(new CustomEvent('rrProgressChange', { detail: list }));
@@ -2723,11 +2804,123 @@
       for(let i=0;i<n;i++){const a=RR_COLORS.map((_,i)=>i).filter(i=>c[i]<cap);const p=a[Math.floor(Math.random()*a.length)];c[p]++;r.push(p);}
       return r;
     }
+
+    // ── Ronda especial: patrón-letra del jugador líder ──
+    // Tras la 3ª partida multijugador de la sala, y cada 2-3 partidas después de
+    // eso, si el jugador que más partidas ha ganado en la sala (y todavía no ha
+    // recibido su letra) tiene un patrón guardado con su inicial, esa es la
+    // siguiente partida. Gana el doble de "puntos" (victorias) quien la resuelva
+    // primero. Cada participante solo puede recibir su letra una vez por sala.
+    function rrNextCheckGap() { return 2 + Math.floor(Math.random() * 2); } // 2 ó 3
+
+    function rrPickSpecialPattern(n) {
+      const meta = window.__rrRoundMeta;
+      const players = (window.__rrActivePlayers || []).filter(Boolean);
+      if (!meta || players.length < 2) return null;
+      if ((meta.gamesPlayed || 0) < (meta.nextCheckAt ?? 3)) return null;
+
+      const usedLetters = meta.usedLetters || {};
+      const wins = meta.wins || {};
+      const key = nm => (nm || '').trim().toLowerCase();
+
+      const candidates = players.filter(nm => !usedLetters[key(nm)]);
+      if (!candidates.length) return null;
+
+      let bestWins = 0;
+      candidates.forEach(nm => { const w = wins[key(nm)] || 0; if (w > bestWins) bestWins = w; });
+      if (bestWins <= 0) return null; // nadie lleva partidas ganadas todavía
+
+      const tied = candidates.filter(nm => (wins[key(nm)] || 0) === bestWins);
+      const chosen = tied[Math.floor(Math.random() * tied.length)];
+      const letter = rrNormalizeLetter(chosen).charAt(0);
+      if (!letter) return null;
+
+      const sp = (window.__rrLetterPatterns || {})[letter];
+      if (!sp || !Array.isArray(sp.pattern) || sp.pattern.length !== n) return null;
+
+      return { pattern: sp.pattern, forName: chosen };
+    }
+
+    // ── Patrones-temporada: "de vez en cuando" un patrón temático de la temporada activa ──
+    // En solitario: cada 6-8 partidas (contador por dispositivo, localStorage).
+    // En multijugador: cada 9-12 partidas (contador por sala, en roundMeta).
+    // Si esa partida ya le toca ser la especial de letra (rrPickSpecialPattern), esta
+    // tiene prioridad y el patrón de temporada se pospone a la siguiente comprobación.
+    function rrMultiSeasonalGap() { return 9 + Math.floor(Math.random() * 4); }  // 9..12
+    function rrSoloSeasonalGap()  { return 6 + Math.floor(Math.random() * 3); }  // 6..8
+
+    function rrSeasonalCandidates(n) {
+      const season = window.__rrActiveSeason;
+      if (!season) return [];
+      const list = (window.__rrSeasonalPatterns || {})[season] || [];
+      return list.filter(v => Array.isArray(v.pattern) && v.pattern.length === n);
+    }
+
+    function rrPickSeasonalMulti(n) {
+      const meta = window.__rrRoundMeta;
+      if (!meta) return null;
+      if ((meta.gamesPlayed || 0) < (meta.seasonalNextAt ?? rrMultiSeasonalGap())) return null;
+      const cands = rrSeasonalCandidates(n);
+      if (!cands.length) return null;
+      return { pattern: cands[Math.floor(Math.random() * cands.length)].pattern };
+    }
+
+    function rrPickSeasonalSolo(n) {
+      const played = parseInt(localStorage.getItem('rr-solo-games-played') || '0', 10);
+      let nextAt = parseInt(localStorage.getItem('rr-solo-next-seasonal-at') || '', 10);
+      if (!Number.isFinite(nextAt)) {
+        nextAt = rrSoloSeasonalGap();
+        localStorage.setItem('rr-solo-next-seasonal-at', String(nextAt));
+      }
+      if (played < nextAt) return null;
+      // Toca comprobar ahora — reprogramamos el próximo chequeo pase lo que pase.
+      localStorage.setItem('rr-solo-next-seasonal-at', String(played + rrSoloSeasonalGap()));
+      const cands = rrSeasonalCandidates(n);
+      if (!cands.length) return null;
+      return { pattern: cands[Math.floor(Math.random() * cands.length)].pattern };
+    }
+
+    // Se llama al terminar una partida en solitario (ver handleTile) para llevar
+    // la cuenta de partidas jugadas y poder programar el próximo patrón de temporada.
+    function rrRegisterSoloGame() {
+      const played = parseInt(localStorage.getItem('rr-solo-games-played') || '0', 10) + 1;
+      localStorage.setItem('rr-solo-games-played', String(played));
+    }
+    window.__rrRegisterSoloGame = rrRegisterSoloGame;
+
     function rrShuffle() {
       const info = window.RR_LEVEL_INFO(window.__rrLevel || 2);
       const n = info.special==='cross' ? window.RR_CROSS_SHAPE.patternIndices.length : info.patternSize*info.patternSize;
-      const p = rrGenPattern(n);
+
+      const multiplayer = (window.__rrActivePlayers || []).length > 1;
+      const special  = multiplayer ? rrPickSpecialPattern(n) : null;
+      const seasonal = special ? null : (multiplayer ? rrPickSeasonalMulti(n) : rrPickSeasonalSolo(n));
+      const p = special ? special.pattern : seasonal ? seasonal.pattern : rrGenPattern(n);
+
       if(window.__fbSetPattern) window.__fbSetPattern(p); else rrApplyPattern(p);
+
+      if (multiplayer && window.__fbRoundMetaTransaction) {
+        window.__fbRoundMetaTransaction(curr => {
+          const meta = curr || { gamesPlayed: 0, wins: {}, usedLetters: {}, nextCheckAt: 3, activeSpecialFor: null, roundClaimed: false, seasonalNextAt: null };
+          meta.roundClaimed = false; // nueva ronda, todavía sin ganador
+          if (special) {
+            const key = special.forName.trim().toLowerCase();
+            meta.activeSpecialFor = special.forName;
+            meta.usedLetters = { ...(meta.usedLetters || {}), [key]: true };
+            meta.nextCheckAt = (meta.gamesPlayed || 0) + rrNextCheckGap();
+          } else {
+            meta.activeSpecialFor = null;
+            if ((meta.gamesPlayed || 0) >= (meta.nextCheckAt ?? 3)) {
+              meta.nextCheckAt = (meta.gamesPlayed || 0) + rrNextCheckGap();
+            }
+          }
+          if (meta.seasonalNextAt == null) meta.seasonalNextAt = rrMultiSeasonalGap();
+          if ((meta.gamesPlayed || 0) >= meta.seasonalNextAt) {
+            meta.seasonalNextAt = (meta.gamesPlayed || 0) + rrMultiSeasonalGap();
+          }
+          return meta;
+        });
+      }
     }
     window.rrShuffle=rrShuffle;
 
@@ -3443,8 +3636,8 @@
       bgGradient: 'linear-gradient(to top,#E4CE9B 0%,#E4CE9B 12%,#3FA9A0 18%,#66C6D9 26%,#7FD4F0 40%,#4FA8E8 62%,#1E5FC0 82%,#0B2E6B 100%)',
       hideStars: true,
       particleStyle: 'water',
-      hintOn:  <>Mantén pulsado el título<br/>para desactivar VACACIONES</>,
-      hintOff: <>Toca y mantén el título<br/>para VACACIONES</>,
+      hintOn:  <>Toca para desactivar VACACIONES</>,
+      hintOff: <>Toca para VACACIONES</>,
     };
 
     // Vuelta al Colegio: amarillo limón, magenta, cian, gris oscuro, gris claro y
@@ -3530,8 +3723,8 @@
       tileTexture: 'crayon',
       tileShape: 'scribble', // la ficha se recorta con el contorno de scribble (ver SCRIBBLE_CLIP)
       darkText: true, // fondo claro → el texto bajo el título pasa a gris oscuro (ver renderizado del hint)
-      hintOn:  <>Mantén pulsado el título<br/>para desactivar VUELTA AL COLE</>,
-      hintOff: <>Toca y mantén el título<br/>para VUELTA AL COLE</>,
+      hintOn:  <>Toca para desactivar VUELTA AL COLE</>,
+      hintOff: <>Toca para VUELTA AL COLE</>,
     };
 
     // Devuelve el tema visual de la temporada activa ahora mismo, o null si no tiene uno.
@@ -3825,7 +4018,7 @@
           {/* Texto hint debajo del título */}
           <div style={{
             textAlign:'center', lineHeight:1.4, marginTop:'4px',
-            fontFamily:"'Pacifico',cursive", fontSize:'clamp(11px,3vw,14px)',
+            fontFamily:"'Pacifico',cursive", fontSize:'clamp(14px,4vw,19px)',
             color: theme?.darkText ? 'rgba(20,20,22,.94)' : 'rgba(255,255,255,.75)',
             textShadow: theme?.darkText ? '0 1px 3px rgba(255,255,255,.5)' : '0 1px 6px rgba(0,0,0,.9)',
             letterSpacing:'.02em', pointerEvents:'none',
@@ -3835,7 +4028,7 @@
               ? 'Aguanta…'
               : theme
                 ? (isOn ? theme.hintOn : theme.hintOff)
-                : (pride ? <>Mantén pulsado el título<br/>para desactivar PRIDE</> : <>Mantén pulsado el título<br/>para mostrar tu PRIDE</>)
+                : (pride ? <>Toca para desactivar PRIDE</> : <>Toca para PRIDE</>)
             }
           </div>
           {/* Barra de progreso */}
@@ -5875,7 +6068,12 @@
               window.__fbSendFinish?.(playerName, ft, fm);
               window.__fbUpdateFinishPresence?.(SESSION_UID, playerName, ft, fm);
               window.__fbUpdateScore?.(playerName, time+1, fm, activePl.length > 1, level);
-              if (activePl.length > 1) window.__rrRegisterMultiWin?.(playerName);
+              if (activePl.length > 1) {
+                window.__rrRegisterMultiWin?.(playerName);
+                window.__fbRegisterRoundWin?.(playerName);
+              } else {
+                window.__rrRegisterSoloGame?.();
+              }
               window.__fbScheduleLobbyDelete?.(gameCode);
             },50);
           }
