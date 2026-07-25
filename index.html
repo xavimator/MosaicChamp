@@ -2146,7 +2146,10 @@
     .help-btn.green-exit:hover { background:rgba(34,197,94,.22); border-color:rgba(74,222,128,.8); color:#86efac; box-shadow:0 0 16px rgba(74,222,128,.4); }
     @keyframes finishNotifIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
     .finish-notif { animation:finishNotifIn .35s cubic-bezier(.34,1.4,.64,1); background:rgba(6,4,20,.92); border:1.5px solid rgba(34,197,94,.35); border-radius:12px; padding:10px 16px; display:flex; align-items:center; gap:10px; backdrop-filter:blur(12px); box-shadow:0 4px 20px rgba(0,0,0,.5); }
-    #finish-notif-area { min-width:0; width:100%; }
+    #finish-notif-area {
+      position:absolute; top:100%; left:0; right:0; margin-top:8px;
+      z-index:60; pointer-events:none;
+    }
 
     /* ══ Tutorial overlay ══ */
     @keyframes tutDraw   { to { stroke-dashoffset: 0; } }
@@ -2214,12 +2217,14 @@
 
   <!-- ══ Pattern Widget ══ -->
   <div id="rr-widget" style="display:none">
-    <div id="rr-toggle" onclick="rrToggle()">
-      <span id="rr-toggle-label">Pattern</span>
-      <div class="rr-preview" id="rr-preview"></div>
-      <div id="rr-sync-dot" class="connecting"></div>
+    <div id="rr-toggle-wrap" style="position:relative">
+      <div id="rr-toggle" onclick="rrToggle()">
+        <span id="rr-toggle-label">Pattern</span>
+        <div class="rr-preview" id="rr-preview"></div>
+        <div id="rr-sync-dot" class="connecting"></div>
+      </div>
+      <div id="finish-notif-area" style="display:none;"></div>
     </div>
-    <div id="finish-notif-area" style="margin-top:8px;display:none;"></div>
     <div id="rr-panel" class="hidden">
       <div id="rr-panel-header">
         <h3 id="rr-panel-title">Pattern</h3>
