@@ -816,6 +816,28 @@
       window.__fbSendResetResponse = (requestId, from, accept) =>
         push(resetResRef, { requestId, from, accept, ts: Date.now() });
 
+      // Level up en grupo: quien termina y pulsa "Level Up" invita al resto de la
+      // sala a subir de nivel con él/ella (mismo código de partida, sin invitación).
+      // Quien no quiera se queda en esta sala, que recibe una partida nueva del
+      // mismo nivel en cuanto quien sube se marcha.
+      const lvlUpReqRef   = ref(db, `${base}/levelUpRequest`);
+      const lvlUpReqQuery = query(lvlUpReqRef, orderByChild('ts'), startAfter(Date.now()));
+      unsubs.push(onChildAdded(lvlUpReqQuery, snap => {
+        const item = snap.val();
+        if (item) window.__fbLevelUpRequestReceived?.(item);
+      }));
+      window.__fbSendLevelUpRequest = (from, nextLevel, upCode, requestId) =>
+        push(lvlUpReqRef, { from, nextLevel, upCode, requestId, ts: Date.now() });
+
+      const lvlUpResRef   = ref(db, `${base}/levelUpResponse`);
+      const lvlUpResQuery = query(lvlUpResRef, orderByChild('ts'), startAfter(Date.now()));
+      unsubs.push(onChildAdded(lvlUpResQuery, snap => {
+        const item = snap.val();
+        if (item) window.__fbLevelUpResponseReceived?.(item);
+      }));
+      window.__fbSendLevelUpResponse = (requestId, from, accept) =>
+        push(lvlUpResRef, { requestId, from, accept, ts: Date.now() });
+
       // Meta (host info for lobby list)
       window.__fbSetMeta = (hostName) =>
         set(ref(db, `${base}/meta`), { host: hostName, ts: Date.now() });
@@ -1235,6 +1257,12 @@
         time: 'TIEMPO',
         newGameBtn: 'Nuevo reto',
         restartBtn: 'Reiniciar',
+        levelUpAsk: (name, n) => `${name} ha subido a nivel ${n}. ¿Te unes?`,
+        levelUpAccept: 'Subir de nivel',
+        levelUpDecline: 'Quedarme aquí',
+        levelUpInviting: 'Avisando al resto para subir de nivel…',
+        levelUpStayToast: (n) => `Sigues en el nivel ${n} con quien no ha subido`,
+        levelUpDeclinedToast: (name) => `${name} no ha querido subir de nivel`,
         getReady: '¡Prepárate!',
         finished: 'Finished!!',
         exitBtn: '✕ Salir',
@@ -1323,6 +1351,12 @@
         time: 'TEMPS',
         newGameBtn: 'Nou repte',
         restartBtn: 'Reiniciar',
+        levelUpAsk: (name, n) => `${name} ha pujat a nivell ${n}. T'hi apuntes?`,
+        levelUpAccept: 'Pujar de nivell',
+        levelUpDecline: 'Quedar-me aquí',
+        levelUpInviting: 'Avisant la resta per pujar de nivell…',
+        levelUpStayToast: (n) => `Continues al nivell ${n} amb qui no ha pujat`,
+        levelUpDeclinedToast: (name) => `${name} no ha volgut pujar de nivell`,
         getReady: 'Prepara\'t!',
         finished: 'Finished!!',
         exitBtn: '✕ Sortir',
@@ -1406,6 +1440,12 @@
         time: 'TIME',
         newGameBtn: 'New Challenge',
         restartBtn: 'Restart',
+        levelUpAsk: (name, n) => `${name} leveled up to level ${n}. Join in?`,
+        levelUpAccept: 'Level up',
+        levelUpDecline: 'Stay here',
+        levelUpInviting: 'Inviting the others to level up…',
+        levelUpStayToast: (n) => `You're staying on level ${n} with whoever didn't level up`,
+        levelUpDeclinedToast: (name) => `${name} didn't want to level up`,
         getReady: 'Get Ready!',
         finished: 'Finished!!',
         exitBtn: '✕ Leave',
@@ -1489,6 +1529,12 @@
         time: 'TEMPS',
         newGameBtn: 'Nouveau d\u00e9fi',
         restartBtn: 'Red\u00e9marrer',
+        levelUpAsk: (name, n) => `${name} est pass\u00e9 au niveau ${n}. Tu te joins ?`,
+        levelUpAccept: 'Monter de niveau',
+        levelUpDecline: 'Rester ici',
+        levelUpInviting: 'On pr\u00e9vient les autres pour monter de niveau…',
+        levelUpStayToast: (n) => `Tu restes au niveau ${n} avec ceux qui ne sont pas mont\u00e9s`,
+        levelUpDeclinedToast: (name) => `${name} n'a pas voulu monter de niveau`,
         getReady: 'Prêt ?',
         finished: 'Finished!!',
         exitBtn: '✕ Quitter',
@@ -1572,6 +1618,12 @@
         time: 'ZEIT',
         newGameBtn: 'Neue Herausforderung',
         restartBtn: 'Neu starten',
+        levelUpAsk: (name, n) => `${name} ist auf Level ${n} aufgestiegen. Mitmachen?`,
+        levelUpAccept: 'Level aufsteigen',
+        levelUpDecline: 'Hierbleiben',
+        levelUpInviting: 'Die anderen werden zum Aufstieg eingeladen…',
+        levelUpStayToast: (n) => `Du bleibst auf Level ${n} mit denen, die nicht aufgestiegen sind`,
+        levelUpDeclinedToast: (name) => `${name} wollte nicht aufsteigen`,
         getReady: 'Fertig machen!',
         finished: 'Finished!!',
         exitBtn: '✕ Verlassen',
@@ -1655,6 +1707,12 @@
         time: 'TEMPO',
         newGameBtn: 'Novo desafio',
         restartBtn: 'Reiniciar',
+        levelUpAsk: (name, n) => `${name} subiu para o nível ${n}. Vais também?`,
+        levelUpAccept: 'Subir de nível',
+        levelUpDecline: 'Ficar aqui',
+        levelUpInviting: 'A avisar os outros para subirem de nível…',
+        levelUpStayToast: (n) => `Continuas no nível ${n} com quem não subiu`,
+        levelUpDeclinedToast: (name) => `${name} não quis subir de nível`,
         getReady: 'Prepara-te!',
         finished: 'Finished!!',
         exitBtn: '✕ Sair',
@@ -1738,6 +1796,12 @@
         time: 'TEMPO',
         newGameBtn: 'Nuova sfida',
         restartBtn: 'Riavvia',
+        levelUpAsk: (name, n) => `${name} è salito al livello ${n}. Ti unisci?`,
+        levelUpAccept: 'Sali di livello',
+        levelUpDecline: 'Resta qui',
+        levelUpInviting: 'Sto avvisando gli altri per salire di livello…',
+        levelUpStayToast: (n) => `Resti al livello ${n} con chi non è salito`,
+        levelUpDeclinedToast: (name) => `${name} non ha voluto salire di livello`,
         getReady: 'Pronti!',
         finished: 'Finished!!',
         exitBtn: '✕ Esci',
@@ -1818,6 +1882,18 @@
       background:#3D8FCC; border-color:rgba(11,46,107,.55);
     }
     body.rr-season-verano #rr-toggle:hover { background:#4A9AD6; border-color:rgba(11,46,107,.8); }
+    /* Xavimator™ (violeta) y el estado "Sincronizado/Sin conexión" (verde/rojo) pierden
+       contraste sobre el azul medio del panel de esta temporada: se les añade un halo
+       oscuro para que se lean sin perder su color identificativo. */
+    body.rr-season-verano #rr-panel .rr-tm,
+    body.rr-season-verano #rr-status-text {
+      text-shadow:0 1px 3px rgba(0,0,0,.65), 0 0 8px rgba(0,0,0,.4);
+    }
+    /* La tarjeta del lobby (nombre, contraseña, código…) va sobre el degradado de mar,
+       que en su tramo medio es demasiado claro para el texto blanco por defecto.
+       Se le da un fondo azul-noche translúcido para que todo el texto (incluida la
+       contraseña) se lea con buen contraste sea cual sea la franja del degradado. */
+    body.rr-season-verano .lobby-card { background:rgba(8,34,74,.4); border-color:rgba(11,46,107,.5); }
 
     /* ── Temporada de Vuelta al Colegio ── */
     body.rr-season-vuelta_colegio .lobby-wrap {
@@ -1849,6 +1925,10 @@
       background:rgba(0,0,0,.05); border-color:rgba(41,41,44,.25);
     }
     body.rr-season-vuelta_colegio .rr-chip-time { color:#7A5E00; }
+    /* El estado "Sincronizado en tiempo real" se pinta en verde/rojo claro vía JS y
+       sobre el gris claro de esta temporada queda muy pálido: se oscurece manteniendo
+       el matiz (verde = conectado, rojo = sin conexión). */
+    body.rr-season-vuelta_colegio #rr-status-text { filter:brightness(.55) saturate(1.2); }
     /* La tarjeta del lobby y el HUD de la partida también quedan claros para esta
        temporada, así que su texto base (blanco por defecto) pasa a gris oscuro. */
     body.rr-season-vuelta_colegio .lobby-card { background:#C7C7CC; border-color:rgba(41,41,44,.35); }
@@ -2188,9 +2268,10 @@
     @keyframes finishNotifIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
     .finish-notif { animation:finishNotifIn .35s cubic-bezier(.34,1.4,.64,1); background:rgba(6,4,20,.92); border:1.5px solid rgba(34,197,94,.35); border-radius:12px; padding:10px 16px; display:flex; align-items:center; gap:10px; backdrop-filter:blur(12px); box-shadow:0 4px 20px rgba(0,0,0,.5); }
     #finish-notif-area {
-      position:absolute; top:100%; left:50%; transform:translateX(-50%); margin-top:8px;
-      width:max-content; max-width:min(280px,80vw);
-      z-index:60; pointer-events:none;
+      position:fixed; left:50%; transform:translateX(-50%);
+      top:calc(env(safe-area-inset-top,0px) + 64px);
+      width:max-content; max-width:min(280px,92vw);
+      z-index:9000; pointer-events:none;
     }
 
     /* ══ Tutorial overlay ══ */
@@ -2647,6 +2728,12 @@
     };
     window.__fbResetResponseReceived = function(item) {
       window.dispatchEvent(new CustomEvent('rrResetResponse', { detail: item }));
+    };
+    window.__fbLevelUpRequestReceived = function(item) {
+      window.dispatchEvent(new CustomEvent('rrLevelUpRequest', { detail: item }));
+    };
+    window.__fbLevelUpResponseReceived = function(item) {
+      window.dispatchEvent(new CustomEvent('rrLevelUpResponse', { detail: item }));
     };
 
     // Reset
@@ -4251,6 +4338,10 @@
       // para seguir siendo legible. Los acentos ya coloreados (verde/dorado/rojo/morado)
       // se dejan tal cual, no son el problema.
       const darkText = seasonAlt && seasonTheme?.darkText;
+      // Paleta especial de la temporada de verano (solo si está activada, no solo
+      // porque estemos en fecha): niveles completados en verde oscuro, niveles sin
+      // jugar en morado apagado. El nivel activo y el especial (8) no cambian.
+      const isVeranoActive = seasonAlt && activeSeason === 'verano';
 
       const nameOk = name.trim().length > 0;
       const [rankName, setRankName] = useState('');
@@ -4769,16 +4860,18 @@
                       style={{
                         position:'relative',padding:'8px 4px',borderRadius:'9px',
                         cursor:locked?'not-allowed':'pointer',
-                        opacity:locked?0.45:1,
-                        border:`1px solid ${active?'rgba(156,90,255,.8)':completed?'rgba(74,222,128,.5)':isSpecial?'rgba(255,200,80,.55)':darkText?'rgba(41,41,44,.3)':'rgba(255,255,255,.12)'}`,
-                        background:active?'rgba(156,90,255,.22)':completed?'rgba(34,197,94,.1)':isSpecial?'rgba(255,200,80,.1)':darkText?'rgba(0,0,0,.06)':'rgba(255,255,255,.04)',
-                        color:active?'#fff':completed?'#4ade80':isSpecial?'#FFD27A':darkText?'#141416':'rgba(255,255,255,.65)',
+                        opacity:locked?0.65:1,
+                        border:`1px solid ${active?'rgba(156,90,255,.8)':completed?(isVeranoActive?'rgba(21,110,60,.6)':'rgba(74,222,128,.5)'):isSpecial?'rgba(255,200,80,.55)':isVeranoActive?'rgba(120,100,150,.4)':darkText?'rgba(41,41,44,.3)':'rgba(255,255,255,.12)'}`,
+                        background:active?'rgba(156,90,255,.22)':completed?(isVeranoActive?'rgba(21,110,60,.22)':'rgba(34,197,94,.1)'):isSpecial?'rgba(255,200,80,.1)':isVeranoActive?'rgba(90,70,120,.16)':darkText?'rgba(0,0,0,.06)':'rgba(255,255,255,.04)',
+                        color:active?'#fff':completed?(isVeranoActive?'#2e8b57':'#4ade80'):isSpecial?'#FFD27A':isVeranoActive?'rgba(200,175,225,.75)':darkText?'#141416':'rgba(255,255,255,.65)',
                         fontWeight:800,fontSize:'14px',transition:'all .15s',
-                        boxShadow:active?'0 0 14px rgba(156,90,255,.4)':completed?'0 0 8px rgba(74,222,128,.25)':isSpecial?'0 0 10px rgba(255,200,80,.35)':'none',
+                        boxShadow:active?'0 0 14px rgba(156,90,255,.4)':completed?(isVeranoActive?'0 0 8px rgba(21,110,60,.35)':'0 0 8px rgba(74,222,128,.25)'):isSpecial?'0 0 10px rgba(255,200,80,.35)':'none',
                         animation:isSpecial?'level8In .5s ease':'none',
                       }}>
                       {locked ? (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                          stroke={darkText?'rgba(20,20,22,.9)':'rgba(255,255,255,.9)'}
+                          strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                           <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                         </svg>
                       ) : completed && !active ? '✓' : isSpecial ? (
@@ -4930,7 +5023,6 @@
                           onMouseEnter={e=>{e.currentTarget.style.background='rgba(156,90,255,.12)';e.currentTarget.style.borderColor='rgba(156,90,255,.45)';}}
                           onMouseLeave={e=>{e.currentTarget.style.background=darkText?'rgba(0,0,0,.06)':'rgba(255,255,255,.04)';e.currentTarget.style.borderColor='rgba(156,90,255,.2)';}}>
                     <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
-                      <span style={{fontSize:'16px'}}>🎮</span>
                       <span style={{fontSize:'14px',fontWeight:600,color:darkText?'#141416':'rgba(255,255,255,.85)'}}>{g.host}</span>
                       <span style={{fontSize:'10px',fontWeight:700,color:darkText?'#141416':'rgba(255,255,255,.88)',
                                     background:darkText?'rgba(0,0,0,.08)':'rgba(255,255,255,.06)',padding:'2px 7px',borderRadius:'6px'}}>
@@ -4938,8 +5030,8 @@
                       </span>
                     </div>
                     <span style={{fontFamily:'monospace',fontSize:'15px',fontWeight:900,
-                                  color:'#c89fff',letterSpacing:'.2em',
-                                  background:'rgba(156,90,255,.12)',
+                                  color:darkText?'#3d1e6b':'#f0e4ff',letterSpacing:'.2em',
+                                  background:darkText?'rgba(156,90,255,.22)':'rgba(156,90,255,.32)',
                                   padding:'3px 10px',borderRadius:'7px'}}>
                       {g.code}
                     </span>
@@ -5751,6 +5843,92 @@
         if (pendingResetRef.current) clearTimeout(pendingResetRef.current.timeoutId);
       }, []);
 
+      // ── Subida de nivel en grupo ──
+      // Prompt que ve un jugador cuando OTRO ha pulsado "Level Up":
+      // {requestId, from, nextLevel, upCode, secondsLeft}
+      const [levelUpPrompt, setLevelUpPrompt] = useState(null);
+      const levelUpTickRef = useRef(null);
+      const levelUpHandledRef = useRef(new Set()); // requestId ya resueltos, por si llega más de un evento
+      const myLevelUpRequestIdRef = useRef(null);  // requestId cuando YO soy quien invitó a subir
+
+      // Si YO inicié la invitación, aviso cuando alguien decide quedarse
+      useEffect(() => {
+        const handler = (e) => {
+          const item = e.detail;
+          if (!item || item.accept !== false) return;
+          if (!myLevelUpRequestIdRef.current || item.requestId !== myLevelUpRequestIdRef.current) return;
+          window.showDiscreteToast?.('👋', window.T.levelUpDeclinedToast(item.from), '#c89fff');
+        };
+        window.addEventListener('rrLevelUpResponse', handler);
+        return () => window.removeEventListener('rrLevelUpResponse', handler);
+      }, []);
+
+      // Recibo la invitación de otro jugador a subir de nivel con él/ella
+      useEffect(() => {
+        const handler = (e) => {
+          const item = e.detail;
+          if (!item || item.from === playerName) return;
+          if (levelUpHandledRef.current.has(item.requestId)) return;
+          setLevelUpPrompt({ requestId: item.requestId, from: item.from, nextLevel: item.nextLevel, upCode: item.upCode, secondsLeft: 8 });
+          clearInterval(levelUpTickRef.current);
+          levelUpTickRef.current = setInterval(() => {
+            setLevelUpPrompt(p => {
+              if (!p) return p;
+              const next = p.secondsLeft - 1;
+              if (next <= 0) {
+                clearInterval(levelUpTickRef.current);
+                levelUpHandledRef.current.add(p.requestId);
+                window.showDiscreteToast?.('👋', window.T.levelUpStayToast(level), '#c89fff');
+                return null;
+              }
+              return { ...p, secondsLeft: next };
+            });
+          }, 1000);
+        };
+        window.addEventListener('rrLevelUpRequest', handler);
+        return () => window.removeEventListener('rrLevelUpRequest', handler);
+      }, [playerName, level]);
+
+      // Respondo a la invitación: acepto (me uno a su partida, mismo código, sin
+      // invitación) o me quedo aquí (nueva partida en este nivel, con quien tampoco
+      // haya querido subir).
+      const respondLevelUp = useCallback((accept) => {
+        setLevelUpPrompt(p => {
+          if (!p) return p;
+          levelUpHandledRef.current.add(p.requestId);
+          window.__fbSendLevelUpResponse?.(p.requestId, playerName, accept);
+          if (accept) {
+            if (typeof onLevelUp === 'function') onLevelUp(p.nextLevel, null, p.upCode);
+          } else {
+            window.showDiscreteToast?.('👋', window.T.levelUpStayToast(level), '#c89fff');
+          }
+          return null;
+        });
+        clearInterval(levelUpTickRef.current);
+      }, [playerName, level, onLevelUp]);
+
+      // Yo pulso "Level Up": si hay más jugadores en la sala, les invito a subir
+      // conmigo (mismo código de partida). Quien no responda o rechace se queda en
+      // esta sala, que recibe una partida nueva del mismo nivel en cuanto me marche.
+      const handleLevelUpClick = useCallback(() => {
+        const nextLevel = level + 1;
+        const others = activePlRef.current.filter(p => p.name !== playerName);
+        if (others.length > 0) {
+          const requestId = Math.random().toString(36).slice(2);
+          const upCode = genCode();
+          myLevelUpRequestIdRef.current = requestId;
+          window.__fbSendLevelUpRequest?.(playerName, nextLevel, upCode, requestId);
+          window.showDiscreteToast?.('⬆️', window.T.levelUpInviting, '#FFD700');
+          // Reparto una partida nueva para quien se quede en esta sala, antes de irme.
+          window.__fbSendReset?.();
+          if (typeof onLevelUp === 'function') onLevelUp(nextLevel, level, upCode);
+        } else {
+          if (typeof onLevelUp === 'function') onLevelUp(nextLevel, level);
+        }
+      }, [level, playerName, onLevelUp]);
+
+      useEffect(() => () => clearInterval(levelUpTickRef.current), []);
+
       // Cuenta esta partida como "partida nº N" del dispositivo — el power-up solo
       // se activa a partir de la 2ª partida en adelante.
       useEffect(() => {
@@ -6442,11 +6620,57 @@
               </div>
             )}
 
+            {levelUpPrompt && (
+              <div style={{
+                position:'absolute', bottom:'calc(100% + 8px)', left:'50%',
+                background:'linear-gradient(135deg, rgba(255,215,0,.95), rgba(255,150,0,.92))',
+                border:'1.5px solid rgba(255,236,153,.8)', borderRadius:'14px',
+                padding:'10px 14px', display:'flex', flexDirection:'column', alignItems:'center', gap:'8px',
+                boxShadow:'0 8px 24px rgba(0,0,0,.5), 0 0 20px rgba(255,180,0,.45)',
+                zIndex:52, whiteSpace:'nowrap',
+                animation:'rrPromptGrow .35s cubic-bezier(.34,1.56,.64,1) forwards'
+              }}>
+                <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                  <span style={{fontSize:'12.5px', fontWeight:700, color:'#3d2600'}}>
+                    {window.T.levelUpAsk(levelUpPrompt.from, levelUpPrompt.nextLevel)}
+                  </span>
+                  <span style={{
+                    width:'20px', height:'20px', borderRadius:'50%', background:'rgba(0,0,0,.18)',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    fontSize:'11px', fontWeight:800, color:'#3d2600', flexShrink:0
+                  }}>{levelUpPrompt.secondsLeft}</span>
+                </div>
+                <div style={{display:'flex',gap:'8px'}}>
+                  <button onClick={()=>respondLevelUp(true)} style={{background:'rgba(34,197,94,.92)',border:'none',
+                    borderRadius:'8px',padding:'5px 12px',color:'#fff',fontWeight:700,fontSize:'11px',cursor:'pointer',
+                    display:'flex',alignItems:'center',gap:'5px'}}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 19V5"/><path d="M5 12l7-7 7 7"/>
+                    </svg>
+                    {window.T.levelUpAccept}
+                  </button>
+                  <button onClick={()=>respondLevelUp(false)} style={{background:'rgba(0,0,0,.28)',border:'none',
+                    borderRadius:'8px',padding:'5px 12px',color:'#3d2600',fontWeight:700,fontSize:'11px',cursor:'pointer',
+                    display:'flex',alignItems:'center',gap:'5px'}}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3d2600" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="18" height="18" rx="3.2"/>
+                      <path d="M8.4 8.4l7.2 7.2M15.6 8.4l-7.2 7.2"/>
+                    </svg>
+                    {window.T.levelUpDecline}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div style={{display:'flex',alignItems:'center',gap:'5px',
                          background:'rgba(255,255,255,.05)',borderRadius:'9px',
                          padding:'6px 9px',border:'1px solid rgba(255,255,255,.1)',
                          flexShrink:1,minWidth:0}}>
-              <span style={{fontSize:'12px',flexShrink:0}}>👤</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={darkText?'#141416':'#fff'}
+                strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+                <circle cx="12" cy="8" r="4"/>
+                <path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7"/>
+              </svg>
               <span style={{color:darkText?'#141416':'#fff',fontWeight:600,fontSize:'12px',
                             whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',
                             maxWidth:'90px'}}>
@@ -6675,7 +6899,7 @@
               {finished && (fromInvite || level <= 7) && !window.RR_LEVEL_INFO(level).special && (() => {
                 const schoolMode = seasonAlt && activeSeason === 'vuelta_colegio';
                 return (
-                <button onClick={()=>{ if(typeof onLevelUp==='function') onLevelUp(level+1, level); }}
+                <button onClick={handleLevelUpClick}
                   style={{padding:'11px 20px',borderRadius:'10px',cursor:'pointer',fontSize:'13px',
                           fontWeight:800,letterSpacing:'.08em',textTransform:'uppercase',
                           display:'flex',alignItems:'center',gap:'8px',
@@ -6823,7 +7047,7 @@
         }
         setPhase('lobby'); setPlayerName(''); setGameCode(''); setEphemeral(false); setFromInvite(false);
       };
-      const handleLevelUp = async (nextLevel, completedLevel) => {
+      const handleLevelUp = async (nextLevel, completedLevel, explicitCode) => {
         try {
           await window.__fbLeaveGame?.();
           // Borrar todas las partidas anteriores del lobby para este jugador
@@ -6832,11 +7056,18 @@
           if (completedLevel && completedLevel >= 1 && completedLevel <= 8) {
             setSavedDoneLevels(prev => [...new Set([...prev, completedLevel])]);
           }
-          const code = genCode();
+          const code = explicitCode || genCode();
           window.__rrLevel = nextLevel;
-          await window.__fbJoinGame?.(code);
-          await window.__fbRegisterLobby?.(code, playerName, nextLevel);
-          window.rrShuffle?.();
+          const alreadyExisted = await window.__fbJoinGame?.(code);
+          if (!alreadyExisted) {
+            // Soy quien crea la partida (level-up en solitario, o quien pulsó el
+            // botón en grupo): registro el lobby y genero el patrón.
+            await window.__fbRegisterLobby?.(code, playerName, nextLevel);
+            window.rrShuffle?.();
+          }
+          // Si alreadyExisted es true, me estoy uniendo a la partida que otro
+          // jugador ya creó al subir de nivel: el patrón me llega vía Firebase,
+          // sin necesidad de invitación ni de generarlo yo.
           setLevel(nextLevel); setGameCode(code); setFromInvite(false); setPhase('game');
         } catch(e) { console.error('levelUp error:', e); handleLeave(); }
       };
