@@ -3116,12 +3116,34 @@
     function rrEditorCurrentName() {
       return (window.__rrCurrentPlayerName || localStorage.getItem('rr-player-name') || '').trim().toLowerCase();
     }
-    function rrEditorIsRubiking() { return window.__fbIsRubikingAuthed?.() ?? false; }
+    function rrEditorIsRubiking() {
+      // No basta con tener sesión de Firebase Auth como Rubiking (esa sesión persiste
+      // adrede entre recargas): además el nombre activo AHORA debe ser 'rubiking'. Si
+      // no, alguien que entra con otro nombre en la misma pestaña heredaría el acceso.
+      return rrEditorCurrentName() === 'rubiking' && (window.__fbIsRubikingAuthed?.() ?? false);
+    }
     function rrEditorWinCount()  { return parseInt(localStorage.getItem(RR_EDITOR_WIN_KEY)     || '0', 10) || 0; }
     function rrEditorConsumed()  { return parseInt(localStorage.getItem(RR_EDITOR_CONSUMED_KEY) || '0', 10) || 0; }
 
     function rrEditorHasAccess() { return rrEditorIsRubiking() || rrEditorUnlocked; }
     window.__rrEditorHasAccess = rrEditorHasAccess;
+
+    // Se llama cada vez que se confirma un nombre de jugador (crear/unirse a partida,
+    // cambiarlo en Ajustes). Si el nombre activo cambia respecto al anterior, revoca
+    // cualquier desbloqueo del editor conseguido por el jugador previo (por victorias
+    // multijugador): ese desbloqueo es personal de la sesión, no debe heredarse al
+    // entrar con otro nombre en la misma pestaña.
+    function rrOnPlayerNameCommitted(newName) {
+      const prev = rrEditorCurrentName();
+      const next = (newName || '').trim().toLowerCase();
+      if (prev && next && prev !== next && rrEditorUnlocked) {
+        rrEditorUnlocked = false;
+        localStorage.setItem(RR_EDITOR_CONSUMED_KEY, String(rrEditorWinCount()));
+      }
+      window.__rrCurrentPlayerName = newName || null;
+      rrSyncPatternTools();
+    }
+    window.__rrOnPlayerNameCommitted = rrOnPlayerNameCommitted;
 
     // Se llama cuando el jugador actual gana una partida multijugador (ver handleTile)
     function rrRegisterMultiWin(name) {
@@ -4653,6 +4675,7 @@
           const safeLevel = isCrossSelected ? level : Math.min(level, maxLvl);
           const code = genCode();
           localStorage.setItem('rr-player-name', name.trim());
+          window.__rrOnPlayerNameCommitted?.(name.trim());
           localStorage.setItem('rr-level', String(safeLevel));
           window.__rrLevel = safeLevel;
           await window.__fbJoinGame(code);
@@ -4682,6 +4705,7 @@
           const joinLevel = await window.__fbGetLobbyLevel?.(code) ?? 2;
           window.__rrLevel = joinLevel;
           localStorage.setItem('rr-player-name', name.trim());
+          window.__rrOnPlayerNameCommitted?.(name.trim());
           await window.__fbJoinGame(code);
           onJoin(name.trim(), code, joinLevel, ephemeral, true, done||[]); // true = fromInvite
         } catch(e) {
@@ -4703,6 +4727,7 @@
           const joinLevel = g?.level || 2;
           window.__rrLevel = joinLevel;
           localStorage.setItem('rr-player-name', name.trim());
+          window.__rrOnPlayerNameCommitted?.(name.trim());
           await window.__fbJoinGame(code);
           onJoin(name.trim(), code, joinLevel, ephemeral, true, done||[]); // true = fromInvite
         } catch(e) {
@@ -5311,6 +5336,10 @@
         const trimmed = name.trim();
         if (!trimmed) return;
         localStorage.setItem('rr-player-name', trimmed);
+        // El editor de patrón (fuera de React) decide el acceso Rubiking por el
+        // nombre activo: si se cambia desde Ajustes hay que avisarle ya, si no
+        // seguiría mostrando/ocultando según el nombre anterior.
+        window.__rrOnPlayerNameCommitted?.(trimmed);
         setNameSaved(true);
         window.playChime?.();
         setTimeout(()=>setNameSaved(false), 1800);
@@ -6131,6 +6160,10 @@
           // Al salir de esta partida (desconexión) se consume el desbloqueo del
           // editor de patrón: hará falta ganar 3 partidas más para recuperarlo.
           window.__rrConsumeEditorUnlock?.();
+          // Si no se limpia, el próximo jugador que abra el lobby con OTRO nombre
+          // (sin volver a entrar a una partida) seguiría viendo el nombre de esta
+          // partida como "activo" para efectos del editor de patrón.
+          if (window.__rrCurrentPlayerName === playerName) window.__rrCurrentPlayerName = null;
         };
       }, []);
 
