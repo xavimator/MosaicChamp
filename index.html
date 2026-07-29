@@ -3928,6 +3928,12 @@
       return !!seasonId && localStorage.getItem(rrSeasonAltKey(seasonId)) === '1';
     }
     window.__seasonAltMode = rrSeasonAltGet(window.__rrActiveSeason);
+    // La llamada a refreshRRColors() de más arriba corrió antes de saber esto (todavía
+    // no existía __seasonAltMode con su valor real), así que si el jugador ya tenía
+    // los colores de temporada activados de una sesión anterior, se recalcula ahora
+    // con el dato correcto — si no, el patrón se quedaría en clásico hasta que
+    // volviera a tocar el gesto a mano en esta sesión.
+    refreshRRColors();
     // Aplica ya el fondo/iconos si el jugador ya lo tenía activado en una sesión anterior
     // (si no, se queda en modo clásico, que es el arranque por defecto).
     rrApplySeasonBodyClass(window.__seasonAltMode ? window.__rrActiveSeason : null);
