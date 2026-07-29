@@ -696,7 +696,7 @@
 
     // ── Per-game listeners ──
     let unsubs = [];
-    function detach() { unsubs.forEach(fn => fn()); unsubs = []; window.__rrRoundMeta = null; }
+    function detach() { unsubs.forEach(fn => fn()); unsubs = []; window.__rrRoundMeta = null; window.__rrRemoteEditing = false; }
 
     window.__fbJoinGame = async function(code) {
       detach();
@@ -825,18 +825,33 @@
       unsubs.push(onChildAdded(lvlUpReqQuery, snap => {
         const item = snap.val();
         if (item) window.__fbLevelUpRequestReceived?.(item);
-      }));
+      }, err => console.error('[levelUpRequest] listener denegado:', err)));
       window.__fbSendLevelUpRequest = (from, nextLevel, upCode, requestId) =>
-        push(lvlUpReqRef, { from, nextLevel, upCode, requestId, ts: Date.now() });
+        push(lvlUpReqRef, { from, nextLevel, upCode, requestId, ts: Date.now() })
+          .catch(err => { console.error('[levelUpRequest] envío rechazado:', err); window.showDiscreteToast?.('⚠️', 'No se pudo avisar a los demás jugadores (revisa las reglas de Firebase)', '#ef4444'); });
 
       const lvlUpResRef   = ref(db, `${base}/levelUpResponse`);
       const lvlUpResQuery = query(lvlUpResRef, orderByChild('ts'), startAfter(Date.now()));
       unsubs.push(onChildAdded(lvlUpResQuery, snap => {
         const item = snap.val();
         if (item) window.__fbLevelUpResponseReceived?.(item);
-      }));
+      }, err => console.error('[levelUpResponse] listener denegado:', err)));
       window.__fbSendLevelUpResponse = (requestId, from, accept) =>
-        push(lvlUpResRef, { requestId, from, accept, ts: Date.now() });
+        push(lvlUpResRef, { requestId, from, accept, ts: Date.now() })
+          .catch(err => console.error('[levelUpResponse] envío rechazado:', err));
+
+      // Editando el patrón: mientras alguien tenga el editor manual abierto en esta
+      // sala, el resto de clientes no deben arrancar su cuenta atrás cada vez que
+      // llega un retoque de color (ver rrApplyPattern).
+      const editingRef = ref(db, `${base}/editing`);
+      window.__rrRemoteEditing = false;
+      unsubs.push(onValue(editingRef, snap => {
+        const v = snap.val();
+        window.__rrRemoteEditing = !!(v && v.on);
+      }, err => console.error('[editing] listener denegado:', err)));
+      window.__fbSetEditing = (on) =>
+        set(editingRef, { on: !!on, ts: Date.now() })
+          .catch(err => console.error('[editing] envío rechazado:', err));
 
       // Meta (host info for lobby list)
       window.__fbSetMeta = (hostName) =>
@@ -2603,6 +2618,7 @@
 
     function rrApplyPattern(pattern) {
       window.rrApplyPattern = rrApplyPattern;
+      const prevPattern = window.rrPattern;
       window.rrPattern=pattern;
       const n = pattern.length;
       const isCross = n === window.RR_CROSS_SHAPE.patternIndices.length;
@@ -2653,7 +2669,21 @@
       const lvlInfo = isCross ? window.RR_LEVELS.find(l=>l.special==='cross')
                                : (window.RR_LEVELS||[]).find(l=>l.patternSize===Math.round(Math.sqrt(n)));
       if (badge) badge.textContent = lvlInfo ? `${lvlInfo.boardSize}×${lvlInfo.boardSize}` : '';
-      window.dispatchEvent(new CustomEvent('rrPatternChange',{detail:pattern}));
+
+      // Solo se avisa al tablero de juego (para que arranque la cuenta atrás y
+      // considere que empieza una partida nueva) si el CONTENIDO del patrón ha
+      // cambiado de verdad Y no estamos en pleno modo de edición manual. Así:
+      //  · Tocar una celda del editor (mismo contenido salvo esa celda, pero con
+      //    rrManualMode activo) no reinicia la cuenta atrás de nadie.
+      //  · Recolorear por cambio de temporada (mismo contenido exacto, solo
+      //    cambia la paleta visual) tampoco la reinicia.
+      //  · Un patrón realmente nuevo (nueva partida, "Nuevo reto", subir de
+      //    nivel...) sí la dispara con normalidad.
+      const contentChanged = !prevPattern || prevPattern.length !== pattern.length ||
+        pattern.some((v, i) => v !== prevPattern[i]);
+      if (contentChanged && !rrManualMode && !window.__rrRemoteEditing) {
+        window.dispatchEvent(new CustomEvent('rrPatternChange',{detail:pattern}));
+      }
     }
     window.__fbPatternReceived = p => { rrApplyPattern(p); setConnected(true); };
     // Redraw preview when pride/colorblind/seasonal mode changes — antes solo escuchaba
@@ -3475,6 +3505,9 @@
       if (btn) btn.classList.toggle('active', rrManualMode);
       if (grid) grid.classList.toggle('rr-manual-active', rrManualMode);
       if (hint) { hint.textContent = rrManualMode ? 'Tocá cada celda para cambiar su color' : ''; hint.style.display = rrManualMode ? 'block' : 'none'; }
+      // Avisar a TODA la sala (no solo a este dispositivo) de que se está editando
+      // el patrón, para que nadie más arranque su cuenta atrás mientras tanto.
+      window.__fbSetEditing?.(rrManualMode);
     }
     window.rrToggleManualMode = rrToggleManualMode;
 
