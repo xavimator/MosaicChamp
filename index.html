@@ -3921,22 +3921,35 @@
       return (window.__RR_SEASON_THEMES || {})[window.__rrActiveSeason] || null;
     }
 
-    // Estado del "modo alternativo" — se guarda por temporada (mc-season-alt-<id>) para
-    // que activar el modo en una temporada no deje, sin querer, otra encendida más tarde.
+    // Estado del "modo alternativo" — se guarda por temporada (mc-season-alt-<id>) SOLO
+    // como memoria dentro de la misma sesión de pestaña (p.ej. para que si cambia la
+    // temporada automática a mitad de partida, recuerde si el jugador lo había encendido
+    // para la temporada nueva). NO se usa para restaurar el modo al abrir la app: la app
+    // siempre arranca en modo clásico, y el valor se borra de localStorage al cerrar/salir
+    // de la pestaña para que nunca quede "colgado" de una sesión anterior.
     function rrSeasonAltKey(seasonId) { return `mc-season-alt-${seasonId}`; }
     function rrSeasonAltGet(seasonId) {
       return !!seasonId && localStorage.getItem(rrSeasonAltKey(seasonId)) === '1';
     }
-    window.__seasonAltMode = rrSeasonAltGet(window.__rrActiveSeason);
-    // La llamada a refreshRRColors() de más arriba corrió antes de saber esto (todavía
-    // no existía __seasonAltMode con su valor real), así que si el jugador ya tenía
-    // los colores de temporada activados de una sesión anterior, se recalcula ahora
-    // con el dato correcto — si no, el patrón se quedaría en clásico hasta que
-    // volviera a tocar el gesto a mano en esta sesión.
+    function rrSeasonAltClearAll() {
+      try {
+        Object.keys(localStorage)
+          .filter(k => k.indexOf('mc-season-alt-') === 0)
+          .forEach(k => localStorage.removeItem(k));
+      } catch(e) {}
+    }
+    // Por si quedó algo de una sesión anterior que no cerró limpio (pestaña cerrada
+    // a la brava, crash, etc.) — al arrancar nos aseguramos de partir de cero.
+    rrSeasonAltClearAll();
+    // Arranque SIEMPRE en modo clásico, sin importar la temporada activa ni lo que
+    // hubiera guardado antes.
+    window.__seasonAltMode = false;
     refreshRRColors();
-    // Aplica ya el fondo/iconos si el jugador ya lo tenía activado en una sesión anterior
-    // (si no, se queda en modo clásico, que es el arranque por defecto).
-    rrApplySeasonBodyClass(window.__seasonAltMode ? window.__rrActiveSeason : null);
+    rrApplySeasonBodyClass(null);
+    // Al cerrar o salir de la pestaña, limpiar cualquier preferencia de temporada
+    // que se haya guardado durante esta sesión, para que la próxima siempre arranque clásica.
+    window.addEventListener('pagehide', rrSeasonAltClearAll);
+    window.addEventListener('beforeunload', rrSeasonAltClearAll);
 
     function setSeasonAltMode(on) {
       const seasonId = window.__rrActiveSeason;
@@ -3950,13 +3963,19 @@
     window.setSeasonAltMode = setSeasonAltMode;
 
     // Se llama cuando cambia la temporada activa (por fecha o por Rubiking) para
-    // resincronizar el fondo/iconos con la preferencia personal ya guardada, sin
-    // encenderlos nunca automáticamente por el mero hecho de estar en temporada.
+    // resincronizar el fondo/iconos con la preferencia personal guardada EN ESTA MISMA
+    // SESIÓN, sin encenderlos nunca automáticamente por el mero hecho de estar en
+    // temporada. Antes esta función no recalculaba RR_COLORS, así que el fondo cambiaba
+    // pero los colores del patrón se quedaban en clásico hasta que el jugador tocaba
+    // el gesto a mano — de ahí el bug al empezar partida.
     window.__rrSyncSeasonBodyClass = function() {
       const theme = rrCurrentSeasonTheme();
       window.__seasonAltMode = !!(theme && rrSeasonAltGet(window.__rrActiveSeason));
+      refreshRRColors();
       rrApplySeasonBodyClass(window.__seasonAltMode ? window.__rrActiveSeason : null);
+      window.dispatchEvent(new CustomEvent('seasonAltModeChange', { detail: window.__seasonAltMode }));
     };
+
 
     function useSeasonAltMode() {
       const [v, setV] = useState(!!window.__seasonAltMode);
