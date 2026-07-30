@@ -2243,6 +2243,11 @@
       animation:finishPop .65s cubic-bezier(.34,1.56,.64,1), glowPulse 2s ease-in-out 1s infinite;
       text-align:center; line-height:1.1; padding:8px 16px;
     }
+    /* En verano, texto "finished" blanco total en vez del degradado dorado/naranja */
+    body.rr-season-verano .finished-text {
+      background:none; -webkit-background-clip:initial; background-clip:initial;
+      -webkit-text-fill-color:#ffffff; color:#ffffff;
+    }
 
     /* ══ Toasts ══ */
     #toast-container { position:fixed; bottom:24px; right:16px; display:flex; flex-direction:column; gap:8px; z-index:500; pointer-events:none; max-width:min(320px,90vw); }
@@ -4409,7 +4414,7 @@
       const [loading,  setLoading]  = useState(false);
       const [error,    setError]    = useState('');
       const [games,    setGames]    = useState([]);
-      const [level,    setLevel]    = useState(1);
+      const [level,    setLevel]    = useState(null);
       const activeSeason = useActiveSeason(); // re-renderiza si Rubiking cambia la temporada en vivo
       const seasonAlt    = useSeasonAltMode();
       const seasonTheme  = window.__RR_SEASON_THEMES[activeSeason] || null;
@@ -4448,9 +4453,6 @@
       // True una vez que la carga de Firebase (o los initialDoneLevels) ha terminado;
       // evita que el selector salte a nivel 1 mientras los datos viajan por la red.
       const [progressLoaded, setProgressLoaded] = useState(initialDoneLevels.length > 0);
-      // True cuando el usuario ha tocado el selector manualmente; evita que el auto-select
-      // sobreescriba su elección al llegar el progreso de Firebase.
-      const [userPickedLevel, setUserPickedLevel] = useState(false);
 
 
       // Escuchar estado de conexión Firebase
@@ -4519,23 +4521,15 @@
       // correcta (ver el efecto de aliasClaimed y confirmPassword más abajo); mientras tanto
       // se muestra el estado por defecto (niveles 1-3 desbloqueados, sin marcas de completado).
       useEffect(() => {
-        if (!name.trim()) { setDoneLevels([]); setLevel8Unlocked(false); setUserPickedLevel(false); setProgressLoaded(false); return; }
+        if (!name.trim()) { setDoneLevels([]); setLevel8Unlocked(false); setProgressLoaded(false); return; }
         if (isRubiking) { loadProgress(name.trim()).then(d => checkLevel8(d)); return; }
         if (passSession) return; // sesión de contraseña ya verificada: no ocultar el progreso
         setDoneLevels([]); setLevel8Unlocked(false); setProgressLoaded(false);
       }, [name, isRubiking]);
 
-      // Seleccionar el mayor nivel desbloqueado al cargar el progreso, pero solo si el
-      // usuario no ha elegido nivel manualmente. No tocar el nivel 8 (cross) ni si aún
-      // no ha terminado la carga de progreso.
-      useEffect(() => {
-        if (!progressLoaded) return;
-        if (userPickedLevel) return;
-        const lv = window.RR_LEVEL_INFO(level);
-        if (lv?.special === 'cross') return;
-        const max = maxUnlockedLevel(doneLevels);
-        setLevel(max);
-      }, [doneLevels, isRubiking, level8Unlocked, maxUnlockedLevel, progressLoaded, userPickedLevel]);
+      // Ya no se auto-selecciona ningún nivel al cargar el progreso: el lobby arranca
+      // siempre sin nivel elegido. Si el jugador pulsa "¡Acepto el reto!" sin elegir
+      // ninguno, handleNew usa el nivel más bajo disponible (ver más abajo).
 
       const tryRedeemCode = useCallback(async () => {
         if (!codeInput.trim()) return;
@@ -4730,7 +4724,8 @@
           const isCrossSelected = window.RR_LEVEL_INFO(level)?.special === 'cross';
           const level8ok = localStorage.getItem('rr-level8-code') === '1';
           const maxLvl = isRubiking ? 8 : (() => { let l=3; while(l<7 && done.includes(l)) l++; if(l===7&&done.includes(7)&&level8ok) l=8; return l; })();
-          const safeLevel = isCrossSelected ? level : Math.min(level, maxLvl);
+          // Si no se eligió ningún nivel a mano, "¡Acepto el reto!" empieza por el más bajo (1).
+          const safeLevel = isCrossSelected ? level : Math.min(level || 1, maxLvl);
           const code = genCode();
           localStorage.setItem('rr-player-name', name.trim());
           window.__rrOnPlayerNameCommitted?.(name.trim());
@@ -4935,7 +4930,7 @@
                           setLockedTip(t => t?.level===lv.level ? null : { level: lv.level });
                           setTimeout(()=>setLockedTip(null), 2800);
                         } else {
-                          setLevel(lv.level); setUserPickedLevel(true);
+                          setLevel(lv.level);
                           setLockedTip(null);
                         }
                       }}
@@ -5007,6 +5002,7 @@
                                border:'1px solid transparent',background:'transparent'}}/>
                 )}
               </div>
+              {level != null && (
               <div style={{marginTop:'7px',fontSize:'11px',color:darkText?'rgba(20,20,22,.94)':'rgba(255,255,255,.88)',textAlign:'center'}}>
                 {window.RR_LEVEL_INFO(level).special==='cross' ? (
                   <span style={{color:'#FFD27A',fontWeight:800}}>✛ {window.T.mosaicCross} · 11×11</span>
@@ -5020,6 +5016,7 @@
                   </>
                 )}
               </div>
+              )}
 
               {showCodePanel && (
                 <div style={{marginTop:'10px',padding:'12px',borderRadius:'10px',
@@ -6989,17 +6986,20 @@
             <div style={{display:'flex',gap:'10px',alignItems:'center',flexWrap:'wrap',justifyContent:'center'}}>
               {finished && (fromInvite || level <= 7) && !window.RR_LEVEL_INFO(level).special && (() => {
                 const schoolMode = seasonAlt && activeSeason === 'vuelta_colegio';
+                const summerMode = seasonAlt && activeSeason === 'verano';
                 return (
                 <button onClick={handleLevelUpClick}
                   style={{padding:'11px 20px',borderRadius:'10px',cursor:'pointer',fontSize:'13px',
                           fontWeight:800,letterSpacing:'.08em',textTransform:'uppercase',
                           display:'flex',alignItems:'center',gap:'8px',
-                          border: schoolMode ? '1px solid rgba(13,148,136,.55)' : '1px solid rgba(255,215,0,.6)',
+                          border: schoolMode ? '1px solid rgba(13,148,136,.55)' : summerMode ? '1px solid rgba(30,58,138,.65)' : '1px solid rgba(255,215,0,.6)',
                           background: schoolMode
                             ? 'linear-gradient(135deg,rgba(45,212,191,.22),rgba(13,148,136,.16))'
-                            : 'linear-gradient(135deg,rgba(255,215,0,.2),rgba(255,150,0,.15))',
-                          color: schoolMode ? '#0d9488' : '#FFD700',
-                          boxShadow: schoolMode ? '0 0 18px rgba(45,212,191,.35)' : '0 0 18px rgba(255,215,0,.35)',
+                            : summerMode
+                              ? 'linear-gradient(135deg,rgba(59,130,246,.24),rgba(30,58,138,.2))'
+                              : 'linear-gradient(135deg,rgba(255,215,0,.2),rgba(255,150,0,.15))',
+                          color: schoolMode ? '#0d9488' : summerMode ? '#1e3a8a' : '#FFD700',
+                          boxShadow: schoolMode ? '0 0 18px rgba(45,212,191,.35)' : summerMode ? '0 0 18px rgba(30,58,138,.4)' : '0 0 18px rgba(255,215,0,.35)',
                           animation:'levelUpPulse 1.4s ease-in-out infinite'}}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
                     <path d="M12 19V5"/><path d="M5 12l7-7 7 7"/>
