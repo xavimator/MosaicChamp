@@ -1218,6 +1218,22 @@
     };
     window.__fbUnlistenGames = () => { if (gamesUnsub) { gamesUnsub(); gamesUnsub = null; } };
 
+    // Lectura puntual (no listener) de los jugadores activos de una partida, usada para
+    // avisar de quién ya está dentro antes de unirse (p.ej. al aceptar una invitación).
+    window.__fbGetGamePresence = async (code) => {
+      try {
+        const snap = await get(ref(db, `rubitrack/games/${code}/presence`));
+        if (!snap.exists()) return [];
+        const now = Date.now(), list = [];
+        snap.forEach(child => {
+          const v = child.val();
+          if (v?.name && (now - v.ts) < 15000) list.push({ name: v.name, ts: v.ts });
+        });
+        list.sort((a, b) => a.ts - b.ts);
+        return list.map(p => p.name);
+      } catch(e) { console.error('[presence] lectura previa fallida:', e); return []; }
+    };
+
     window.__fbReady = true;
     window.dispatchEvent(new Event('fbReady'));
   </script>
@@ -1306,6 +1322,9 @@
         // Presence toasts
         connected: (n) => `${n} se ha conectado`,
         disconnected: (n) => `${n} se ha desconectado`,
+        enterCompetitionToast: (names, code) => names
+          ? `¡Entras en la competición con ${names}! Código: ${code}`
+          : `¡Entras en la competición! Código: ${code}`,
         moving: '${window.T.moving}',
         finishToast: (n) => `${n} ha terminado!`,
         finishToastSub: 'Ha completado el patrón',
@@ -1397,6 +1416,9 @@
         noConn: '● Sense connexió',
         connected: (n) => `${n} s'ha connectat`,
         disconnected: (n) => `${n} s'ha desconnectat`,
+        enterCompetitionToast: (names, code) => names
+          ? `Entres a la competició amb ${names}! Codi: ${code}`
+          : `Entres a la competició! Codi: ${code}`,
         moving: 'movent…',
         finishToast: (n) => `${n} ha acabat!`,
         finishToastSub: 'Ha completat el patró',
@@ -1486,6 +1508,9 @@
         noConn: '● Disconnected',
         connected: (n) => `${n} has joined`,
         disconnected: (n) => `${n} has left`,
+        enterCompetitionToast: (names, code) => names
+          ? `You're entering the competition with ${names}! Code: ${code}`
+          : `You're entering the competition! Code: ${code}`,
         moving: 'moving…',
         finishToast: (n) => `${n} has finished!`,
         finishToastSub: 'Completed the pattern',
@@ -1575,6 +1600,9 @@
         noConn: '● Hors ligne',
         connected: (n) => `${n} a rejoint`,
         disconnected: (n) => `${n} est parti`,
+        enterCompetitionToast: (names, code) => names
+          ? `Tu entres dans la compétition avec ${names} ! Code : ${code}`
+          : `Tu entres dans la compétition ! Code : ${code}`,
         moving: 'en mouvement…',
         finishToast: (n) => `${n} a terminé !`,
         finishToastSub: 'A complété le motif',
@@ -1664,6 +1692,9 @@
         noConn: '● Keine Verbindung',
         connected: (n) => `${n} ist beigetreten`,
         disconnected: (n) => `${n} hat verlassen`,
+        enterCompetitionToast: (names, code) => names
+          ? `Du steigst in den Wettbewerb ein mit ${names}! Code: ${code}`
+          : `Du steigst in den Wettbewerb ein! Code: ${code}`,
         moving: 'am Spielen…',
         finishToast: (n) => `${n} hat fertig!`,
         finishToastSub: 'Hat das Muster vervollständigt',
@@ -1753,6 +1784,9 @@
         noConn: '● Sem ligação',
         connected: (n) => `${n} ligou-se`,
         disconnected: (n) => `${n} desligou-se`,
+        enterCompetitionToast: (names, code) => names
+          ? `Estás a entrar na competição com ${names}! Código: ${code}`
+          : `Estás a entrar na competição! Código: ${code}`,
         moving: 'a mover…',
         finishToast: (n) => `${n} terminou!`,
         finishToastSub: 'Completou o padrão',
@@ -1842,6 +1876,9 @@
         noConn: '● Nessuna connessione',
         connected: (n) => `${n} si è connesso`,
         disconnected: (n) => `${n} si è disconnesso`,
+        enterCompetitionToast: (names, code) => names
+          ? `Entri nella competizione con ${names}! Codice: ${code}`
+          : `Entri nella competizione! Codice: ${code}`,
         moving: 'in movimento…',
         finishToast: (n) => `${n} ha finito!`,
         finishToastSub: 'Ha completato il pattern',
@@ -1977,7 +2014,7 @@
     @keyframes mcTitleHue { 0%{filter:hue-rotate(0deg)} 100%{filter:hue-rotate(360deg)} }
     @keyframes finishPop  { 0%{transform:scale(.5) rotate(-8deg);opacity:0} 70%{transform:scale(1.1) rotate(2deg)} 100%{transform:scale(1) rotate(0);opacity:1} }
     @keyframes frameIn    { from{opacity:0} to{opacity:1} }
-    @keyframes glowPulse  { 0%,100%{filter:drop-shadow(0 0 8px rgba(255,200,80,.4))} 50%{filter:drop-shadow(0 0 20px rgba(255,200,80,.9))} }
+    @keyframes glowPulse  { 0%,100%{filter:drop-shadow(0 0 12px rgba(255,220,110,.65))} 50%{filter:drop-shadow(0 0 30px rgba(255,220,110,1))} }
     @keyframes syncPulse  { 0%,100%{opacity:.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.4)} }
     @keyframes movingPulse{ 0%,100%{opacity:.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.5)} }
     @keyframes toastIn    { from{transform:translateX(110%);opacity:0} to{transform:translateX(0);opacity:1} }
@@ -2237,9 +2274,9 @@
     }
     .finished-text {
       font-family:'Pacifico',cursive; font-size:clamp(28px,7vw,44px);
-      background:linear-gradient(135deg,#FFE566,#FFA85C,#F57A7A);
+      background:linear-gradient(135deg,#FFF6A8,#FFC169,#FF9B85);
       -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-      text-shadow:0 6px 10px rgba(0,0,0,.5);
+      text-shadow:0 6px 10px rgba(0,0,0,.35);
       animation:finishPop .65s cubic-bezier(.34,1.56,.64,1), glowPulse 2s ease-in-out 1s infinite;
       text-align:center; line-height:1.1; padding:8px 16px;
     }
@@ -4415,6 +4452,7 @@
       const [error,    setError]    = useState('');
       const [games,    setGames]    = useState([]);
       const [level,    setLevel]    = useState(null);
+      const [inviteCode, setInviteCode] = useState(''); // código venido de un link de invitación (?code=)
       const activeSeason = useActiveSeason(); // re-renderiza si Rubiking cambia la temporada en vivo
       const seasonAlt    = useSeasonAltMode();
       const seasonTheme  = window.__RR_SEASON_THEMES[activeSeason] || null;
@@ -4695,6 +4733,7 @@
         if (code && code.length === 4) {
           setJoinCode(code);
           setShowJoin(true);
+          setInviteCode(code);
         }
       }, []);
 
@@ -4712,6 +4751,9 @@
 
       const handleNew = async () => {
         if (!nameOk) return;
+        // Si venimos de un link de invitación (?code=XXXX), "¡Acepto el reto!" no crea
+        // una partida nueva: entra directamente a la partida invitada.
+        if (inviteCode) { return handleAcceptInvite(); }
         setLoading(true); setError(''); setPasswordError('');
         try {
           await waitForFb();
@@ -4763,6 +4805,35 @@
           onJoin(name.trim(), code, joinLevel, ephemeral, true, done||[]); // true = fromInvite
         } catch(e) {
           console.error('handleJoin error:', e);
+          setError(e.message || window.T.errJoin);
+          setLoading(false);
+        }
+      };
+
+      // Entrar a la partida de una invitación (?code=XXXX): antes de completar la unión,
+      // avisa con un float de quién ya está jugando (hasta 3 nombres) y el código de partida.
+      const handleAcceptInvite = async () => {
+        const code = inviteCode.trim().toUpperCase();
+        if (code.length !== 4) { setError(window.T.errCode4); return; }
+        setLoading(true); setError(''); setPasswordError('');
+        try {
+          await waitForFb();
+          const exists = await window.__fbGameExists(code);
+          if (!exists) { setError(window.T.errNotFound); setLoading(false); return; }
+          const result = await resolveAlias();
+          if (result === null) { setLoading(false); return; }
+          const { ephemeral, done } = result;
+          const joinLevel = await window.__fbGetLobbyLevel?.(code) ?? 2;
+          window.__rrLevel = joinLevel;
+          const others = await window.__fbGetGamePresence?.(code) ?? [];
+          const namesStr = others.slice(0, 3).join(', ');
+          window.showDiscreteToast?.('🏆', window.T.enterCompetitionToast(namesStr, code), '#f59e0b');
+          localStorage.setItem('rr-player-name', name.trim());
+          window.__rrOnPlayerNameCommitted?.(name.trim());
+          await window.__fbJoinGame(code);
+          onJoin(name.trim(), code, joinLevel, ephemeral, true, done||[]); // true = fromInvite
+        } catch(e) {
+          console.error('handleAcceptInvite error:', e);
           setError(e.message || window.T.errJoin);
           setLoading(false);
         }
