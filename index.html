@@ -738,6 +738,17 @@
       }));
       window.__fbSendReset = () => set(rstRef, { ts: Date.now() });
 
+      // Validar patrón: sincroniza a TODA la sala que hay que regenerar el tablero
+      // garantizando colores suficientes para el patrón actual (ver rrValidatePattern
+      // / onValidate en Game). Se manda el propio patrón junto al aviso para evitar
+      // condiciones de carrera con el canal de pattern normal.
+      const validateRef = ref(db, `${base}/patternValidate`);
+      unsubs.push(onValue(validateRef, snap => {
+        const v = snap.val();
+        if (v?.ts && Array.isArray(v.pattern)) window.__fbPatternValidateReceived?.(v.pattern, v.ts);
+      }));
+      window.__fbSendPatternValidate = (pattern) => set(validateRef, { ts: Date.now(), pattern });
+
       // Notifications (only new ones)
       const notifRef   = ref(db, `${base}/notifications`);
       const notifQuery = query(notifRef, orderByChild('ts'), startAfter(Date.now()));
@@ -1292,6 +1303,7 @@
         levelUpAccept: 'Subir de nivel',
         levelUpDecline: 'Quedarme aquí',
         levelUpInviting: 'Avisando al resto para subir de nivel…',
+        levelUpWaitingBtn: 'Esperando…',
         levelUpStayToast: (n) => `Sigues en el nivel ${n} con quien no ha subido`,
         levelUpDeclinedToast: (name) => `${name} no ha querido subir de nivel`,
         getReady: '¡Prepárate!',
@@ -1305,7 +1317,7 @@
         copyTitle: 'Copiar',
         inviteTitle: 'Invitar',
         helpTitle: 'Ayuda',
-        scoresTitle: 'Scores', combinedLabel: 'Top combinado', multiLabel: 'Multijugador', soloLabel: 'Solo', noScores: 'Sin partidas aún 🎮', levelLabel: 'Nivel', allLabel: 'Global',
+        scoresTitle: 'Scores', combinedLabel: 'Top combinado', multiLabel: 'Multijugador', soloLabel: 'Solo', noScores: 'Sin partidas aún', levelLabel: 'Nivel', allLabel: 'Global', manualModeHint: 'Toca para ciclo de color',
         // Confirm modal
         confirmTitle: '¿Nuevo juego?',
         confirmBody: (n) => `Hay <strong style="color:#c89fff">${n} jugadores</strong> conectados.<br/>Esto reiniciará el tiempo y el patrón para todos.`,
@@ -1389,6 +1401,7 @@
         levelUpAccept: 'Pujar de nivell',
         levelUpDecline: 'Quedar-me aquí',
         levelUpInviting: 'Avisant la resta per pujar de nivell…',
+        levelUpWaitingBtn: 'Esperant…',
         levelUpStayToast: (n) => `Continues al nivell ${n} amb qui no ha pujat`,
         levelUpDeclinedToast: (name) => `${name} no ha volgut pujar de nivell`,
         getReady: 'Prepara\'t!',
@@ -1402,7 +1415,7 @@
         copyTitle: 'Copiar',
         inviteTitle: 'Convidar',
         helpTitle: 'Ajuda',
-        scoresTitle: 'Puntuacions', combinedLabel: 'Top combinat', multiLabel: 'Multijugador', soloLabel: 'Sol', noScores: 'Sense partides encara 🎮', levelLabel: 'Nivell', allLabel: 'Global',
+        scoresTitle: 'Puntuacions', combinedLabel: 'Top combinat', multiLabel: 'Multijugador', soloLabel: 'Sol', noScores: 'Sense partides encara', levelLabel: 'Nivell', allLabel: 'Global', manualModeHint: 'Toca per canviar de color',
         confirmTitle: 'Nova partida?',
         confirmBody: (n) => `Hi ha <strong style="color:#c89fff">${n} jugadors</strong> connectats.<br/>Això reiniciarà el temps i el patró per a tothom.`,
         confirmCancel: 'Cancel·lar',
@@ -1481,6 +1494,7 @@
         levelUpAccept: 'Level up',
         levelUpDecline: 'Stay here',
         levelUpInviting: 'Inviting the others to level up…',
+        levelUpWaitingBtn: 'Waiting…',
         levelUpStayToast: (n) => `You're staying on level ${n} with whoever didn't level up`,
         levelUpDeclinedToast: (name) => `${name} didn't want to level up`,
         getReady: 'Get Ready!',
@@ -1494,7 +1508,7 @@
         copyTitle: 'Copy',
         inviteTitle: 'Invite',
         helpTitle: 'Help',
-        scoresTitle: 'Scores', combinedLabel: 'Combined top', multiLabel: 'Multiplayer', soloLabel: 'Solo', noScores: 'No games yet 🎮', levelLabel: 'Level', allLabel: 'Global',
+        scoresTitle: 'Scores', combinedLabel: 'Combined top', multiLabel: 'Multiplayer', soloLabel: 'Solo', noScores: 'No games yet', levelLabel: 'Level', allLabel: 'Global', manualModeHint: 'Tap to cycle color',
         confirmTitle: 'New game?',
         confirmBody: (n) => `There are <strong style="color:#c89fff">${n} players</strong> connected.<br/>This will reset the timer and pattern for everyone.`,
         confirmCancel: 'Cancel',
@@ -1573,6 +1587,7 @@
         levelUpAccept: 'Monter de niveau',
         levelUpDecline: 'Rester ici',
         levelUpInviting: 'On pr\u00e9vient les autres pour monter de niveau…',
+        levelUpWaitingBtn: 'En attente…',
         levelUpStayToast: (n) => `Tu restes au niveau ${n} avec ceux qui ne sont pas mont\u00e9s`,
         levelUpDeclinedToast: (name) => `${name} n'a pas voulu monter de niveau`,
         getReady: 'Prêt ?',
@@ -1586,7 +1601,7 @@
         copyTitle: 'Copier',
         inviteTitle: 'Inviter',
         helpTitle: 'Aide',
-        scoresTitle: 'Scores', combinedLabel: 'Top combiné', multiLabel: 'Multijoueur', soloLabel: 'Solo', noScores: 'Pas encore de parties 🎮', levelLabel: 'Niveau', allLabel: 'Global',
+        scoresTitle: 'Scores', combinedLabel: 'Top combiné', multiLabel: 'Multijoueur', soloLabel: 'Solo', noScores: 'Pas encore de parties', levelLabel: 'Niveau', allLabel: 'Global', manualModeHint: 'Touche pour changer de couleur',
         confirmTitle: 'Nouvelle partie ?',
         confirmBody: (n) => `Il y a <strong style="color:#c89fff">${n} joueurs</strong> connectés.<br/>Cela réinitialisera le chrono et le motif pour tous.`,
         confirmCancel: 'Annuler',
@@ -1665,6 +1680,7 @@
         levelUpAccept: 'Level aufsteigen',
         levelUpDecline: 'Hierbleiben',
         levelUpInviting: 'Die anderen werden zum Aufstieg eingeladen…',
+        levelUpWaitingBtn: 'Warten…',
         levelUpStayToast: (n) => `Du bleibst auf Level ${n} mit denen, die nicht aufgestiegen sind`,
         levelUpDeclinedToast: (name) => `${name} wollte nicht aufsteigen`,
         getReady: 'Fertig machen!',
@@ -1678,7 +1694,7 @@
         copyTitle: 'Kopieren',
         inviteTitle: 'Einladen',
         helpTitle: 'Hilfe',
-        scoresTitle: 'Punkte', combinedLabel: 'Kombiniertes Top', multiLabel: 'Mehrspieler', soloLabel: 'Solo', noScores: 'Noch keine Spiele 🎮', levelLabel: 'Level', allLabel: 'Global',
+        scoresTitle: 'Punkte', combinedLabel: 'Kombiniertes Top', multiLabel: 'Mehrspieler', soloLabel: 'Solo', noScores: 'Noch keine Spiele', levelLabel: 'Level', allLabel: 'Global', manualModeHint: 'Tippen, um die Farbe zu wechseln',
         confirmTitle: 'Neues Spiel?',
         confirmBody: (n) => `Es sind <strong style="color:#c89fff">${n} Spieler</strong> verbunden.<br/>Dies setzt Timer und Muster für alle zurück.`,
         confirmCancel: 'Abbrechen',
@@ -1757,6 +1773,7 @@
         levelUpAccept: 'Subir de nível',
         levelUpDecline: 'Ficar aqui',
         levelUpInviting: 'A avisar os outros para subirem de nível…',
+        levelUpWaitingBtn: 'A aguardar…',
         levelUpStayToast: (n) => `Continuas no nível ${n} com quem não subiu`,
         levelUpDeclinedToast: (name) => `${name} não quis subir de nível`,
         getReady: 'Prepara-te!',
@@ -1770,7 +1787,7 @@
         copyTitle: 'Copiar',
         inviteTitle: 'Convidar',
         helpTitle: 'Ajuda',
-        scoresTitle: 'Pontuações', combinedLabel: 'Top combinado', multiLabel: 'Multijogador', soloLabel: 'Solo', noScores: 'Ainda sem partidas 🎮', levelLabel: 'Nível', allLabel: 'Global',
+        scoresTitle: 'Pontuações', combinedLabel: 'Top combinado', multiLabel: 'Multijogador', soloLabel: 'Solo', noScores: 'Ainda sem partidas', levelLabel: 'Nível', allLabel: 'Global', manualModeHint: 'Toca para mudar de cor',
         confirmTitle: 'Novo jogo?',
         confirmBody: (n) => `Há <strong style="color:#c89fff">${n} jogadores</strong> ligados.<br/>Isto vai reiniciar o tempo e o padrão para todos.`,
         confirmCancel: 'Cancelar',
@@ -1849,6 +1866,7 @@
         levelUpAccept: 'Sali di livello',
         levelUpDecline: 'Resta qui',
         levelUpInviting: 'Sto avvisando gli altri per salire di livello…',
+        levelUpWaitingBtn: 'In attesa…',
         levelUpStayToast: (n) => `Resti al livello ${n} con chi non è salito`,
         levelUpDeclinedToast: (name) => `${name} non ha voluto salire di livello`,
         getReady: 'Pronti!',
@@ -1862,7 +1880,7 @@
         copyTitle: 'Copia',
         inviteTitle: 'Invita',
         helpTitle: 'Aiuto',
-        scoresTitle: 'Punteggi', combinedLabel: 'Top combinato', multiLabel: 'Multigiocatore', soloLabel: 'Solo', noScores: 'Nessuna partita ancora 🎮', levelLabel: 'Livello', allLabel: 'Globale',
+        scoresTitle: 'Punteggi', combinedLabel: 'Top combinato', multiLabel: 'Multigiocatore', soloLabel: 'Solo', noScores: 'Nessuna partita ancora', levelLabel: 'Livello', allLabel: 'Globale', manualModeHint: 'Tocca per cambiare colore',
         confirmTitle: 'Nuova partita?',
         confirmBody: (n) => `Ci sono <strong style="color:#c89fff">${n} giocatori</strong> connessi.<br/>Questo azzererà il tempo e il pattern per tutti.`,
         confirmCancel: 'Annulla',
@@ -2812,6 +2830,16 @@
     let lastResetTs=0;
     window.__fbResetReceived = ts => { if(ts<=lastResetTs)return; lastResetTs=ts; window.dispatchEvent(new CustomEvent('rrGlobalReset',{detail:ts})); };
 
+    // Validar patrón (colores suficientes) — reutiliza el mismo evento local que
+    // dispara rrValidatePattern() para que todos los clientes reaccionen igual,
+    // vengan del propio dispositivo o de otro jugador de la sala.
+    let lastPatternValidateTs=0;
+    window.__fbPatternValidateReceived = (pattern, ts) => {
+      if (ts && ts<=lastPatternValidateTs) return;
+      if (ts) lastPatternValidateTs = ts;
+      window.dispatchEvent(new CustomEvent('rrValidatePattern', { detail: pattern }));
+    };
+
     // Confetti — o, en modo Vacaciones, gotas de agua y espuma — salen disparadas del
     // panel de patrón (#rr-widget). Se dispara para TODOS los participantes (se llama
     // desde __fbNotifReceived, que ya recibe el evento de "finish" vía Firebase para
@@ -3505,12 +3533,14 @@
       if (imgBtn) { imgBtn.style.display = hasAccess ? '' : 'none'; imgBtn.disabled = !size; }
       if (manBtn) { manBtn.style.display = hasAccess ? '' : 'none'; manBtn.disabled = !size; }
       if (valBtn) valBtn.disabled = !(window.rrPattern && window.rrPattern.length);
-      // Guardar patrones con nombre y temporadas: solo Rubiking. Ver la galería: cualquiera con acceso al editor.
-      if (saveBtn) saveBtn.style.display = rrEditorIsRubiking() ? '' : 'none';
+      // Guardar patrones: cualquiera con acceso al editor puede guardar (Rubiking en la
+      // galería global de Firebase, el resto en el almacenamiento local del dispositivo).
+      // Ver la galería (cargar/usar): cualquiera con acceso al editor.
+      if (saveBtn) saveBtn.style.display = hasAccess ? '' : 'none';
       if (galBtn)  galBtn.style.display  = hasAccess ? '' : 'none';
       if (seasonsBtn) seasonsBtn.style.display = rrEditorIsRubiking() ? '' : 'none';
-      if (!rrEditorIsRubiking()) { window.rrCloseSaveModal?.(); window.rrCloseSeasonsAdmin?.(); }
-      if (!hasAccess) window.rrCloseSavedGallery?.();
+      if (!hasAccess) { window.rrCloseSaveModal?.(); window.rrCloseSavedGallery?.(); }
+      if (!rrEditorIsRubiking()) window.rrCloseSeasonsAdmin?.();
       if (!size && rrManualMode) rrToggleManualMode(false);
       if (!hasAccess && rrManualMode) rrToggleManualMode(false);
     }
@@ -3521,7 +3551,13 @@
     // el patrón necesita, de forma que siempre sea posible completarlo.
     function rrValidatePattern() {
       if (!window.rrPattern || !window.rrPattern.length) return;
-      window.dispatchEvent(new CustomEvent('rrValidatePattern', { detail: [...window.rrPattern] }));
+      const pat = [...window.rrPattern];
+      // Se avisa a TODA la sala (no solo a este dispositivo) para que cada jugador
+      // regenere su propio tablero garantizando colores suficientes del patrón
+      // recién confirmado. Si no hay Firebase disponible (modo offline), se aplica
+      // igualmente en local para no dejar el botón sin efecto.
+      if (window.__fbSendPatternValidate) window.__fbSendPatternValidate(pat);
+      else window.dispatchEvent(new CustomEvent('rrValidatePattern', { detail: pat }));
       const hint = document.getElementById('rr-validate-hint');
       if (hint) {
         hint.style.display = 'block';
@@ -3546,7 +3582,7 @@
       const hint = document.getElementById('rr-manual-hint');
       if (btn) btn.classList.toggle('active', rrManualMode);
       if (grid) grid.classList.toggle('rr-manual-active', rrManualMode);
-      if (hint) { hint.textContent = rrManualMode ? 'Tocá cada celda para cambiar su color' : ''; hint.style.display = rrManualMode ? 'block' : 'none'; }
+      if (hint) { hint.textContent = rrManualMode ? window.T.manualModeHint : ''; hint.style.display = rrManualMode ? 'block' : 'none'; }
       // Avisar a TODA la sala (no solo a este dispositivo) de que se está editando
       // el patrón, para que nadie más arranque su cuenta atrás mientras tanto.
       window.__fbSetEditing?.(rrManualMode);
@@ -3588,9 +3624,41 @@
     }
     window.rrHandleImageFile = rrHandleImageFile;
 
-    // ── Patrones guardados: galería + guardado con nombre (solo Rubiking) ──
+    // ── Patrones guardados: galería + guardado con nombre ──
+    // Rubiking guarda en la galería global de Firebase (visible para todos). Cualquier
+    // otro jugador con acceso al editor guarda en el almacenamiento local de SU
+    // dispositivo (mc-local-patterns) — no se comparte con nadie más, pero aparece
+    // igual en su propia galería, mezclado con los patrones globales de Rubiking.
     let rrSavedPatternsCache = [];
     let rrSavedPatternsSubscribed = false;
+
+    const RR_LOCAL_PATTERNS_KEY = 'mc-local-patterns';
+    function rrLocalPatternsGet() {
+      try { return JSON.parse(localStorage.getItem(RR_LOCAL_PATTERNS_KEY) || '[]'); }
+      catch(e) { return []; }
+    }
+    function rrLocalPatternsSet(list) {
+      try { localStorage.setItem(RR_LOCAL_PATTERNS_KEY, JSON.stringify(list)); } catch(e) {}
+    }
+    function rrLocalSavePattern(name, pattern, createdBy) {
+      const list = rrLocalPatternsGet();
+      const item = {
+        id: 'local_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        name, pattern, size: Math.round(Math.sqrt(pattern.length)),
+        createdBy: (createdBy || '').trim().toLowerCase(), ts: Date.now(), local: true,
+      };
+      list.unshift(item);
+      rrLocalPatternsSet(list);
+      return item;
+    }
+    function rrLocalDeletePattern(id) {
+      rrLocalPatternsSet(rrLocalPatternsGet().filter(p => p.id !== id));
+    }
+    // Lista combinada: patrones locales de este dispositivo primero, luego los
+    // globales de Firebase, todo ordenado por fecha de guardado.
+    function rrAllSavedPatterns() {
+      return [...rrLocalPatternsGet(), ...rrSavedPatternsCache].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    }
 
     function rrRequiredPatternLength() {
       const info = window.RR_LEVEL_INFO(window.__rrLevel || 2);
@@ -3626,7 +3694,10 @@
     }
 
     // Solo puede gestionar (borrar) un patrón guardado quien lo creó, o Rubiking.
+    // Los patrones locales (de este dispositivo) siempre se pueden gestionar: no
+    // están compartidos con nadie más.
     function rrCanManagePattern(sp) {
+      if (sp?.local) return true;
       if (rrEditorIsRubiking()) return true;
       const creator = (sp?.createdBy || '').trim().toLowerCase();
       return !!creator && creator === rrEditorCurrentName();
@@ -3636,18 +3707,19 @@
       const list = document.getElementById('rr-saved-list');
       const empty = document.getElementById('rr-saved-empty');
       if (!list) return;
-      if (!rrSavedPatternsCache.length) {
+      const all = rrAllSavedPatterns();
+      if (!all.length) {
         list.innerHTML = '';
         if (empty) empty.style.display = 'block';
         return;
       }
       if (empty) empty.style.display = 'none';
-      list.innerHTML = rrSavedPatternsCache.map(sp => `
+      list.innerHTML = all.map(sp => `
         <div class="rr-saved-item">
           ${rrMiniPreviewHTML(sp.pattern)}
           <div class="rr-saved-info">
             <div class="rr-saved-name">${String(sp.name || 'Sin nombre').replace(/</g, '&lt;')}</div>
-            <div class="rr-saved-size">${sp.size}×${sp.size}</div>
+            <div class="rr-saved-size">${sp.size}×${sp.size}${sp.local ? ' · 📱 en este dispositivo' : ''}</div>
           </div>
           <div class="rr-saved-actions">
             <button class="rr-saved-use-btn" onclick="rrApplySavedPattern('${sp.id}')">Usar</button>
@@ -3688,7 +3760,7 @@
 
     function rrApplySavedPattern(id) {
       if (!rrEditorHasAccess()) return;
-      const sp = rrSavedPatternsCache.find(s => s.id === id);
+      const sp = rrAllSavedPatterns().find(s => s.id === id);
       if (!sp) return;
       const need = rrRequiredPatternLength();
       if (sp.pattern.length !== need) {
@@ -3704,19 +3776,20 @@
     window.rrApplySavedPattern = rrApplySavedPattern;
 
     function rrDeleteSavedPatternClick(id) {
-      const sp = rrSavedPatternsCache.find(s => s.id === id);
+      const sp = rrAllSavedPatterns().find(s => s.id === id);
       if (!sp) return;
       if (!rrCanManagePattern(sp)) {
         window.showDiscreteToast?.('🔒', 'Solo quien creó este patrón (o Rubiking) puede eliminarlo', '#f59e0b');
         return;
       }
       if (!confirm(`¿Eliminar el patrón "${sp.name}"?`)) return;
-      window.__fbDeleteSavedPattern?.(id);
+      if (sp.local) { rrLocalDeletePattern(id); rrRenderSavedList(); }
+      else window.__fbDeleteSavedPattern?.(id);
     }
     window.rrDeleteSavedPatternClick = rrDeleteSavedPatternClick;
 
     function rrOpenSaveModal() {
-      if (!rrEditorIsRubiking()) return;
+      if (!rrEditorHasAccess()) return;
       if (!window.rrPattern || !window.rrPattern.length) {
         window.showDiscreteToast?.('⚠️', 'Primero creá un patrón para guardar', '#f59e0b');
         return;
@@ -3734,7 +3807,7 @@
     window.rrCloseSaveModal = rrCloseSaveModal;
 
     function rrConfirmSavePattern() {
-      if (!rrEditorIsRubiking()) return;
+      if (!rrEditorHasAccess()) return;
       const input = document.getElementById('rr-save-name-input');
       const name = (input?.value || '').trim().slice(0, 24);
       if (!name) {
@@ -3742,10 +3815,19 @@
         return;
       }
       if (!window.rrPattern || !window.rrPattern.length) return;
-      // Se registra quién lo crea (el nombre actual) para que, una vez guardado, solo
-      // ese jugador o Rubiking puedan eliminarlo/gestionarlo más adelante.
-      window.__fbSavePattern?.(name, [...window.rrPattern], rrEditorCurrentName());
-      window.showDiscreteToast?.('💾', `Patrón "${name}" guardado`, '#22c55e');
+      if (rrEditorIsRubiking()) {
+        // Rubiking: galería global de Firebase, visible para todos. Se registra quién
+        // lo crea para que, una vez guardado, solo ese jugador o Rubiking puedan
+        // eliminarlo/gestionarlo más adelante.
+        window.__fbSavePattern?.(name, [...window.rrPattern], rrEditorCurrentName());
+        window.showDiscreteToast?.('💾', `Patrón "${name}" guardado`, '#22c55e');
+      } else {
+        // Cualquier otro editor: se guarda solo en el almacenamiento local de ESTE
+        // dispositivo, no se comparte con nadie más.
+        rrLocalSavePattern(name, [...window.rrPattern], rrEditorCurrentName());
+        rrRenderSavedList();
+        window.showDiscreteToast?.('💾', `Patrón "${name}" guardado en este dispositivo`, '#22c55e');
+      }
       rrCloseSaveModal();
     }
     window.rrConfirmSavePattern = rrConfirmSavePattern;
@@ -6005,18 +6087,43 @@
       const levelUpTickRef = useRef(null);
       const levelUpHandledRef = useRef(new Set()); // requestId ya resueltos, por si llega más de un evento
       const myLevelUpRequestIdRef = useRef(null);  // requestId cuando YO soy quien invitó a subir
+      // Cuando YO invito a subir: espero a que respondan (acepten o no) TODOS los
+      // demás jugadores de la sala, o a que pasen 5s, lo que ocurra primero, antes
+      // de lanzarme yo a la partida nueva (y su cuenta atrás).
+      const pendingLevelUpRef = useRef(null);      // { nextLevel, level, upCode } a la espera
+      const levelUpOthersRef = useRef([]);         // nombres a los que invité
+      const levelUpResponsesRef = useRef(new Set()); // nombres que ya respondieron
+      const levelUpWaitTimerRef = useRef(null);
+      const [levelUpWaiting, setLevelUpWaiting] = useState(false);
 
-      // Si YO inicié la invitación, aviso cuando alguien decide quedarse
+      const proceedLevelUp = useCallback(() => {
+        clearTimeout(levelUpWaitTimerRef.current);
+        const pending = pendingLevelUpRef.current;
+        if (!pending) return;
+        pendingLevelUpRef.current = null;
+        setLevelUpWaiting(false);
+        if (typeof onLevelUp === 'function') onLevelUp(pending.nextLevel, pending.level, pending.upCode);
+      }, [onLevelUp]);
+
+      // Si YO inicié la invitación, aviso cuando alguien decide quedarse, y cuento
+      // las respuestas para saber cuándo han contestado todos los invitados.
       useEffect(() => {
         const handler = (e) => {
           const item = e.detail;
-          if (!item || item.accept !== false) return;
+          if (!item) return;
           if (!myLevelUpRequestIdRef.current || item.requestId !== myLevelUpRequestIdRef.current) return;
-          window.showDiscreteToast?.('👋', window.T.levelUpDeclinedToast(item.from), '#c89fff');
+          if (item.accept === false) {
+            window.showDiscreteToast?.('👋', window.T.levelUpDeclinedToast(item.from), '#c89fff');
+          }
+          levelUpResponsesRef.current.add(item.from);
+          if (levelUpOthersRef.current.length > 0 &&
+              levelUpResponsesRef.current.size >= levelUpOthersRef.current.length) {
+            proceedLevelUp();
+          }
         };
         window.addEventListener('rrLevelUpResponse', handler);
         return () => window.removeEventListener('rrLevelUpResponse', handler);
-      }, []);
+      }, [proceedLevelUp]);
 
       // Recibo la invitación de otro jugador a subir de nivel con él/ella
       useEffect(() => {
@@ -6063,8 +6170,10 @@
       }, [playerName, level, onLevelUp]);
 
       // Yo pulso "Level Up": si hay más jugadores en la sala, les invito a subir
-      // conmigo (mismo código de partida). Quien no responda o rechace se queda en
-      // esta sala, que recibe una partida nueva del mismo nivel en cuanto me marche.
+      // conmigo (mismo código de partida). Antes de lanzarme yo a la partida nueva
+      // (y su cuenta atrás), espero a que respondan todos —acepten o no— o a que
+      // pasen 5 segundos, lo que ocurra antes. Quien no responda o rechace se queda
+      // en esta sala, que recibe una partida nueva del mismo nivel en cuanto me marche.
       const handleLevelUpClick = useCallback(() => {
         const nextLevel = level + 1;
         const others = activePlRef.current.filter(p => p.name !== playerName);
@@ -6072,17 +6181,22 @@
           const requestId = Math.random().toString(36).slice(2);
           const upCode = genCode();
           myLevelUpRequestIdRef.current = requestId;
+          levelUpOthersRef.current = others.map(p => p.name);
+          levelUpResponsesRef.current = new Set();
+          pendingLevelUpRef.current = { nextLevel, level, upCode };
           window.__fbSendLevelUpRequest?.(playerName, nextLevel, upCode, requestId);
           window.showDiscreteToast?.('⬆️', window.T.levelUpInviting, '#FFD700');
           // Reparto una partida nueva para quien se quede en esta sala, antes de irme.
           window.__fbSendReset?.();
-          if (typeof onLevelUp === 'function') onLevelUp(nextLevel, level, upCode);
+          setLevelUpWaiting(true);
+          clearTimeout(levelUpWaitTimerRef.current);
+          levelUpWaitTimerRef.current = setTimeout(proceedLevelUp, 5000);
         } else {
           if (typeof onLevelUp === 'function') onLevelUp(nextLevel, level);
         }
-      }, [level, playerName, onLevelUp]);
+      }, [level, playerName, proceedLevelUp]);
 
-      useEffect(() => () => clearInterval(levelUpTickRef.current), []);
+      useEffect(() => () => { clearInterval(levelUpTickRef.current); clearTimeout(levelUpWaitTimerRef.current); }, []);
 
       // Cuenta esta partida como "partida nº N" del dispositivo — el power-up solo
       // se activa a partir de la 2ª partida en adelante.
@@ -7059,10 +7173,10 @@
                 const schoolMode = seasonAlt && activeSeason === 'vuelta_colegio';
                 const summerMode = seasonAlt && activeSeason === 'verano';
                 return (
-                <button onClick={handleLevelUpClick}
-                  style={{padding:'11px 20px',borderRadius:'10px',cursor:'pointer',fontSize:'13px',
+                <button onClick={handleLevelUpClick} disabled={levelUpWaiting}
+                  style={{padding:'11px 20px',borderRadius:'10px',cursor:levelUpWaiting?'default':'pointer',fontSize:'13px',
                           fontWeight:800,letterSpacing:'.08em',textTransform:'uppercase',
-                          display:'flex',alignItems:'center',gap:'8px',
+                          display:'flex',alignItems:'center',gap:'8px',opacity:levelUpWaiting?.65:1,
                           border: schoolMode ? '1px solid rgba(13,148,136,.55)' : summerMode ? '1px solid rgba(30,58,138,.65)' : '1px solid rgba(255,215,0,.6)',
                           background: schoolMode
                             ? 'linear-gradient(135deg,rgba(45,212,191,.22),rgba(13,148,136,.16))'
@@ -7071,11 +7185,11 @@
                               : 'linear-gradient(135deg,rgba(255,215,0,.2),rgba(255,150,0,.15))',
                           color: schoolMode ? '#0d9488' : summerMode ? '#1e3a8a' : '#FFD700',
                           boxShadow: schoolMode ? '0 0 18px rgba(45,212,191,.35)' : summerMode ? '0 0 18px rgba(30,58,138,.4)' : '0 0 18px rgba(255,215,0,.35)',
-                          animation:'levelUpPulse 1.4s ease-in-out infinite'}}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
+                          animation: levelUpWaiting ? 'none' : 'levelUpPulse 1.4s ease-in-out infinite'}}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0,animation:levelUpWaiting?'syncPulse 1s ease-in-out infinite':'none'}}>
                     <path d="M12 19V5"/><path d="M5 12l7-7 7 7"/>
                   </svg>
-                  Level Up
+                  {levelUpWaiting ? window.T.levelUpWaitingBtn : 'Level Up'}
                 </button>
                 );
               })()}
@@ -7128,7 +7242,6 @@
           {showConfirm && (
             <div className="confirm-backdrop" onClick={()=>setShowConfirm(false)}>
               <div className="confirm-box" onClick={e=>e.stopPropagation()}>
-                <div className="icon">🎮</div>
                 <h4>{confirmAction === 'restart' ? window.T.confirmTitleRestart : window.T.confirmTitle}</h4>
                 <p dangerouslySetInnerHTML={{__html: (confirmAction === 'restart' ? window.T.confirmBodyRestart : window.T.confirmBody)(activePl.length)}}/>
                 <div className="confirm-btns">
