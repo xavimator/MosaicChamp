@@ -6260,48 +6260,187 @@
         return () => { document.documentElement.style.setProperty('--tile', 'clamp(50px,calc((100vw - 64px)/5),62px)'); };
       }, [level]);
 
-      // ── BFS solver: devuelve lista de índices de tile que hay que mover (en orden) ──
+      // ── Solver de pistas ──────────────────────────────────────────────────────
+      // Calcula el plan COMPLETO de movimientos (deslizar el hueco) que lleva el
+      // tablero actual hasta quedar resuelto según el patrón. Dos problemas del
+      // heurístico anterior, verificados con miles de simulaciones fuera del juego:
+      //  1) Resolvía las celdas en orden de lectura y "bloqueaba" cada una en cuanto
+      //     quedaba bien — pero si el bloque central es macizo, la celda más interior
+      //     puede acabar rodeada por 4 celdas ya bloqueadas, sin ninguna salida. Ahora
+      //     se resuelve de DENTRO hacia FUERA (anillo más interior primero): así la
+      //     celda más encerrada se fija cuando todavía no hay nada bloqueado a su
+      //     alrededor, y las celdas con salida directa al resto del tablero se dejan
+      //     para el final, cuando siempre tienen por dónde escapar.
+      //  2) Para cada celda, mover la ficha elegida usando solo "el vecino más
+      //     cercano al objetivo" (codicioso) podía chocar con un obstáculo sin
+      //     alternativa. Ahora se usa un BFS real sobre las celdas libres para
+      //     encontrar cualquier ruta válida de la ficha hasta su destino.
+      // Combinado, esto resuelve el tablero de un tirón en todas las pruebas.
       const bfsSolve = useCallback((currentTiles) => {
         if (!rrPat.length || !CENTER.length) return [];
         const size = boardSize;
-        // Objetivo: qué colorId debe ir en cada posición central
         const targetColor = {};
         CENTER.forEach((pos, i) => { if (rrPat[i] !== undefined) targetColor[pos] = RR_IDS[rrPat[i]]; });
 
-        const emptyIdx = currentTiles.indexOf(null);
-        if (emptyIdx === -1) return [];
+        // Anillo local dentro del bloque CENTER (distancia al borde más cercano de su
+        // propio recuadro). Si CENTER no es un rectángulo compacto (p.ej. forma en
+        // cruz del nivel especial), esto degrada de forma segura a un valor razonable.
+        const rows = CENTER.map(p => Math.floor(p / size));
+        const cols = CENTER.map(p => p % size);
+        const minR = Math.min(...rows), maxR = Math.max(...rows), minC = Math.min(...cols), maxC = Math.max(...cols);
+        const ring = new Map();
+        CENTER.forEach(p => {
+          const r = Math.floor(p / size), c = p % size;
+          ring.set(p, Math.min(r - minR, maxR - r, c - minC, maxC - c));
+        });
 
-        // Vecinos válidos del hueco
-        const r = Math.floor(emptyIdx / size), col = emptyIdx % size;
-        const nbrs = [];
-        if (r > 0) nbrs.push(emptyIdx - size);
-        if (r < size - 1) nbrs.push(emptyIdx + size);
-        if (col > 0) nbrs.push(emptyIdx - 1);
-        if (col < size - 1) nbrs.push(emptyIdx + 1);
-        const valid = mask ? nbrs.filter(p => mask.has(p)) : nbrs;
-        if (!valid.length) return [];
+        const neighborsOf = (idx) => {
+          const r = Math.floor(idx / size), c = idx % size;
+          const out = [];
+          if (r > 0) out.push(idx - size);
+          if (r < size - 1) out.push(idx + size);
+          if (c > 0) out.push(idx - 1);
+          if (c < size - 1) out.push(idx + 1);
+          return mask ? out.filter(p => mask.has(p)) : out;
+        };
 
-        // Contar fichas centrales en posición correcta ANTES
-        const scoreBefore = CENTER.reduce((acc, pos) => {
-          return acc + (currentTiles[pos] && currentTiles[pos].colorId === targetColor[pos] ? 1 : 0);
-        }, 0);
+        // Camino más corto (BFS) para el hueco de `from` a `to`, sin pasar por celdas
+        // de `avoid` (celdas ya fijadas, o la ficha que estamos moviendo con cuidado).
+        const shortestBlankPath = (from, to, avoid) => {
+          if (from === to) return [];
+          const prev = new Map();
+          const seen = new Set([from]);
+          const q = [from];
+          while (q.length) {
+            const cur = q.shift();
+            if (cur === to) break;
+            for (const nb of neighborsOf(cur)) {
+              if (seen.has(nb) || (avoid.has(nb) && nb !== to)) continue;
+              seen.add(nb);
+              prev.set(nb, cur);
+              q.push(nb);
+            }
+          }
+          if (!seen.has(to)) return null;
+          const path = [];
+          let cur = to;
+          while (cur !== from) { path.push(cur); cur = prev.get(cur); }
+          path.reverse();
+          return path;
+        };
 
-        // Evaluar cada movimiento posible: elegir el que más mejora (o menos empeora)
-        let best = null, bestScore = -Infinity;
-        for (const nb of valid) {
-          const nt = [...currentTiles]; [nt[emptyIdx], nt[nb]] = [nt[nb], nt[emptyIdx]];
-          const score = CENTER.reduce((acc, pos) => {
-            return acc + (nt[pos] && nt[pos].colorId === targetColor[pos] ? 1 : 0);
-          }, 0);
-          // Bonus si la ficha movida va a una posición central correcta
-          const bonus = (CENTER.includes(emptyIdx) && nt[emptyIdx] && nt[emptyIdx].colorId === targetColor[emptyIdx]) ? 2 : 0;
-          const total = score + bonus;
-          if (total > bestScore) { bestScore = total; best = nb; }
+        // Ruta real (BFS, no codiciosa) de la FICHA rastreada por celdas no bloqueadas.
+        const tilePath = (src, dst, locked) => {
+          if (src === dst) return [];
+          const prev = new Map();
+          const seen = new Set([src]);
+          const q = [src];
+          while (q.length) {
+            const cur = q.shift();
+            if (cur === dst) break;
+            for (const nb of neighborsOf(cur)) {
+              if (seen.has(nb) || (locked.has(nb) && nb !== dst)) continue;
+              seen.add(nb);
+              prev.set(nb, cur);
+              q.push(nb);
+            }
+          }
+          if (!seen.has(dst)) return null;
+          const path = [];
+          let cur = dst;
+          while (cur !== src) { path.push(cur); cur = prev.get(cur); }
+          path.reverse();
+          return path;
+        };
+
+        const applyMoves = (tilesIn, moves) => {
+          const t = [...tilesIn];
+          let empty = t.indexOf(null);
+          for (const m of moves) { [t[empty], t[m]] = [t[m], t[empty]]; empty = m; }
+          return t;
+        };
+
+        let sim = [...currentTiles];
+        const plan = [];
+        const locked = new Set();
+        const order = [...CENTER].sort((a, b) => (ring.get(b) - ring.get(a)) || (a - b));
+        const guardLimit = size * size * 60 + 600; // salvaguarda anti-bucle
+
+        for (const pos of order) {
+          if (plan.length > guardLimit) break;
+          const want = targetColor[pos];
+          if (want === undefined) continue;
+          if (sim[pos] && sim[pos].colorId === want) { locked.add(pos); continue; }
+
+          const dist = (p) => Math.abs(Math.floor(p / size) - Math.floor(pos / size)) + Math.abs((p % size) - (pos % size));
+          const candidates = sim
+            .map((t, i) => ({ i, t }))
+            .filter(({ i, t }) => t && t.colorId === want && !locked.has(i) && i !== pos)
+            .map(({ i }) => i)
+            .sort((a, b) => dist(a) - dist(b));
+          if (!candidates.length) { locked.add(pos); continue; }
+
+          let bestMoves = null;
+          for (const srcIdx of candidates) {
+            const route = tilePath(srcIdx, pos, locked);
+            if (!route) continue;
+            let curEmpty = sim.indexOf(null);
+            let moves = [];
+            let tileIdx = srcIdx;
+            let ok = true;
+            for (const step of route) {
+              // El hueco debe llegar junto a `tileIdx` (por el lado de `step`), sin
+              // pasar por celdas fijadas ni por la propia ficha que estamos guiando.
+              const avoid = new Set([...locked, tileIdx]);
+              const path = shortestBlankPath(curEmpty, step, avoid);
+              if (!path) { ok = false; break; }
+              moves.push(...path);
+              curEmpty = step;
+              moves.push(tileIdx); // desliza la ficha: swap hueco↔tileIdx
+              curEmpty = tileIdx;
+              tileIdx = step;
+            }
+            if (ok && tileIdx === pos) { bestMoves = moves; break; }
+          }
+          if (!bestMoves) { locked.add(pos); continue; }
+          plan.push(...bestMoves);
+          sim = applyMoves(sim, bestMoves);
+          locked.add(pos);
         }
-        // Si ningún movimiento mejora, elegir el que menos empeora
-        // pero evitar el que acaba de hacerse (lastMoved) si hay alternativa
-        return best !== null ? [best] : [valid[0]];
+
+        return plan;
       }, [rrPat, CENTER, boardSize, mask]);
+
+      // El plan completo se calcula UNA sola vez (no en cada pista) y se consume paso
+      // a paso: recalcularlo desde cero en cada pista, con el tablero ligeramente
+      // distinto tras cada movimiento, podía hacer que el solver eligiera una ruta
+      // distinta cada vez y el jugador acabara dando vueltas sin avanzar nunca hacia
+      // la resolución. Se invalida (recalculando) en cuanto el tablero real no
+      // coincide con lo que el plan esperaba (movimiento manual, patrón nuevo, sabotaje…).
+      const hintPlanRef = useRef({ plan: [], cursor: 0, fingerprint: null });
+      const rrTilesFingerprint = (t) => t.map(x => x ? x.colorId : '_').join('');
+      const nextHintMove = useCallback((currentTiles) => {
+        const fp = rrTilesFingerprint(currentTiles);
+        let { plan, cursor, fingerprint } = hintPlanRef.current;
+        if (fingerprint !== fp || cursor >= plan.length) {
+          plan = bfsSolve(currentTiles);
+          cursor = 0;
+        }
+        if (!plan.length || cursor >= plan.length) {
+          hintPlanRef.current = { plan: [], cursor: 0, fingerprint: null };
+          return null;
+        }
+        const move = plan[cursor];
+        const afterMove = (() => {
+          const t = [...currentTiles];
+          let empty = t.indexOf(null);
+          [t[empty], t[move]] = [t[move], t[empty]];
+          return t;
+        })();
+        hintPlanRef.current = { plan, cursor: cursor + 1, fingerprint: rrTilesFingerprint(afterMove) };
+        return move;
+      }, [bfsSolve]);
+
 
       // ── Idle timer: 5s sin mover → mostrar salvavidas + pre-cargar primera pista ──
       const showLifesaverRef = useRef(false);
@@ -6457,7 +6596,7 @@
           setTiles(shuffle(buildSolvedForPattern(boardSize, mask, counts), boardSize, 300, mask));
           setMoves(0); setFinished(false);
           setLastMoved(null); finishedRef.current=false; nearWinSentRef.current=false;
-          setUsedHints(false); setHintMove(null); setShowLifesaver(false);
+          setUsedHints(false); setHintMove(null); setShowLifesaver(false); hintPlanRef.current = { plan: [], cursor: 0, fingerprint: null };
           lastMoveTimeRef.current = Date.now();
           window.__fbUpdatePresence?.(SESSION_UID, playerName, false);
           startCountdown();
@@ -6650,7 +6789,7 @@
         const solved = (pat && pat.length) ? buildSolvedForPattern(boardSize, mask, rrRequiredCounts(pat)) : buildSolved(boardSize, mask);
         setTiles(shuffle(solved, boardSize, 300, mask)); setMoves(0); setFinished(false);
         setLastMoved(null); finishedRef.current=false; nearWinSentRef.current=false;
-        setUsedHints(false); setHintMove(null); setShowLifesaver(false);
+        setUsedHints(false); setHintMove(null); setShowLifesaver(false); hintPlanRef.current = { plan: [], cursor: 0, fingerprint: null };
         lastMoveTimeRef.current = Date.now();
         window.__fbUpdatePresence?.(SESSION_UID, playerName, false);
         startCountdown();
@@ -7011,8 +7150,8 @@
                           e.stopPropagation();
                           setUsedHints(true);
                           setTiles(prev => {
-                            const sol = bfsSolve(prev);
-                            if (sol.length > 0) setHintMove(sol[0]);
+                            const move = nextHintMove(prev);
+                            if (move !== null) setHintMove(move);
                             return prev;
                           });
                         }}
