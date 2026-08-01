@@ -7334,20 +7334,21 @@
                         WebkitMaskSize:'100% 100%', maskSize:'100% 100%',
                         WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
                         WebkitMaskPosition:'center', maskPosition:'center',
-                        // Sin relleno de color de fondo: solo recorta la silueta scribble.
-                        // Donde no hay trazo de carboncillo (dentro o fuera de la silueta)
-                        // se ve la transparencia real de la ficha.
-                        background: crayonMode ? 'transparent' : `${c.bg} url(${SCRIBBLE_EMBOSS_URL})`,
+                        // El relleno de color de la ficha SIEMPRE se pinta (antes, en modo
+                        // crayón quedaba transparente y solo se veía el trazo de carboncillo
+                        // encima, oscureciendo de más las fichas claras como la blanca).
+                        background: crayonMode
+                          ? `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`
+                          : `${c.bg} url(${SCRIBBLE_EMBOSS_URL})`,
                         backgroundSize: crayonMode ? undefined : '100% 100%',
                         backgroundBlendMode: crayonMode ? undefined : 'overlay',
                         filter:`drop-shadow(2px 4px 0 ${c.shadow}) drop-shadow(0 4px 8px rgba(0,0,0,.35))`,
                         pointerEvents:'none',
                       }}>
                         {crayonMode && (
-                          // Grano de carboncillo puro como MASCARA sobre transparencia:
-                          // el color lo pone c.shadow (tono propio de la ficha), sin ningun
-                          // cuadrado de color de relleno debajo. Tamano ampliado otro 30%
-                          // (130% -> 169%) respecto a la ficha.
+                          // Grano de carboncillo como trazo ENCIMA del color real de la
+                          // ficha (mezcla "multiply", como en el modo crayón sin scribble),
+                          // en vez de tapar la ficha entera con un color plano.
                           <div style={{
                             position:'absolute', inset:0,
                             WebkitMaskImage:`url(${tileCharcoalUrl})`, maskImage:`url(${tileCharcoalUrl})`,
@@ -7355,6 +7356,7 @@
                             WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
                             WebkitMaskPosition:'center', maskPosition:'center',
                             background: c.shadow,
+                            mixBlendMode:'multiply',
                             pointerEvents:'none',
                           }}/>
                         )}
