@@ -1135,6 +1135,52 @@
       } catch(e) { return 2; }
     };
 
+    // ── Doble comprobación de nivel/patrón antes de ENTRAR a una partida existente ──
+    // Al unirse por código o aceptar una invitación (a jugar o a subir de nivel juntos),
+    // el nivel que usábamos hasta ahora venía de una sola fuente (rubitrack/lobby/{code}
+    // /level, o el nivel indicado en la invitación) y se aceptaba sin más. Si esa fuente
+    // estaba desactualizada (código reciclado con datos de una partida antigua, o el
+    // anfitrión aún no había terminado de registrar/generar la partida nueva), el
+    // tablero se montaba para UN nivel mientras el patrón real, ya guardado en Firebase,
+    // era de OTRO — de ahí que a veces el nivel tuviera más (o menos) fichas que el
+    // patrón. Ahora, antes de entrar, se relee el patrón YA guardado para ese código y
+    // se comprueba (dos veces, con una breve espera entre medias por si la partida se
+    // está creando en ese preciso instante) que su tamaño encaja con el nivel esperado;
+    // si no encaja, se usa el nivel que de verdad corresponde al patrón real.
+    window.__fbLevelForPatternLength = (patLen) => {
+      if (!window.RR_LEVELS) return null;
+      if (window.RR_CROSS_SHAPE && patLen === window.RR_CROSS_SHAPE.patternIndices.length) {
+        const lv = window.RR_LEVELS.find(l => l.special === 'cross');
+        return lv ? lv.level : null;
+      }
+      const size = Math.round(Math.sqrt(patLen));
+      const lv = window.RR_LEVELS.find(l => l.special !== 'cross' && l.patternSize === size);
+      return lv ? lv.level : null;
+    };
+    window.__fbVerifyGameLevel = async (code, expectedLevel) => {
+      const readImpliedLevel = async () => {
+        try {
+          const snap = await get(ref(db, `rubitrack/games/${code}/pattern`));
+          const v = snap.val();
+          if (!v || !Array.isArray(v) || !v.length) return null;
+          return window.__fbLevelForPatternLength(v.length);
+        } catch(e) { return null; }
+      };
+      // 1ª comprobación
+      let implied = await readImpliedLevel();
+      if (implied == null) {
+        // El patrón puede no existir todavía (partida creándose en este instante):
+        // pequeña espera y 2ª comprobación antes de asumir que no hay nada que verificar.
+        await new Promise(r => setTimeout(r, 350));
+        implied = await readImpliedLevel();
+      }
+      if (implied != null && implied !== expectedLevel) {
+        console.warn(`[MosaicChamp] Nivel esperado (${expectedLevel}) no coincidía con el patrón real de la partida (nivel ${implied}); se usa este último para que todo encaje.`);
+        return implied;
+      }
+      return expectedLevel;
+    };
+
     // Update lastMove timestamp on each move
     window.__fbUpdateLobbyActivity = (code) =>
       set(ref(db, `rubitrack/lobby/${code}/lastMove`), Date.now()).catch(()=>{});
@@ -4888,11 +4934,12 @@
           if (result === null) { setLoading(false); return; }
           const { ephemeral, done } = result;
           const joinLevel = await window.__fbGetLobbyLevel?.(code) ?? 2;
-          window.__rrLevel = joinLevel;
+          const verifiedLevel = await window.__fbVerifyGameLevel?.(code, joinLevel) ?? joinLevel;
+          window.__rrLevel = verifiedLevel;
           localStorage.setItem('rr-player-name', name.trim());
           window.__rrOnPlayerNameCommitted?.(name.trim());
           await window.__fbJoinGame(code);
-          onJoin(name.trim(), code, joinLevel, ephemeral, true, done||[]); // true = fromInvite
+          onJoin(name.trim(), code, verifiedLevel, ephemeral, true, done||[]); // true = fromInvite
         } catch(e) {
           console.error('handleJoin error:', e);
           setError(e.message || window.T.errJoin);
@@ -4914,14 +4961,15 @@
           if (result === null) { setLoading(false); return; }
           const { ephemeral, done } = result;
           const joinLevel = await window.__fbGetLobbyLevel?.(code) ?? 2;
-          window.__rrLevel = joinLevel;
+          const verifiedLevel = await window.__fbVerifyGameLevel?.(code, joinLevel) ?? joinLevel;
+          window.__rrLevel = verifiedLevel;
           const others = await window.__fbGetGamePresence?.(code) ?? [];
           const namesStr = others.slice(0, 3).join(', ');
           window.showDiscreteToast?.('🏆', window.T.enterCompetitionToast(namesStr, code), '#f59e0b');
           localStorage.setItem('rr-player-name', name.trim());
           window.__rrOnPlayerNameCommitted?.(name.trim());
           await window.__fbJoinGame(code);
-          onJoin(name.trim(), code, joinLevel, ephemeral, true, done||[]); // true = fromInvite
+          onJoin(name.trim(), code, verifiedLevel, ephemeral, true, done||[]); // true = fromInvite
         } catch(e) {
           console.error('handleAcceptInvite error:', e);
           setError(e.message || window.T.errJoin);
@@ -4939,11 +4987,12 @@
           const { ephemeral, done } = result;
           const g = games.find(g=>g.code===code);
           const joinLevel = g?.level || 2;
-          window.__rrLevel = joinLevel;
+          const verifiedLevel = await window.__fbVerifyGameLevel?.(code, joinLevel) ?? joinLevel;
+          window.__rrLevel = verifiedLevel;
           localStorage.setItem('rr-player-name', name.trim());
           window.__rrOnPlayerNameCommitted?.(name.trim());
           await window.__fbJoinGame(code);
-          onJoin(name.trim(), code, joinLevel, ephemeral, true, done||[]); // true = fromInvite
+          onJoin(name.trim(), code, verifiedLevel, ephemeral, true, done||[]); // true = fromInvite
         } catch(e) {
           console.error('handleJoinGame error:', e);
           setError(e.message || window.T.errJoinShort);
@@ -7541,16 +7590,22 @@
           const code = explicitCode || genCode();
           window.__rrLevel = nextLevel;
           const alreadyExisted = await window.__fbJoinGame?.(code);
+          let finalLevel = nextLevel;
           if (!alreadyExisted) {
             // Soy quien crea la partida (level-up en solitario, o quien pulsó el
             // botón en grupo): registro el lobby y genero el patrón.
             await window.__fbRegisterLobby?.(code, playerName, nextLevel);
             window.rrShuffle?.();
+          } else {
+            // Me estoy uniendo a la partida que otro jugador ya creó al subir de
+            // nivel: el patrón me llega vía Firebase, sin necesidad de invitación
+            // ni de generarlo yo — pero antes de entrar, doble comprobación de que
+            // el nivel que traigo (de la invitación) realmente encaja con ese
+            // patrón ya guardado, por si hubo alguna carrera al crearlo.
+            finalLevel = await window.__fbVerifyGameLevel?.(code, nextLevel) ?? nextLevel;
+            window.__rrLevel = finalLevel;
           }
-          // Si alreadyExisted es true, me estoy uniendo a la partida que otro
-          // jugador ya creó al subir de nivel: el patrón me llega vía Firebase,
-          // sin necesidad de invitación ni de generarlo yo.
-          setLevel(nextLevel); setGameCode(code); setFromInvite(false); setPhase('game');
+          setLevel(finalLevel); setGameCode(code); setFromInvite(false); setPhase('game');
         } catch(e) { console.error('levelUp error:', e); handleLeave(); }
       };
 
