@@ -2207,10 +2207,20 @@
       animation:panelIn .32s cubic-bezier(.34,1.15,.64,1);
     }
     #rr-panel.hidden { display:none; }
-    #rr-panel-header { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:2px; }
+    #rr-panel-header { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:2px; position:relative; }
+    #rr-status-text { display:none; }
+    #rr-sync-dot-panel { cursor:pointer; }
+    #rr-sync-tooltip {
+      position:absolute; top:calc(100% + 6px); left:50%; transform:translateX(-50%) translateY(-4px);
+      background:rgba(10,8,20,.94); border:1px solid rgba(255,255,255,.15); border-radius:8px;
+      padding:5px 10px; font-size:12px; font-weight:700; white-space:nowrap;
+      opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:20;
+      box-shadow:0 6px 16px rgba(0,0,0,.4);
+    }
+    #rr-sync-tooltip.visible { opacity:1; transform:translateX(-50%) translateY(0); }
     #rr-panel h3 { color:#fff; font-size:16px; font-weight:700; }
     .rr-tm { color:#9b59b6; font-size:9px; letter-spacing:4px; text-transform:uppercase; text-align:center; margin-bottom:10px; }
-    #rr-status-text { text-align:center; font-size:20px; color:rgba(255,255,255,.87); margin-bottom:10px; min-height:14px; }
+    #rr-status-text { text-align:center; font-size:14px; color:rgba(255,255,255,.87); margin-bottom:10px; min-height:14px; }
     #rr-players { margin-bottom:10px; display:flex; flex-wrap:wrap; gap:5px; justify-content:center; min-height:16px; }
     .rr-player-chip {
       display:flex; flex-direction:column; align-items:flex-start;
@@ -2475,7 +2485,8 @@
       <div id="rr-panel-header">
         <h3 id="rr-panel-title">Pattern</h3>
         <span id="rr-level-badge" style="font-size:11px;color:rgba(255,255,255,.88);font-weight:600;"></span>
-        <div id="rr-sync-dot-panel" style="width:7px;height:7px;border-radius:50%;background:#444;transition:background .4s;"></div>
+        <div id="rr-sync-dot-panel" onclick="window.rrShowSyncTooltip && window.rrShowSyncTooltip()" style="width:7px;height:7px;border-radius:50%;background:#444;transition:background .4s;"></div>
+        <div id="rr-sync-tooltip"></div>
       </div>
       <div id="rr-offline-badge" style="display:none;margin:4px auto 6px;padding:3px 10px;border-radius:20px;
            background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);
@@ -3079,6 +3090,19 @@
       document.getElementById('rr-shuffle').disabled=!ok;
       const badge=document.getElementById('rr-offline-badge');
       if(badge) badge.style.display=ok?'none':'block';
+    };
+    // El punto verde/rojo junto a "Patrón NxN" ES el indicador de conexión; al tocarlo
+    // aparece un texto sobreimpreso momentáneo con el estado, en vez del texto fijo de
+    // antes que ocupaba sitio permanentemente en el panel.
+    window.rrShowSyncTooltip = function() {
+      const tip = document.getElementById('rr-sync-tooltip');
+      if (!tip) return;
+      const ok = !!window.__fbConnected;
+      tip.textContent = ok ? window.T.synced : window.T.noConn;
+      tip.style.color = ok ? '#22c55e' : '#ef4444';
+      tip.classList.add('visible');
+      clearTimeout(window.__rrSyncTipTimer);
+      window.__rrSyncTipTimer = setTimeout(() => { tip.classList.remove('visible'); }, 2200);
     };
     // También detectar navigator.onLine
     window.addEventListener('offline',()=>{
@@ -4010,7 +4034,7 @@
     // Vuelta al Colegio: amarillo limón, magenta, cian, gris oscuro, gris claro y
     // marrón claro — tonos "acrílico" (mate, saturado, sin brillo plástico).
     const SCHOOL_COLORS = [
-      { id:"white",  bg:"#F3F1EC", shine:"#F8F8F7", shadow:"#C4B997" }, // crema
+      { id:"white",  bg:"#FFFFFF", shine:"#FFFFFF", shadow:"#D8CDA9" }, // blanco brillante
       { id:"blue",   bg:"#82D8ED", shine:"#C6E8F1", shadow:"#16AED4" }, // celeste
       { id:"yellow", bg:"#FAE180", shine:"#F8EFC9", shadow:"#F2C202" }, // amarillo mantequilla
       { id:"green",  bg:"#78E2B4", shine:"#BAE8D4", shadow:"#1FB775" }, // menta
@@ -4018,7 +4042,7 @@
       { id:"red",    bg:"#F18EBF", shine:"#F5D1E3", shadow:"#E6147D" }, // rosa
     ];
     const SCHOOL_RR_COLORS = [
-      { bg:'#F3F1EC', border:'#C4B997', puzzleId:'white'  },
+      { bg:'#FFFFFF', border:'#D8CDA9', puzzleId:'white'  },
       { bg:'#78E2B4', border:'#1FB775', puzzleId:'green'  },
       { bg:'#FAE180', border:'#F2C202', puzzleId:'yellow' },
       { bg:'#82D8ED', border:'#16AED4', puzzleId:'blue'   },
@@ -7334,21 +7358,20 @@
                         WebkitMaskSize:'100% 100%', maskSize:'100% 100%',
                         WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
                         WebkitMaskPosition:'center', maskPosition:'center',
-                        // El relleno de color de la ficha SIEMPRE se pinta (antes, en modo
-                        // crayón quedaba transparente y solo se veía el trazo de carboncillo
-                        // encima, oscureciendo de más las fichas claras como la blanca).
-                        background: crayonMode
-                          ? `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`
-                          : `${c.bg} url(${SCRIBBLE_EMBOSS_URL})`,
+                        // Sin relleno de color de fondo: solo recorta la silueta scribble.
+                        // Donde no hay trazo de carboncillo (dentro o fuera de la silueta)
+                        // se ve la transparencia real de la ficha.
+                        background: crayonMode ? 'transparent' : `${c.bg} url(${SCRIBBLE_EMBOSS_URL})`,
                         backgroundSize: crayonMode ? undefined : '100% 100%',
                         backgroundBlendMode: crayonMode ? undefined : 'overlay',
                         filter:`drop-shadow(2px 4px 0 ${c.shadow}) drop-shadow(0 4px 8px rgba(0,0,0,.35))`,
                         pointerEvents:'none',
                       }}>
                         {crayonMode && (
-                          // Grano de carboncillo como trazo ENCIMA del color real de la
-                          // ficha (mezcla "multiply", como en el modo crayón sin scribble),
-                          // en vez de tapar la ficha entera con un color plano.
+                          // Grano de carboncillo puro como MASCARA sobre transparencia:
+                          // el color lo pone c.shadow (tono propio de la ficha), sin ningun
+                          // cuadrado de color de relleno debajo. Tamano ampliado otro 30%
+                          // (130% -> 169%) respecto a la ficha.
                           <div style={{
                             position:'absolute', inset:0,
                             WebkitMaskImage:`url(${tileCharcoalUrl})`, maskImage:`url(${tileCharcoalUrl})`,
@@ -7356,7 +7379,6 @@
                             WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
                             WebkitMaskPosition:'center', maskPosition:'center',
                             background: c.shadow,
-                            mixBlendMode:'multiply',
                             pointerEvents:'none',
                           }}/>
                         )}
