@@ -2061,6 +2061,36 @@
     }
     body.rr-season-vuelta_colegio .lobby-btn.secondary:hover { background:rgba(0,0,0,.1); }
     body.rr-season-vuelta_colegio .lobby-divider { background:rgba(41,41,44,.15); }
+
+    /* ── Temporada de Otoño ── */
+    body.rr-season-otono { --rr-icon-color:#D9791C; --rr-finished-overlay:rgba(74,30,14,.91); }
+    /* Suelo de hojarasca en la base, ámbar y calabaza a media altura, cielo de
+       atardecer añejo (ciruela) arriba — igual estructura "to top" que verano. */
+    body.rr-season-otono .lobby-wrap {
+      background: linear-gradient(to bottom,
+        #A88A7C 0%, #AA806C 17%,
+        #A17652 33%, #91612B 50%,
+        #7B4F0A 67%, #AB4102 83%,
+        #A43F02 100%
+      );
+    }
+    /* Fondo del widget de patrón: marrón cálido tostado (ni muy oscuro ni muy claro) */
+    body.rr-season-otono #rr-toggle,
+    body.rr-season-otono #rr-panel {
+      background:#6B3A1E; border-color:rgba(59,20,8,.6);
+    }
+    body.rr-season-otono #rr-toggle:hover { background:#814526; border-color:rgba(59,20,8,.85); }
+    /* Xavimator™ (violeta) y el estado "Sincronizado/Sin conexión" pierden contraste
+       sobre el marrón cálido del panel: halo oscuro para mantener legibilidad. */
+    body.rr-season-otono #rr-panel .rr-tm,
+    body.rr-season-otono #rr-status-text {
+      text-shadow:0 1px 3px rgba(0,0,0,.65), 0 0 8px rgba(0,0,0,.4);
+    }
+    /* Tarjeta del lobby sobre el degradado otoñal: fondo ciruela oscuro translúcido
+       para que el texto blanco y la contraseña se lean con buen contraste. */
+    body.rr-season-otono .lobby-card { background:rgba(46,20,12,.45); border-color:rgba(59,20,8,.5); }
+    body.rr-season-otono .lobby-btn.primary { background:linear-gradient(135deg,#C16B1E,#8B4513); }
+
     body { position:fixed; inset:0; overflow:hidden; overscroll-behavior:none; }
     #root { height:100%; overflow:hidden; }
     :root { --tile:clamp(50px,calc((100vw - 64px)/5),62px); }
@@ -4116,6 +4146,37 @@
       darkText: true, // fondo claro → el texto bajo el título pasa a gris oscuro (ver renderizado del hint)
       hintOn:  <>Toca para desactivar VUELTA AL COLE</>,
       hintOff: <>Toca para VUELTA AL COLE</>,
+    };
+
+    // Otoño: gris claro, oliva, naranja, marrón, terracota (burnt) y rojo teja —
+    // paleta de hojarasca y atardecer que sustituye a los 6 colores de siempre.
+    const AUTUMN_COLORS = [
+      { id:"white",  bg:"#BDBABF", shine:"#D8D6D9", shadow:"#6D6B6E" }, // gris claro
+      { id:"blue",   bg:"#531E0C", shine:"#9B7C72", shadow:"#301106" }, // marrón
+      { id:"yellow", bg:"#D86D3F", shine:"#E8AA8F", shadow:"#7D3F24" }, // terracota (burnt)
+      { id:"green",  bg:"#38400F", shine:"#8B9073", shadow:"#202508" }, // oliva
+      { id:"orange", bg:"#DA8532", shine:"#E9B888", shadow:"#7E4D1D" }, // naranja
+      { id:"red",    bg:"#D64F3B", shine:"#E7988D", shadow:"#7C2D22" }, // rojo teja
+    ];
+    const AUTUMN_RR_COLORS = [
+      { bg:'#BDBABF', border:'#6D6B6E', puzzleId:'white'  },
+      { bg:'#38400F', border:'#202508', puzzleId:'green'  },
+      { bg:'#D86D3F', border:'#7D3F24', puzzleId:'yellow' },
+      { bg:'#531E0C', border:'#301106', puzzleId:'blue'   },
+      { bg:'#D64F3B', border:'#7C2D22', puzzleId:'red'    },
+      { bg:'#DA8532', border:'#7E4D1D', puzzleId:'orange' },
+    ];
+    const autumnColorMap = {}; AUTUMN_COLORS.forEach(c => { autumnColorMap[c.id] = c; });
+    const AUTUMN_BG = 'linear-gradient(to bottom,#A88A7C 0%,#AA806C 17%,#A17652 33%,#91612B 50%,#7B4F0A 67%,#AB4102 83%,#A43F02 100%)';
+
+    window.__RR_SEASON_THEMES.otono = {
+      colorMap: autumnColorMap,
+      rrColors: AUTUMN_RR_COLORS,
+      gradient: 'linear-gradient(90deg,#BDBABF,#38400F,#D86D3F,#531E0C,#D64F3B,#DA8532)',
+      bgGradient: AUTUMN_BG,
+      hideStars: true,
+      hintOn:  <>Toca para desactivar OTOÑO</>,
+      hintOff: <>Toca para OTOÑO</>,
     };
 
     // Devuelve el tema visual de la temporada activa ahora mismo, o null si no tiene uno.
