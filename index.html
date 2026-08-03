@@ -4183,6 +4183,7 @@
       bgGradient: AUTUMN_BG,
       hideStars: true,
       tileShape: 'maple-leaf', // fichas recortadas con silueta de hoja de arce, rotadas al azar
+      titleColor: '#FFFFFF', // titulo "MOSAIC CHAMP" en blanco solido (no degradado arcoiris)
       hintOn:  <>Toca para desactivar OTOÑO</>,
       hintOff: <>Toca para OTOÑO</>,
     };
@@ -4629,8 +4630,10 @@
             style={{
               fontFamily:"'Helvetica Neue',Helvetica,Arial,sans-serif", fontWeight:800,
               fontSize:'1.3em', letterSpacing:'-0.01em', whiteSpace:'nowrap', pointerEvents:'none',
-              textShadow: effectivePride ? 'none' : '0 2px 4px rgba(0,0,0,.55)',
-              ...(effectivePride ? {
+              textShadow: (effectivePride && !theme?.titleColor) ? 'none' : '0 2px 4px rgba(0,0,0,.55)',
+              ...(theme?.titleColor
+                ? { color: theme.titleColor, WebkitTextFillColor: theme.titleColor }
+                : effectivePride ? {
                 background: activeGradient,
                 WebkitBackgroundClip:'text', backgroundClip:'text', WebkitTextFillColor:'transparent',
               } : { color:'#c7c7d1' }),
@@ -7436,7 +7439,7 @@
                         // Rotacion aleatoria PERO ESTABLE por ficha: cada casilla "cae" con
                         // su propio angulo, como una hoja real, sin cambiar al recolocarse.
                         transform:`rotate(${mapleRotDeg}deg)`,
-                        filter:`drop-shadow(0 3px 0 ${c.shadow}) drop-shadow(0 5px 10px rgba(0,0,0,.45))`,
+                        filter:`drop-shadow(0 2px 3px rgba(0,0,0,.28))`,
                         pointerEvents:'none',
                       }}/>
                     ) : scribbleMode ? (
