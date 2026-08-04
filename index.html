@@ -7475,25 +7475,31 @@
                   }}>
                     {mapleMode ? (
                       <>
-                        {/* Sin sombra en el tile: la sombra vive solo en el SVG de la
-                            hoja (filter drop-shadow mas abajo), siguiendo su contorno
-                            exacto en vez de la silueta cuadrada del tile. */}
+                        {/* La sombra (drop-shadow) va en un div EXTERIOR que envuelve al
+                            recortado, no en el mismo elemento que tiene el mask: al
+                            combinar mask+filter en un mismo elemento, algunos motores
+                            (WebKit) calculan la sombra sobre el rectangulo original en
+                            vez de sobre la silueta ya recortada — de ahi que se viera
+                            cuadrada. Separandolos, el filter ve el contenido ya
+                            enmascarado (la hoja) y la sombra sigue su contorno real. */}
                         <div style={{
                           position:'absolute', inset:'-6%',
-                          WebkitMaskImage:`url('${MAPLE_LEAF_MASK_URL}')`, maskImage:`url('${MAPLE_LEAF_MASK_URL}')`,
-                          WebkitMaskSize:'100% 100%', maskSize:'100% 100%',
-                          WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
-                          WebkitMaskPosition:'center', maskPosition:'center',
-                          // Relleno con el degradado propio de color de la ficha (misma paleta
-                          // otoñal que el resto de temas), pero recortado con la silueta de
-                          // hoja de arce en vez del cuadrado redondeado habitual.
-                          background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 55%,${c.shadow} 100%)`,
-                          // Rotacion aleatoria PERO ESTABLE por ficha: cada casilla "cae" con
-                          // su propio angulo, como una hoja real, sin cambiar al recolocarse.
                           transform:`rotate(${mapleRotDeg}deg)`,
                           filter:`drop-shadow(0 3px 4px rgba(0,0,0,.4))`,
                           pointerEvents:'none',
-                        }}/>
+                        }}>
+                          <div style={{
+                            position:'absolute', inset:0,
+                            WebkitMaskImage:`url('${MAPLE_LEAF_MASK_URL}')`, maskImage:`url('${MAPLE_LEAF_MASK_URL}')`,
+                            WebkitMaskSize:'100% 100%', maskSize:'100% 100%',
+                            WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
+                            WebkitMaskPosition:'center', maskPosition:'center',
+                            // Relleno con el degradado propio de color de la ficha (misma paleta
+                            // otoñal que el resto de temas), pero recortado con la silueta de
+                            // hoja de arce en vez del cuadrado redondeado habitual.
+                            background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 55%,${c.shadow} 100%)`,
+                          }}/>
+                        </div>
                       </>
                     ) : scribbleMode ? (
                       <div style={{
