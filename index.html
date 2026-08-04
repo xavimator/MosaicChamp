@@ -7465,7 +7465,8 @@
                       ? `0 0 0 4px rgba(168,85,247,1),0 0 34px 10px rgba(168,85,247,.9)`
                       : idx===hintMove
                       ? `0 4px 0 ${c.shadow},0 0 0 3px rgba(0,220,255,.9),0 0 18px rgba(0,220,255,.7),inset 0 1px 0 rgba(255,255,255,.25)`
-                      : (scribbleMode || mapleMode) ? 'none'
+                      : scribbleMode ? 'none'
+                      : mapleMode ? '0 6px 10px rgba(0,0,0,.38)'
                       : `0 4px 0 ${c.shadow},0 6px 16px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.25)`,
                     transition:'transform .1s,filter .1s,box-shadow .2s',
                     transform:isAdj?'scale(1.02) translateZ(0)':'translateZ(0)',
@@ -7474,22 +7475,29 @@
                     position:'relative',overflow:'hidden',
                   }}>
                     {mapleMode ? (
-                      <div style={{
-                        position:'absolute', inset:'-6%',
-                        WebkitMaskImage:`url('${MAPLE_LEAF_MASK_URL}')`, maskImage:`url('${MAPLE_LEAF_MASK_URL}')`,
-                        WebkitMaskSize:'100% 100%', maskSize:'100% 100%',
-                        WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
-                        WebkitMaskPosition:'center', maskPosition:'center',
-                        // Relleno con el degradado propio de color de la ficha (misma paleta
-                        // otoñal que el resto de temas), pero recortado con la silueta de
-                        // hoja de arce en vez del cuadrado redondeado habitual.
-                        background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 55%,${c.shadow} 100%)`,
-                        // Rotacion aleatoria PERO ESTABLE por ficha: cada casilla "cae" con
-                        // su propio angulo, como una hoja real, sin cambiar al recolocarse.
-                        transform:`rotate(${mapleRotDeg}deg)`,
-                        filter:`drop-shadow(0 2px 3px rgba(0,0,0,.28))`,
-                        pointerEvents:'none',
-                      }}/>
+                      <>
+                        {/* La sombra suave va como box-shadow real del boton (ver abajo),
+                            no como div interno: un div aqui quedaria tapado por la propia
+                            hoja (que cubre casi todo el tile) y recortado por el
+                            overflow:hidden del boton. Un box-shadow pinta FUERA del
+                            recorte, en el hueco entre casillas del tablero. */}
+                        <div style={{
+                          position:'absolute', inset:'-6%',
+                          WebkitMaskImage:`url('${MAPLE_LEAF_MASK_URL}')`, maskImage:`url('${MAPLE_LEAF_MASK_URL}')`,
+                          WebkitMaskSize:'100% 100%', maskSize:'100% 100%',
+                          WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
+                          WebkitMaskPosition:'center', maskPosition:'center',
+                          // Relleno con el degradado propio de color de la ficha (misma paleta
+                          // otoñal que el resto de temas), pero recortado con la silueta de
+                          // hoja de arce en vez del cuadrado redondeado habitual.
+                          background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 55%,${c.shadow} 100%)`,
+                          // Rotacion aleatoria PERO ESTABLE por ficha: cada casilla "cae" con
+                          // su propio angulo, como una hoja real, sin cambiar al recolocarse.
+                          transform:`rotate(${mapleRotDeg}deg)`,
+                          filter:`drop-shadow(0 2px 3px rgba(0,0,0,.28))`,
+                          pointerEvents:'none',
+                        }}/>
+                      </>
                     ) : scribbleMode ? (
                       <div style={{
                         position:'absolute',inset:0,
