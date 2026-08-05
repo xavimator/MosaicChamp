@@ -3,7 +3,8 @@
   "short_name": "Mosaic Champ",
   "description": "Sliding puzzle game with multiplayer support",
   "id": "com.xavimator.mosaicchamp",
-  "start_url": "/index.html",
+  "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#0a0818",
@@ -17,7 +18,7 @@
   "protocol_handlers": [
     {
       "protocol": "web+mosaicchamp",
-      "url": "/index.html?code=%s"
+      "url": "./index.html?code=%s"
     }
   ],
   "icons": [

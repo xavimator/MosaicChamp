@@ -4,12 +4,16 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v129';
+const CACHE_NAME = 'mosaicchamp-v130';
 
 // Recursos que se precachean en la instalación
+// NOTA: rutas relativas (sin "/" inicial) para funcionar tanto si la app
+// está en la raíz del dominio como en una subcarpeta (p.ej. GitHub Pages
+// tipo usuario.github.io/MosaicChamp/). Con "/" absoluto, cache.add()
+// resuelve contra la raíz del dominio y no contra la carpeta real de la app.
 const PRECACHE = [
-  '/',
-  '/index.html',
+  './',
+  './index.html',
 
   // React + ReactDOM
   'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
@@ -79,7 +83,7 @@ self.addEventListener('fetch', event => {
           }
           return response;
         });
-      }).catch(() => caches.match('/index.html')) // fallback offline
+      }).catch(() => caches.match('./index.html')) // fallback offline
     );
     return;
   }
