@@ -807,6 +807,17 @@
       window.__fbSendSabotage = (targetName, fromName) =>
         push(saboRef, { target: targetName, from: fromName, ts: Date.now() });
 
+      // Sabotaje 2: Cascada — desplaza las fichas del rival hacia abajo (1-4 filas,
+      // las que salen por debajo reaparecen arriba). Alterna con Sudden Swap.
+      const cascRef   = ref(db, `${base}/cascade`);
+      const cascQuery = query(cascRef, orderByChild('ts'), startAfter(Date.now()));
+      unsubs.push(onChildAdded(cascQuery, snap => {
+        const item = snap.val();
+        if (item?.target) window.__fbCascadeReceived?.(item);
+      }));
+      window.__fbSendCascade = (targetName, fromName, rows) =>
+        push(cascRef, { target: targetName, from: fromName, rows, ts: Date.now() });
+
       // Consenso para "nuevo juego" / "reiniciar": los demás jugadores tienen 5s
       // para rechazarlo; si nadie rechaza (o aceptan) se procede como antes.
       const resetReqRef   = ref(db, `${base}/resetRequest`);
@@ -1390,11 +1401,11 @@
         tutStep1: 'Crea este patrón',
         tutStep2: (n) => `En estas ${n} fichas centrales.<br/>¡Suerte!`,
         tutStep3: 'También mueve con voz,<br/>¡di el código de ficha!',
-        tutStep4: 'Si llevas 5s parado,<br/>aparece una pista 💡',
+        tutStep4: 'Si llevas 5s parado,<br/>aparece una pista',
         tutStep5: 'Invita para competir',
-        tutStep6: 'Toca el título<br/>para activar la temporada 🎉',
-        tutStep7: 'En multijugador pueden<br/>aparecer power-ups sorpresa ⚡',
-        tutStep8: 'Hay patrones sorpresa<br/>por descubrir 🎁',
+        tutStep6: 'Toca el título<br/>para activar la temporada',
+        tutStep7: 'En multijugador pueden<br/>aparecer power-ups sorpresa',
+        tutStep8: 'Hay patrones sorpresa<br/>por descubrir',
         tutExit: 'Salir del tutorial',
         tutContinue: 'TOCA PARA CONTINUAR ›',
         tutClose: 'TOCA PARA CERRAR ×',
@@ -1484,11 +1495,11 @@
         tutStep1: 'Crea aquest patró',
         tutStep2: (n) => `En aquestes ${n} fitxes centrals.<br/>Bona sort!`,
         tutStep3: 'Mou fitxes amb la teva veu.<br/>Digues la coordenada, ex. "A3"',
-        tutStep4: 'Si esperes 5s sense moure,<br/>apareix una pista 💡',
+        tutStep4: 'Si esperes 5s sense moure,<br/>apareix una pista',
         tutStep5: 'Convida per competir',
-        tutStep6: 'Toca el títol<br/>per activar la temporada 🎉',
-        tutStep7: 'En multijugador poden<br/>aparèixer power-ups sorpresa ⚡',
-        tutStep8: 'Hi ha patrons sorpresa<br/>per descobrir 🎁',
+        tutStep6: 'Toca el títol<br/>per activar la temporada',
+        tutStep7: 'En multijugador poden<br/>aparèixer power-ups sorpresa',
+        tutStep8: 'Hi ha patrons sorpresa<br/>per descobrir',
         tutExit: 'Sortir del tutorial',
         tutContinue: 'TOCA PER CONTINUAR ›',
         tutClose: 'TOCA PER TANCAR ×',
@@ -1577,11 +1588,11 @@
         tutStep1: 'Create this pattern',
         tutStep2: (n) => `In these ${n} central tiles.<br/>Good luck!`,
         tutStep3: 'Move tiles with your voice.<br/>Say the coordinate, e.g. "A3"',
-        tutStep4: 'After 5s idle,<br/>a hint appears 💡',
+        tutStep4: 'After 5s idle,<br/>a hint appears',
         tutStep5: 'Invite to compete',
-        tutStep6: 'Tap the title<br/>to activate the season 🎉',
-        tutStep7: 'In multiplayer, surprise<br/>power-ups can appear ⚡',
-        tutStep8: 'There are surprise patterns<br/>waiting to be discovered 🎁',
+        tutStep6: 'Tap the title<br/>to activate the season',
+        tutStep7: 'In multiplayer, surprise<br/>power-ups can appear',
+        tutStep8: 'There are surprise patterns<br/>waiting to be discovered',
         tutExit: 'Exit tutorial',
         tutContinue: 'TAP TO CONTINUE ›',
         tutClose: 'TAP TO CLOSE ×',
@@ -1670,11 +1681,11 @@
         tutStep1: 'Crée ce motif',
         tutStep2: (n) => `Dans ces ${n} cases centrales.<br/>Bonne chance !`,
         tutStep3: 'Déplace les cases avec ta voix.<br/>Dis la coordonnée, ex. « A3 »',
-        tutStep4: 'Après 5s sans bouger,<br/>un indice apparaît 💡',
+        tutStep4: 'Après 5s sans bouger,<br/>un indice apparaît',
         tutStep5: 'Invite pour concourir',
-        tutStep6: 'Touche le titre<br/>pour activer la saison 🎉',
-        tutStep7: 'En multijoueur, des power-ups<br/>surprise peuvent apparaître ⚡',
-        tutStep8: 'Des motifs surprise<br/>attendent d\u2019être découverts 🎁',
+        tutStep6: 'Touche le titre<br/>pour activer la saison',
+        tutStep7: 'En multijoueur, des power-ups<br/>surprise peuvent apparaître',
+        tutStep8: 'Des motifs surprise<br/>attendent d\u2019être découverts',
         tutExit: 'Quitter le tutoriel',
         tutContinue: 'APPUIE POUR CONTINUER ›',
         tutClose: 'APPUIE POUR FERMER ×',
@@ -1763,11 +1774,11 @@
         tutStep1: 'Erstelle dieses Muster',
         tutStep2: (n) => `In diesen ${n} mittleren Feldern.<br/>Viel Glück!`,
         tutStep3: 'Bewege Felder mit deiner Stimme.<br/>Sag die Koordinate, z. B. „A3"',
-        tutStep4: 'Nach 5s ohne Zug<br/>erscheint ein Hinweis 💡',
+        tutStep4: 'Nach 5s ohne Zug<br/>erscheint ein Hinweis',
         tutStep5: 'Einladen zum Wettkampf',
-        tutStep6: 'Tippe auf den Titel,<br/>um die Saison zu aktivieren 🎉',
-        tutStep7: 'Im Mehrspielermodus können<br/>Überraschungs-Power-ups erscheinen ⚡',
-        tutStep8: 'Es gibt Überraschungsmuster<br/>zu entdecken 🎁',
+        tutStep6: 'Tippe auf den Titel,<br/>um die Saison zu aktivieren',
+        tutStep7: 'Im Mehrspielermodus können<br/>Überraschungs-Power-ups erscheinen',
+        tutStep8: 'Es gibt Überraschungsmuster<br/>zu entdecken',
         tutExit: 'Tutorial beenden',
         tutContinue: 'TIPPE UM FORTZUFAHREN ›',
         tutClose: 'TIPPE UM ZU SCHLIEẞEN ×',
@@ -1856,11 +1867,11 @@
         tutStep1: 'Cria este padrão',
         tutStep2: (n) => `Nestas ${n} peças centrais.<br/>Boa sorte!`,
         tutStep3: 'Mova peças com a sua voz.<br/>Diga a coordenada, ex. "A3"',
-        tutStep4: 'Após 5s parado,<br/>aparece uma dica 💡',
+        tutStep4: 'Após 5s parado,<br/>aparece uma dica',
         tutStep5: 'Convida para competir',
-        tutStep6: 'Toca no título<br/>para ativar a temporada 🎉',
-        tutStep7: 'No multijogador podem<br/>aparecer power-ups surpresa ⚡',
-        tutStep8: 'Há padrões surpresa<br/>por descobrir 🎁',
+        tutStep6: 'Toca no título<br/>para ativar a temporada',
+        tutStep7: 'No multijogador podem<br/>aparecer power-ups surpresa',
+        tutStep8: 'Há padrões surpresa<br/>por descobrir',
         tutExit: 'Sair do tutorial',
         tutContinue: 'TOCA PARA CONTINUAR ›',
         tutClose: 'TOCA PARA FECHAR ×',
@@ -1949,11 +1960,11 @@
         tutStep1: 'Crea questo pattern',
         tutStep2: (n) => `In queste ${n} tessere centrali.<br/>Buona fortuna!`,
         tutStep3: 'Muovi le tessere con la voce.<br/>Pronuncia la coordinata, es. "A3"',
-        tutStep4: 'Dopo 5s fermi,<br/>appare un suggerimento 💡',
+        tutStep4: 'Dopo 5s fermi,<br/>appare un suggerimento',
         tutStep5: 'Invita per competere',
-        tutStep6: 'Tocca il titolo<br/>per attivare la stagione 🎉',
-        tutStep7: 'In multiplayer possono<br/>apparire power-up a sorpresa ⚡',
-        tutStep8: 'Ci sono pattern a sorpresa<br/>da scoprire 🎁',
+        tutStep6: 'Tocca il titolo<br/>per attivare la stagione',
+        tutStep7: 'In multiplayer possono<br/>apparire power-up a sorpresa',
+        tutStep8: 'Ci sono pattern a sorpresa<br/>da scoprire',
         tutExit: 'Esci dal tutorial',
         tutContinue: 'TOCCA PER CONTINUARE ›',
         tutClose: 'TOCCA PER CHIUDERE ×',
@@ -2472,6 +2483,18 @@
     }
     .sudden-swap-toast .toast-title { background:linear-gradient(90deg,#e879f9,#a855f7,#60a5fa); -webkit-background-clip:text; background-size:200% auto; animation:shimmer 2.4s linear infinite; }
 
+    /* ══ Toast vistoso de "Cascada" (mismo estilo, paleta azul-agua) ══ */
+    @keyframes cascadePulse {
+      0%,100% { box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 30px rgba(56,189,248,.5); }
+      50%     { box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 48px rgba(56,189,248,.9); }
+    }
+    .cascade-toast {
+      border:1.5px solid rgba(56,189,248,.65) !important;
+      box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 30px rgba(56,189,248,.5);
+      animation:toastIn .4s cubic-bezier(.34,1.4,.64,1), cascadePulse 1.3s ease-in-out .4s 2;
+    }
+    .cascade-toast .toast-title { background:linear-gradient(90deg,#7dd3fc,#38bdf8,#60a5fa); -webkit-background-clip:text; background-size:200% auto; animation:shimmer 2.4s linear infinite; }
+
     /* ══ Prompt "¿Mandar Sudden Swap?": entrada creciente ══ */
     @keyframes rrPromptGrow {
       0%   { transform:translateX(-50%) scale(.35); opacity:0; }
@@ -2517,7 +2540,7 @@
            background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.4);
            color:rgba(255,160,160,.9);font-size:10px;font-weight:700;letter-spacing:.1em;
            text-transform:uppercase;text-align:center;width:fit-content;">
-        ⚡ Offline mode
+        Offline mode
       </div>
       <p class="rr-tm">Xavimator™</p>
       <div id="rr-status-text"></div>
@@ -2594,8 +2617,8 @@
       <input id="rr-save-name-input" type="text" maxlength="24" placeholder="Nombre del patrón"
              class="rr-save-input" onkeydown="if(event.key==='Enter') rrConfirmSavePattern()">
       <div style="font-size:11px;color:rgba(255,255,255,.55);margin:6px 2px 10px;line-height:1.4">
-        💡 "letra_x" (ej. "letra_a") = patrón especial de esa inicial en la sala.<br>
-        💡 "temporada_algo" (ej. "pride_flag") = aparece de vez en cuando durante esa temporada.
+        "letra_x" (ej. "letra_a") = patrón especial de esa inicial en la sala.<br>
+        "temporada_algo" (ej. "pride_flag") = aparece de vez en cuando durante esa temporada.
       </div>
       <button id="rr-save-confirm-btn" class="rr-save-confirm-btn" onclick="rrConfirmSavePattern()">Guardar</button>
     </div>
@@ -2861,6 +2884,21 @@
       setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(),400); }, 3200);
     }
     window.showSuddenSwapToast = showSuddenSwapToast;
+
+    function showCascadeToast(fromName) {
+      const el = document.createElement('div');
+      el.className = 'toast cascade-toast';
+      el.innerHTML = `<div class="toast-row">
+        <span class="toast-emoji">🌊</span>
+        <div>
+          <div class="toast-title">Cascade!</div>
+          <div class="toast-msg" style="color:#fff;font-weight:700;">by ${fromName}!!!</div>
+        </div>
+      </div>`;
+      document.getElementById('toast-container').appendChild(el);
+      setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(),400); }, 3200);
+    }
+    window.showCascadeToast = showCascadeToast;
     window.__showForegroundNotification = function(title, body) {
       showDiscreteToast('🔔', [title, body].filter(Boolean).join(' — '), '#7c3aed');
     };
@@ -2896,6 +2934,9 @@
     };
     window.__fbSabotageReceived = function(item) {
       window.dispatchEvent(new CustomEvent('rrSabotageReceived', { detail: item }));
+    };
+    window.__fbCascadeReceived = function(item) {
+      window.dispatchEvent(new CustomEvent('rrCascadeReceived', { detail: item }));
     };
     window.__fbResetRequestReceived = function(item) {
       window.dispatchEvent(new CustomEvent('rrResetRequest', { detail: item }));
@@ -6261,6 +6302,59 @@
 
       useEffect(() => () => clearInterval(sabotagePromptTickRef.current), []);
 
+      // ── Power-up de remontada (Cascada) — alterna con Sudden Swap en las mismas condiciones ──
+      // Contador de alternancia: par → Sudden Swap, impar → Cascada.
+      const powerUpAlternateRef = useRef(0);
+
+      const [cascadePrompt, setCascadePrompt] = useState(null); // {target, secondsLeft, rows}
+      const cascadePromptActiveRef = useRef(false);
+      const cascadePromptTickRef   = useRef(null);
+
+      const triggerCascadePrompt = useCallback((targetName) => {
+        const rows = 1 + Math.floor(Math.random() * 4); // 1..4
+        cascadePromptActiveRef.current = true;
+        setCascadePrompt({ target: targetName, secondsLeft: 5, rows });
+        clearInterval(cascadePromptTickRef.current);
+        cascadePromptTickRef.current = setInterval(() => {
+          setCascadePrompt(p => {
+            if (!p) return p;
+            const next = p.secondsLeft - 1;
+            if (next <= 0) {
+              clearInterval(cascadePromptTickRef.current);
+              cascadePromptActiveRef.current = false;
+              return null;
+            }
+            return { ...p, secondsLeft: next };
+          });
+        }, 1000);
+      }, []);
+
+      const confirmCascade = useCallback(() => {
+        setCascadePrompt(p => {
+          if (p) window.__fbSendCascade?.(p.target, playerName, p.rows);
+          return null;
+        });
+        clearInterval(cascadePromptTickRef.current);
+        cascadePromptActiveRef.current = false;
+      }, [playerName]);
+
+      useEffect(() => () => clearInterval(cascadePromptTickRef.current), []);
+
+      // ── Botones de prueba de power-ups (solo Rubiking, para QA) ──
+      // Se autentican vía Firebase Auth real (useRubikingAuthed) Y el nombre activo
+      // en esta partida debe ser 'rubiking', igual que el resto de accesos de admin.
+      const rubikingAuthedNow = useRubikingAuthed();
+      const isRubikingTester = rubikingAuthedNow && (playerName || '').trim().toLowerCase() === 'rubiking';
+
+      const testSuddenSwap = useCallback(() => {
+        window.__fbSendSabotage?.(playerName, playerName);
+      }, [playerName]);
+
+      const testCascade = useCallback(() => {
+        const rows = 1 + Math.floor(Math.random() * 4); // 1..4
+        window.__fbSendCascade?.(playerName, playerName, rows);
+      }, [playerName]);
+
       // ── Consenso de "nuevo juego" / "reiniciar" ──
       const [resetVotePrompt, setResetVotePrompt] = useState(null); // {requestId, from, action, secondsLeft} (para mí, si me llega un pedido)
       const resetVoteTickRef = useRef(null);
@@ -6508,6 +6602,32 @@
         window.addEventListener('rrSabotageReceived', handler);
         return () => window.removeEventListener('rrSabotageReceived', handler);
       }, [playerName]);
+
+      // Recibe una Cascada: desplaza todas las fichas hacia abajo N filas (1-4);
+      // las que salen por debajo del tablero reaparecen por arriba (wrap-around).
+      // No se aplica en tableros con forma irregular (mask), para no romper la silueta.
+      useEffect(() => {
+        const handler = (e) => {
+          const item = e.detail;
+          if (!item || item.target !== playerName || finishedRef.current || mask) return;
+          const rows = ((item.rows || 1) % boardSize + boardSize) % boardSize;
+          if (!rows) return;
+          setTiles(curTiles => {
+            const nt = new Array(curTiles.length);
+            for (let idx = 0; idx < curTiles.length; idx++) {
+              const row = Math.floor(idx / boardSize);
+              const col = idx % boardSize;
+              const newRow = (row + rows) % boardSize;
+              nt[newRow * boardSize + col] = curTiles[idx];
+            }
+            return nt;
+          });
+          window.showCascadeToast?.(item.from);
+          navigator.vibrate?.([40, 30, 40, 30, 90]);
+        };
+        window.addEventListener('rrCascadeReceived', handler);
+        return () => window.removeEventListener('rrCascadeReceived', handler);
+      }, [playerName, boardSize, mask]);
 
       // Fija el nivel activo (para que rrShuffle/reset regeneren un patrón del tamaño correcto)
       // y ajusta el tamaño de ficha (--tile) global a este tablero.
@@ -7009,11 +7129,18 @@
         }
         if (matchIndexRef.current >= 2 && activePl.length > 1 &&
             prevCorrectRef.current === 1 && centerCorrectCount === 2 &&
-            !sabotagePromptActiveRef.current) {
+            !sabotagePromptActiveRef.current && !cascadePromptActiveRef.current) {
           const targets = otherProgressRef.current.filter(p => p.correct > 4);
           if (targets.length) {
             const victim = targets[Math.floor(Math.random() * targets.length)];
-            triggerSabotagePrompt(victim.name);
+            // Alterna entre Sudden Swap y Cascada cada vez que se cumple la condición.
+            // La Cascada reordena todo el tablero, así que se omite en tableros con
+            // forma irregular (mask) para no romper la silueta; en ese caso siempre
+            // se ofrece Sudden Swap.
+            const useCascade = !mask && (powerUpAlternateRef.current % 2 === 1);
+            powerUpAlternateRef.current += 1;
+            if (useCascade) triggerCascadePrompt(victim.name);
+            else triggerSabotagePrompt(victim.name);
           }
         }
         prevCorrectRef.current = centerCorrectCount;
@@ -7040,7 +7167,7 @@
             },50);
           }
         }
-      }, [tiles, finished, countdown, rrPat, time, moves, sendPresence, gameCode, voiceOn, usedHints, activePl, playerName, triggerSabotagePrompt]);
+      }, [tiles, finished, countdown, rrPat, time, moves, sendPresence, gameCode, voiceOn, usedHints, activePl, playerName, triggerSabotagePrompt, triggerCascadePrompt, mask]);
 
       useEffect(() => { handleTileRef.current = handleTile; }, [handleTile]);
 
@@ -7209,7 +7336,7 @@
                     color:'#c89fff', textShadow:'0 0 18px rgba(156,90,255,.9), 0 2px 8px rgba(0,0,0,.8)',
                     pointerEvents:'none', whiteSpace:'nowrap',
                     animation:'tutHintIn 0.3s ease, tutHintOut 0.6s ease 1.6s forwards',
-                  }}>Tutorial ✨</div>
+                  }}>Tutorial</div>
                 )}
               </div>
               <button className="help-btn green-exit" onClick={handleLeave} title={window.T.exitBtn}>
@@ -7220,6 +7347,24 @@
             </div>
             <div ref={rrSlotRef} style={{position:'relative',flexShrink:0}}/>
           </div>
+
+          {/* Botones de prueba de power-ups — solo visibles para Rubiking (QA) */}
+          {isRubikingTester && (
+            <div style={{display:'flex',gap:'6px',width:'100%',maxWidth:'380px',marginBottom:'6px'}}>
+              <button onClick={testSuddenSwap} style={{
+                flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
+                padding:'6px 10px', borderRadius:'10px', cursor:'pointer',
+                background:'rgba(168,85,247,.18)', border:'1.5px dashed rgba(168,85,247,.6)',
+                color:'#d8b4fe', fontSize:'11px', fontWeight:700,
+              }}>⚡ Probar Sudden Swap</button>
+              <button onClick={testCascade} style={{
+                flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
+                padding:'6px 10px', borderRadius:'10px', cursor:'pointer',
+                background:'rgba(56,189,248,.18)', border:'1.5px dashed rgba(56,189,248,.6)',
+                color:'#7dd3fc', fontSize:'11px', fontWeight:700,
+              }}>🌊 Probar Cascada</button>
+            </div>
+          )}
 
           {/* Logo — justo debajo de la fila de iconos/pattern, pegado a la izquierda de la pantalla */}
           <div id="mc-title-compact-wrap" style={{width:'100%',maxWidth:'240px',alignSelf:'flex-start',marginLeft:0,marginRight:'auto',marginTop:'2px'}}>
@@ -7246,6 +7391,25 @@
                   display:'flex', alignItems:'center', justifyContent:'center',
                   fontSize:'11px', fontWeight:800, color:'#fff', flexShrink:0
                 }}>{sabotagePrompt.secondsLeft}</span>
+              </div>
+            )}
+
+            {cascadePrompt && (
+              <div onClick={confirmCascade} style={{
+                position:'absolute', bottom:'calc(100% + 8px)', left:'50%',
+                background:'linear-gradient(135deg, rgba(56,189,248,.95), rgba(14,116,144,.95))',
+                border:'1.5px solid rgba(125,211,252,.7)', borderRadius:'14px',
+                padding:'10px 14px 10px 16px', display:'flex', alignItems:'center', gap:'10px',
+                boxShadow:'0 8px 24px rgba(0,0,0,.5), 0 0 20px rgba(56,189,248,.45)',
+                cursor:'pointer', zIndex:50, whiteSpace:'nowrap',
+                animation:'rrPromptGrow .35s cubic-bezier(.34,1.56,.64,1) forwards'
+              }}>
+                <span style={{fontSize:'12.5px', fontWeight:700, color:'#fff'}}>¿Mandar Cascada?</span>
+                <span style={{
+                  width:'20px', height:'20px', borderRadius:'50%', background:'rgba(255,255,255,.28)',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  fontSize:'11px', fontWeight:800, color:'#fff', flexShrink:0
+                }}>{cascadePrompt.secondsLeft}</span>
               </div>
             )}
 
