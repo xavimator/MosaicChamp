@@ -2471,6 +2471,12 @@
       100% { transform:translate(55%,55%); opacity:0; }
     }
 
+    /* ══ Fichas en pleno desplazamiento de Cascada: brillo azul continuo ══ */
+    @keyframes rrCascadeFlash {
+      0%,100% { box-shadow:0 0 0 3px rgba(56,189,248,.7),0 0 20px 6px rgba(56,189,248,.75); filter:brightness(1.35); }
+      50%     { box-shadow:0 0 0 3px rgba(125,211,252,.9),0 0 30px 10px rgba(56,189,248,1); filter:brightness(1.6); }
+    }
+
     /* ══ Toast vistoso de "Sudden Swap" (estilo del toast de finished!) ══ */
     @keyframes suddenSwapPulse {
       0%,100% { box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 30px rgba(168,85,247,.5); }
@@ -2874,7 +2880,6 @@
       const el = document.createElement('div');
       el.className = 'toast sudden-swap-toast';
       el.innerHTML = `<div class="toast-row">
-        <span class="toast-emoji">⚡</span>
         <div>
           <div class="toast-title">Sudden Swap!</div>
           <div class="toast-msg" style="color:#fff;font-weight:700;">by ${fromName}!!!</div>
@@ -2889,7 +2894,6 @@
       const el = document.createElement('div');
       el.className = 'toast cascade-toast';
       el.innerHTML = `<div class="toast-row">
-        <span class="toast-emoji">🌊</span>
         <div>
           <div class="toast-title">Cascade!</div>
           <div class="toast-msg" style="color:#fff;font-weight:700;">by ${fromName}!!!</div>
@@ -5961,6 +5965,55 @@
       );
     }
 
+    // ── Cascada: overlay animado que muestra las fichas bajando 1-4 filas, con
+    // brillo azul, y las filas "fantasma" entrando por arriba mientras las de
+    // abajo se salen del tablero (wrap-around visual). Usa un render simplificado
+    // (sin texturas de temporada) porque es una animación breve.
+    function CascadeSlide({ rows, boardSize, ghostTiles, snapshotTiles, colorMap }) {
+      const [play, setPlay] = useState(false);
+      useEffect(() => {
+        let raf1 = requestAnimationFrame(() => {
+          raf1 = requestAnimationFrame(() => setPlay(true));
+        });
+        return () => cancelAnimationFrame(raf1);
+      }, []);
+
+      const cell = (tile, key) => {
+        if (tile === undefined) {
+          return <div key={key} style={{ width:'var(--tile)', height:'var(--tile)' }}/>;
+        }
+        if (tile === null) {
+          return <div key={key} style={{
+            width:'var(--tile)', height:'var(--tile)', borderRadius:'8px',
+            background:'rgba(0,0,0,.3)', border:'2px dashed rgba(255,255,255,.08)',
+          }}/>;
+        }
+        const c = colorMap[tile.colorId] || { bg:'#888', shine:'#aaa', shadow:'#444' };
+        return (
+          <div key={key} style={{
+            width:'var(--tile)', height:'var(--tile)', borderRadius:'8px',
+            background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`,
+            boxShadow:`0 4px 0 ${c.shadow}`,
+            animation:'rrCascadeFlash 1s ease-in-out infinite',
+          }}/>
+        );
+      };
+
+      return (
+        <div style={{ position:'absolute', inset:'12px', overflow:'hidden', borderRadius:'10px', pointerEvents:'none', zIndex:40 }}>
+          <div style={{
+            display:'grid', gridTemplateColumns:`repeat(${boardSize},var(--tile))`, gap:'5px',
+            transform: play ? 'translateY(0)' : `translateY(calc(-1 * ${rows} * (var(--tile) + 5px)))`,
+            transition: play ? 'transform .55s cubic-bezier(.3,.85,.4,1)' : 'none',
+            willChange:'transform',
+          }}>
+            {ghostTiles.map((t, i) => cell(t, `g${i}`))}
+            {snapshotTiles.map((t, i) => cell(t, `s${i}`))}
+          </div>
+        </div>
+      );
+    }
+
         function TutorialOverlay({ step, hl, onNext, onClose }) {
       if (!step || !hl) return null;
       const { pat, ctr, voice, invite } = hl;
@@ -6194,6 +6247,8 @@
       const rubikingAuthedGame = useRubikingAuthed();
 
       const [tiles,       setTiles]        = useState(()=>shuffle(buildSolved(boardSize, mask), boardSize, 300, mask));
+      const tilesRef = useRef(tiles);
+      useEffect(() => { tilesRef.current = tiles; }, [tiles]);
       const [moves,       setMoves]        = useState(0);
       const [time,        setTime]         = useState(0);
       const [finished,    setFinished]     = useState(false);
@@ -6339,6 +6394,11 @@
       }, [playerName]);
 
       useEffect(() => () => clearInterval(cascadePromptTickRef.current), []);
+
+      // ── Animación de la Cascada: desplazamiento visible con brillo azul ──
+      const [cascadeAnim, setCascadeAnim] = useState(null); // {rows, ghostTiles, snapshot} mientras se anima
+      const cascadeAnimTimeoutRef = useRef(null);
+      useEffect(() => () => clearTimeout(cascadeAnimTimeoutRef.current), []);
 
       // ── Botones de prueba de power-ups (solo Rubiking, para QA) ──
       // Se autentican vía Firebase Auth real (useRubikingAuthed) Y el nombre activo
@@ -6603,8 +6663,9 @@
         return () => window.removeEventListener('rrSabotageReceived', handler);
       }, [playerName]);
 
-      // Recibe una Cascada: desplaza todas las fichas hacia abajo N filas (1-4);
-      // las que salen por debajo del tablero reaparecen por arriba (wrap-around).
+      // Recibe una Cascada: anima el desplazamiento (las fichas se ven bajar y brillar,
+      // las que salen por abajo reaparecen por arriba) y, al terminar la animación,
+      // aplica el estado final ya desplazado N filas (1-4), con wrap-around.
       // No se aplica en tableros con forma irregular (mask), para no romper la silueta.
       useEffect(() => {
         const handler = (e) => {
@@ -6612,18 +6673,28 @@
           if (!item || item.target !== playerName || finishedRef.current || mask) return;
           const rows = ((item.rows || 1) % boardSize + boardSize) % boardSize;
           if (!rows) return;
-          setTiles(curTiles => {
-            const nt = new Array(curTiles.length);
-            for (let idx = 0; idx < curTiles.length; idx++) {
+          const snapshot = tilesRef.current.slice();
+          // Las filas "fantasma" que se ven venir por arriba son una copia de las
+          // últimas `rows` filas actuales (las que van a envolver hacia arriba).
+          const ghostTiles = [];
+          for (let r = boardSize - rows; r < boardSize; r++) {
+            for (let c = 0; c < boardSize; c++) ghostTiles.push(snapshot[r * boardSize + c]);
+          }
+          setCascadeAnim({ rows, ghostTiles, snapshot });
+          window.showCascadeToast?.(item.from);
+          navigator.vibrate?.([40, 30, 40, 30, 90]);
+          clearTimeout(cascadeAnimTimeoutRef.current);
+          cascadeAnimTimeoutRef.current = setTimeout(() => {
+            const nt = new Array(snapshot.length);
+            for (let idx = 0; idx < snapshot.length; idx++) {
               const row = Math.floor(idx / boardSize);
               const col = idx % boardSize;
               const newRow = (row + rows) % boardSize;
-              nt[newRow * boardSize + col] = curTiles[idx];
+              nt[newRow * boardSize + col] = snapshot[idx];
             }
-            return nt;
-          });
-          window.showCascadeToast?.(item.from);
-          navigator.vibrate?.([40, 30, 40, 30, 90]);
+            setTiles(nt);
+            setCascadeAnim(null);
+          }, 620);
         };
         window.addEventListener('rrCascadeReceived', handler);
         return () => window.removeEventListener('rrCascadeReceived', handler);
@@ -7081,7 +7152,7 @@
       useEffect(() => () => { if(voiceRef.current){voiceRef.current.onend=null;voiceRef.current.stop();} }, []);
 
       const handleTile = useCallback((idx) => {
-        if (finished || countdown !== null) return;
+        if (finished || countdown !== null || cascadeAnim) return;
         const ei=tiles.indexOf(null);
         if (!canMove(idx,ei,boardSize,mask)) return;
         const movedTile = tiles[idx];
@@ -7167,7 +7238,7 @@
             },50);
           }
         }
-      }, [tiles, finished, countdown, rrPat, time, moves, sendPresence, gameCode, voiceOn, usedHints, activePl, playerName, triggerSabotagePrompt, triggerCascadePrompt, mask]);
+      }, [tiles, finished, countdown, rrPat, time, moves, sendPresence, gameCode, voiceOn, usedHints, activePl, playerName, triggerSabotagePrompt, triggerCascadePrompt, mask, cascadeAnim]);
 
       useEffect(() => { handleTileRef.current = handleTile; }, [handleTile]);
 
@@ -7559,6 +7630,11 @@
                   }}/>
                 );
               })()}
+              {cascadeAnim && (
+                <CascadeSlide rows={cascadeAnim.rows} boardSize={boardSize}
+                  ghostTiles={cascadeAnim.ghostTiles} snapshotTiles={cascadeAnim.snapshot}
+                  colorMap={getColorMap(effectivePride, colorblind, seasonAlt)}/>
+              )}
               {tiles.map((tile,idx)=>{
                 if (tile===undefined) return <div key={`void-${idx}`} style={{width:'var(--tile)',height:'var(--tile)'}}/>;
                 const isCenter = CENTER.includes(idx);
