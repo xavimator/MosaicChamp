@@ -6089,7 +6089,12 @@
       };
 
       return (
-        <div style={{ position:'absolute', inset:'12px', overflow:'hidden', borderRadius:'10px', pointerEvents:'none', zIndex:40 }}>
+        <div style={{
+          position:'absolute', inset:'12px', overflow:'hidden', borderRadius:'10px',
+          pointerEvents:'none', zIndex:40,
+          WebkitMaskImage:'linear-gradient(to bottom, transparent 0, black 10%, black 90%, transparent 100%)',
+          maskImage:'linear-gradient(to bottom, transparent 0, black 10%, black 90%, transparent 100%)',
+        }}>
           <div style={{
             display:'flex', flexDirection:'row', gap:'5px',
             height:`calc(${boardSize} * (var(--tile) + 5px) - 5px)`,
@@ -6098,7 +6103,9 @@
               <div key={c} style={{
                 display:'flex', flexDirection:'column', gap:'5px', width:'var(--tile)', flexShrink:0,
                 transform: play ? 'translateY(0)' : `translateY(calc(-1 * ${rows} * (var(--tile) + 5px)))`,
-                transition: play ? 'transform .55s cubic-bezier(.3,.85,.4,1)' : 'none',
+                // Misma velocidad para todas las columnas: la duración es
+                // proporcional a la distancia que recorre cada una.
+                transition: play ? `transform ${(0.32 + rows * 0.09).toFixed(2)}s cubic-bezier(.3,.85,.4,1)` : 'none',
                 willChange:'transform',
               }}>
                 {ghostTilesByCol[c].map((t, i) => cell(t, `g${c}-${i}`, i === 0))}
@@ -6150,6 +6157,8 @@
           position:'absolute', top:'12px', left:`calc(12px + ${col} * (var(--tile) + 5px))`,
           width:'var(--tile)', height:`calc(${boardSize} * (var(--tile) + 5px) - 5px)`,
           overflow:'hidden', borderRadius:'8px', pointerEvents:'none', zIndex:41,
+          WebkitMaskImage:'linear-gradient(to bottom, transparent 0, black 10%, black 90%, transparent 100%)',
+          maskImage:'linear-gradient(to bottom, transparent 0, black 10%, black 90%, transparent 100%)',
         }}>
           <div style={{
             display:'flex', flexDirection:'column', gap:'5px',
@@ -7002,7 +7011,7 @@
             }
             setTiles(nt);
             setCascadeAnim(null);
-          }, 620);
+          }, 700);
         };
         window.addEventListener('rrCascadeReceived', handler);
         return () => window.removeEventListener('rrCascadeReceived', handler);
