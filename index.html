@@ -807,16 +807,39 @@
       window.__fbSendSabotage = (targetName, fromName) =>
         push(saboRef, { target: targetName, from: fromName, ts: Date.now() });
 
-      // Sabotaje 2: Cascada — desplaza las fichas del rival hacia abajo (1-4 filas,
-      // las que salen por debajo reaparecen arriba). Alterna con Sudden Swap.
+      // Sabotaje 2: Cascada — cada columna del rival baja una distancia independiente
+      // (1-4 filas); lo que sale por debajo reaparece por arriba. Alterna con Sudden Swap.
       const cascRef   = ref(db, `${base}/cascade`);
       const cascQuery = query(cascRef, orderByChild('ts'), startAfter(Date.now()));
       unsubs.push(onChildAdded(cascQuery, snap => {
         const item = snap.val();
         if (item?.target) window.__fbCascadeReceived?.(item);
       }));
-      window.__fbSendCascade = (targetName, fromName, rows) =>
-        push(cascRef, { target: targetName, from: fromName, rows, ts: Date.now() });
+      window.__fbSendCascade = (targetName, fromName, cols) =>
+        push(cascRef, { target: targetName, from: fromName, cols, ts: Date.now() });
+
+      // Sabotaje 3: Salto — arma una trampa en el rival; la próxima ficha que toque
+      // hace que TODA esa columna suba entre 1 y 4 casillas (wrap-around por abajo).
+      // Rota junto con Sudden Swap y Cascada.
+      const jumpRef   = ref(db, `${base}/jump`);
+      const jumpQuery = query(jumpRef, orderByChild('ts'), startAfter(Date.now()));
+      unsubs.push(onChildAdded(jumpQuery, snap => {
+        const item = snap.val();
+        if (item?.target) window.__fbJumpReceived?.(item);
+      }));
+      window.__fbSendJump = (targetName, fromName) =>
+        push(jumpRef, { target: targetName, from: fromName, ts: Date.now() });
+
+      // Sabotaje 4: Hielo — congela al rival 1 segundo (no puede mover ninguna
+      // ficha); no reordena nada, así que es seguro también en tableros con mask.
+      const iceRef   = ref(db, `${base}/ice`);
+      const iceQuery = query(iceRef, orderByChild('ts'), startAfter(Date.now()));
+      unsubs.push(onChildAdded(iceQuery, snap => {
+        const item = snap.val();
+        if (item?.target) window.__fbIceReceived?.(item);
+      }));
+      window.__fbSendIce = (targetName, fromName) =>
+        push(iceRef, { target: targetName, from: fromName, ts: Date.now() });
 
       // Consenso para "nuevo juego" / "reiniciar": los demás jugadores tienen 5s
       // para rechazarlo; si nadie rechaza (o aceptan) se procede como antes.
@@ -2477,6 +2500,12 @@
       50%     { box-shadow:0 0 0 3px rgba(125,211,252,.9),0 0 30px 10px rgba(56,189,248,1); filter:brightness(1.6); }
     }
 
+    /* ══ Ficha que entra al terminar el Salto: brillo ámbar continuo ══ */
+    @keyframes rrJumpFlash {
+      0%,100% { box-shadow:0 0 0 3px rgba(251,191,36,.7),0 0 20px 6px rgba(251,191,36,.75); filter:brightness(1.35); }
+      50%     { box-shadow:0 0 0 3px rgba(253,230,138,.9),0 0 30px 10px rgba(251,191,36,1); filter:brightness(1.6); }
+    }
+
     /* ══ Toast vistoso de "Sudden Swap" (estilo del toast de finished!) ══ */
     @keyframes suddenSwapPulse {
       0%,100% { box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 30px rgba(168,85,247,.5); }
@@ -2500,6 +2529,30 @@
       animation:toastIn .4s cubic-bezier(.34,1.4,.64,1), cascadePulse 1.3s ease-in-out .4s 2;
     }
     .cascade-toast .toast-title { background:linear-gradient(90deg,#7dd3fc,#38bdf8,#60a5fa); -webkit-background-clip:text; background-size:200% auto; animation:shimmer 2.4s linear infinite; }
+
+    /* ══ Toast vistoso de "Salto" (mismo estilo, paleta ámbar) ══ */
+    @keyframes jumpPulse {
+      0%,100% { box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 30px rgba(251,191,36,.5); }
+      50%     { box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 48px rgba(251,191,36,.9); }
+    }
+    .jump-toast {
+      border:1.5px solid rgba(251,191,36,.65) !important;
+      box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 30px rgba(251,191,36,.5);
+      animation:toastIn .4s cubic-bezier(.34,1.4,.64,1), jumpPulse 1.3s ease-in-out .4s 2;
+    }
+    .jump-toast .toast-title { background:linear-gradient(90deg,#fde68a,#fbbf24,#f59e0b); -webkit-background-clip:text; background-size:200% auto; animation:shimmer 2.4s linear infinite; }
+
+    /* ══ Toast vistoso de "Hielo" (mismo estilo, paleta cian-hielo) ══ */
+    @keyframes icePulse {
+      0%,100% { box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 30px rgba(186,230,253,.5); }
+      50%     { box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 48px rgba(186,230,253,.9); }
+    }
+    .ice-toast {
+      border:1.5px solid rgba(186,230,253,.65) !important;
+      box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 30px rgba(186,230,253,.5);
+      animation:toastIn .4s cubic-bezier(.34,1.4,.64,1), icePulse 1.3s ease-in-out .4s 2;
+    }
+    .ice-toast .toast-title { background:linear-gradient(90deg,#e0f2fe,#bae6fd,#7dd3fc); -webkit-background-clip:text; background-size:200% auto; animation:shimmer 2.4s linear infinite; }
 
     /* ══ Prompt "¿Mandar Sudden Swap?": entrada creciente ══ */
     @keyframes rrPromptGrow {
@@ -2903,6 +2956,34 @@
       setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(),400); }, 3200);
     }
     window.showCascadeToast = showCascadeToast;
+
+    function showJumpToast(fromName) {
+      const el = document.createElement('div');
+      el.className = 'toast jump-toast';
+      el.innerHTML = `<div class="toast-row">
+        <div>
+          <div class="toast-title">Salto!</div>
+          <div class="toast-msg" style="color:#fff;font-weight:700;">by ${fromName}!!!</div>
+        </div>
+      </div>`;
+      document.getElementById('toast-container').appendChild(el);
+      setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(),400); }, 3200);
+    }
+    window.showJumpToast = showJumpToast;
+
+    function showIceToast(fromName) {
+      const el = document.createElement('div');
+      el.className = 'toast ice-toast';
+      el.innerHTML = `<div class="toast-row">
+        <div>
+          <div class="toast-title">Hielo!</div>
+          <div class="toast-msg" style="color:#fff;font-weight:700;">by ${fromName}!!!</div>
+        </div>
+      </div>`;
+      document.getElementById('toast-container').appendChild(el);
+      setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(),400); }, 3200);
+    }
+    window.showIceToast = showIceToast;
     window.__showForegroundNotification = function(title, body) {
       showDiscreteToast('🔔', [title, body].filter(Boolean).join(' — '), '#7c3aed');
     };
@@ -2941,6 +3022,12 @@
     };
     window.__fbCascadeReceived = function(item) {
       window.dispatchEvent(new CustomEvent('rrCascadeReceived', { detail: item }));
+    };
+    window.__fbJumpReceived = function(item) {
+      window.dispatchEvent(new CustomEvent('rrJumpReceived', { detail: item }));
+    };
+    window.__fbIceReceived = function(item) {
+      window.dispatchEvent(new CustomEvent('rrIceReceived', { detail: item }));
     };
     window.__fbResetRequestReceived = function(item) {
       window.dispatchEvent(new CustomEvent('rrResetRequest', { detail: item }));
@@ -5965,11 +6052,11 @@
       );
     }
 
-    // ── Cascada: overlay animado que muestra las fichas bajando 1-4 filas, con
-    // brillo azul, y las filas "fantasma" entrando por arriba mientras las de
-    // abajo se salen del tablero (wrap-around visual). Usa un render simplificado
+    // ── Cascada: overlay animado que muestra cada columna bajando su propia
+    // distancia (1-4 filas), con la ficha que entra primero por arriba brillando en
+    // azul; el resto de fichas se mueve sin iluminarse. Usa un render simplificado
     // (sin texturas de temporada) porque es una animación breve.
-    function CascadeSlide({ rows, boardSize, ghostTiles, snapshotTiles, colorMap }) {
+    function CascadeSlide({ cols, boardSize, ghostTilesByCol, snapshotTiles, colorMap }) {
       const [play, setPlay] = useState(false);
       useEffect(() => {
         let raf1 = requestAnimationFrame(() => {
@@ -5978,7 +6065,7 @@
         return () => cancelAnimationFrame(raf1);
       }, []);
 
-      const cell = (tile, key) => {
+      const cell = (tile, key, glowing) => {
         if (tile === undefined) {
           return <div key={key} style={{ width:'var(--tile)', height:'var(--tile)' }}/>;
         }
@@ -5993,8 +6080,10 @@
           <div key={key} style={{
             width:'var(--tile)', height:'var(--tile)', borderRadius:'8px',
             background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`,
-            boxShadow:`0 4px 0 ${c.shadow}`,
-            animation:'rrCascadeFlash 1s ease-in-out infinite',
+            boxShadow: glowing
+              ? `0 4px 0 ${c.shadow}, 0 0 0 3px rgba(56,189,248,.75), 0 0 22px 6px rgba(56,189,248,.85)`
+              : `0 4px 0 ${c.shadow}`,
+            animation: glowing ? 'rrCascadeFlash 1s ease-in-out infinite' : 'none',
           }}/>
         );
       };
@@ -6002,13 +6091,74 @@
       return (
         <div style={{ position:'absolute', inset:'12px', overflow:'hidden', borderRadius:'10px', pointerEvents:'none', zIndex:40 }}>
           <div style={{
-            display:'grid', gridTemplateColumns:`repeat(${boardSize},var(--tile))`, gap:'5px',
-            transform: play ? 'translateY(0)' : `translateY(calc(-1 * ${rows} * (var(--tile) + 5px)))`,
-            transition: play ? 'transform .55s cubic-bezier(.3,.85,.4,1)' : 'none',
+            display:'flex', flexDirection:'row', gap:'5px',
+            height:`calc(${boardSize} * (var(--tile) + 5px) - 5px)`,
+          }}>
+            {cols.map((rows, c) => (
+              <div key={c} style={{
+                display:'flex', flexDirection:'column', gap:'5px', width:'var(--tile)', flexShrink:0,
+                transform: play ? 'translateY(0)' : `translateY(calc(-1 * ${rows} * (var(--tile) + 5px)))`,
+                transition: play ? 'transform .55s cubic-bezier(.3,.85,.4,1)' : 'none',
+                willChange:'transform',
+              }}>
+                {ghostTilesByCol[c].map((t, i) => cell(t, `g${c}-${i}`, i === 0))}
+                {snapshotTiles.filter((_, idx) => idx % boardSize === c).map((t, i) => cell(t, `s${c}-${i}`, false))}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ── Salto: overlay animado de una sola columna subiendo entre 1 y 4 casillas,
+    // con la ficha que entra al final por abajo brillando en ámbar. Misma técnica
+    // de "fantasma" que la Cascada pero en una sola tira vertical y hacia arriba.
+    function JumpSlide({ col, boardSize, rows, ghostTiles, snapshotCol, colorMap }) {
+      const [play, setPlay] = useState(false);
+      useEffect(() => {
+        let raf1 = requestAnimationFrame(() => {
+          raf1 = requestAnimationFrame(() => setPlay(true));
+        });
+        return () => cancelAnimationFrame(raf1);
+      }, []);
+
+      const cell = (tile, key, glowing) => {
+        if (tile === undefined) {
+          return <div key={key} style={{ width:'var(--tile)', height:'var(--tile)' }}/>;
+        }
+        if (tile === null) {
+          return <div key={key} style={{
+            width:'var(--tile)', height:'var(--tile)', borderRadius:'8px',
+            background:'rgba(0,0,0,.3)', border:'2px dashed rgba(255,255,255,.08)',
+          }}/>;
+        }
+        const c = colorMap[tile.colorId] || { bg:'#888', shine:'#aaa', shadow:'#444' };
+        return (
+          <div key={key} style={{
+            width:'var(--tile)', height:'var(--tile)', borderRadius:'8px',
+            background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`,
+            boxShadow: glowing
+              ? `0 4px 0 ${c.shadow}, 0 0 0 3px rgba(251,191,36,.75), 0 0 22px 6px rgba(251,191,36,.85)`
+              : `0 4px 0 ${c.shadow}`,
+            animation: glowing ? 'rrJumpFlash 1s ease-in-out infinite' : 'none',
+          }}/>
+        );
+      };
+
+      return (
+        <div style={{
+          position:'absolute', top:'12px', left:`calc(12px + ${col} * (var(--tile) + 5px))`,
+          width:'var(--tile)', height:`calc(${boardSize} * (var(--tile) + 5px) - 5px)`,
+          overflow:'hidden', borderRadius:'8px', pointerEvents:'none', zIndex:41,
+        }}>
+          <div style={{
+            display:'flex', flexDirection:'column', gap:'5px',
+            transform: play ? `translateY(calc(-1 * ${rows} * (var(--tile) + 5px)))` : 'translateY(0)',
+            transition: play ? 'transform .5s cubic-bezier(.3,.85,.4,1)' : 'none',
             willChange:'transform',
           }}>
-            {ghostTiles.map((t, i) => cell(t, `g${i}`))}
-            {snapshotTiles.map((t, i) => cell(t, `s${i}`))}
+            {snapshotCol.map((t, i) => cell(t, `s${i}`, false))}
+            {ghostTiles.map((t, i) => cell(t, `g${i}`, i === ghostTiles.length - 1))}
           </div>
         </div>
       );
@@ -6263,7 +6413,7 @@
       const [copied,      setCopied]       = useState(false);
       const [tutStep,     setTutStep]      = useState(0);
       const [tutHl,       setTutHl]        = useState(null);
-      const [sabotageFlashIdx, setSabotageFlashIdx] = useState(null); // ficha recién saboteada → flash morado
+      const [sabotageFlashIdx, setSabotageFlashIdx] = useState([]); // [posA,posB] recién intercambiadas → flash morado
       const [showTutHint, setShowTutHint]  = useState(true);
       const [countdown,   setCountdown]    = useState(null);
       const [showLifesaver, setShowLifesaver] = useState(false);
@@ -6361,14 +6511,15 @@
       // Contador de alternancia: par → Sudden Swap, impar → Cascada.
       const powerUpAlternateRef = useRef(0);
 
-      const [cascadePrompt, setCascadePrompt] = useState(null); // {target, secondsLeft, rows}
+      const [cascadePrompt, setCascadePrompt] = useState(null); // {target, secondsLeft, cols}
       const cascadePromptActiveRef = useRef(false);
       const cascadePromptTickRef   = useRef(null);
 
       const triggerCascadePrompt = useCallback((targetName) => {
-        const rows = 1 + Math.floor(Math.random() * 4); // 1..4
+        // Cada columna baja una distancia independiente entre 1 y 4 filas.
+        const cols = Array.from({ length: boardSize }, () => 1 + Math.floor(Math.random() * 4));
         cascadePromptActiveRef.current = true;
-        setCascadePrompt({ target: targetName, secondsLeft: 5, rows });
+        setCascadePrompt({ target: targetName, secondsLeft: 5, cols });
         clearInterval(cascadePromptTickRef.current);
         cascadePromptTickRef.current = setInterval(() => {
           setCascadePrompt(p => {
@@ -6382,11 +6533,11 @@
             return { ...p, secondsLeft: next };
           });
         }, 1000);
-      }, []);
+      }, [boardSize]);
 
       const confirmCascade = useCallback(() => {
         setCascadePrompt(p => {
-          if (p) window.__fbSendCascade?.(p.target, playerName, p.rows);
+          if (p) window.__fbSendCascade?.(p.target, playerName, p.cols);
           return null;
         });
         clearInterval(cascadePromptTickRef.current);
@@ -6396,9 +6547,127 @@
       useEffect(() => () => clearInterval(cascadePromptTickRef.current), []);
 
       // ── Animación de la Cascada: desplazamiento visible con brillo azul ──
-      const [cascadeAnim, setCascadeAnim] = useState(null); // {rows, ghostTiles, snapshot} mientras se anima
+      const [cascadeAnim, setCascadeAnim] = useState(null); // {cols, ghostTilesByCol, snapshot} mientras se anima
       const cascadeAnimTimeoutRef = useRef(null);
       useEffect(() => () => clearTimeout(cascadeAnimTimeoutRef.current), []);
+
+      // ── Power-up "Salto": arma una trampa en el rival; su próximo toque hace que
+      // toda esa columna suba entre 1 y 4 casillas (wrap-around por abajo) en vez de
+      // mover la ficha normalmente. Rota junto con Sudden Swap y Cascada.
+      const [jumpPrompt, setJumpPrompt] = useState(null); // {target, secondsLeft}
+      const jumpPromptActiveRef = useRef(false);
+      const jumpPromptTickRef   = useRef(null);
+
+      const triggerJumpPrompt = useCallback((targetName) => {
+        jumpPromptActiveRef.current = true;
+        setJumpPrompt({ target: targetName, secondsLeft: 5 });
+        clearInterval(jumpPromptTickRef.current);
+        jumpPromptTickRef.current = setInterval(() => {
+          setJumpPrompt(p => {
+            if (!p) return p;
+            const next = p.secondsLeft - 1;
+            if (next <= 0) {
+              clearInterval(jumpPromptTickRef.current);
+              jumpPromptActiveRef.current = false;
+              return null;
+            }
+            return { ...p, secondsLeft: next };
+          });
+        }, 1000);
+      }, []);
+
+      const confirmJump = useCallback(() => {
+        setJumpPrompt(p => {
+          if (p) window.__fbSendJump?.(p.target, playerName);
+          return null;
+        });
+        clearInterval(jumpPromptTickRef.current);
+        jumpPromptActiveRef.current = false;
+      }, [playerName]);
+
+      useEffect(() => () => clearInterval(jumpPromptTickRef.current), []);
+
+      // Trampa armada en mi propio tablero, a la espera de mi próximo toque.
+      const [jumpArmed, setJumpArmed] = useState(false);
+      const jumpArmedRef = useRef(false);
+
+      // Animación del Salto: desplazamiento visible de una sola columna hacia arriba,
+      // con brillo ámbar en la ficha que entra al final por abajo.
+      const [jumpAnim, setJumpAnim] = useState(null); // {col, rows, ghostTiles, snapshotCol}
+      const jumpAnimTimeoutRef = useRef(null);
+      useEffect(() => () => clearTimeout(jumpAnimTimeoutRef.current), []);
+
+      useEffect(() => {
+        const handler = (e) => {
+          const item = e.detail;
+          if (!item || item.target !== playerName || finishedRef.current) return;
+          jumpArmedRef.current = true;
+          setJumpArmed(true);
+          window.showJumpToast?.(item.from);
+          navigator.vibrate?.([30, 20, 30, 20, 60]);
+        };
+        window.addEventListener('rrJumpReceived', handler);
+        return () => window.removeEventListener('rrJumpReceived', handler);
+      }, [playerName]);
+
+      // ── Power-up "Hielo": congela al rival 1 segundo (no puede mover ninguna
+      // ficha); no reordena nada, es seguro también en tableros con mask.
+      const [icePrompt, setIcePrompt] = useState(null); // {target, secondsLeft}
+      const icePromptActiveRef = useRef(false);
+      const icePromptTickRef   = useRef(null);
+
+      const triggerIcePrompt = useCallback((targetName) => {
+        icePromptActiveRef.current = true;
+        setIcePrompt({ target: targetName, secondsLeft: 5 });
+        clearInterval(icePromptTickRef.current);
+        icePromptTickRef.current = setInterval(() => {
+          setIcePrompt(p => {
+            if (!p) return p;
+            const next = p.secondsLeft - 1;
+            if (next <= 0) {
+              clearInterval(icePromptTickRef.current);
+              icePromptActiveRef.current = false;
+              return null;
+            }
+            return { ...p, secondsLeft: next };
+          });
+        }, 1000);
+      }, []);
+
+      const confirmIce = useCallback(() => {
+        setIcePrompt(p => {
+          if (p) window.__fbSendIce?.(p.target, playerName);
+          return null;
+        });
+        clearInterval(icePromptTickRef.current);
+        icePromptActiveRef.current = false;
+      }, [playerName]);
+
+      useEffect(() => () => clearInterval(icePromptTickRef.current), []);
+
+      // Congelado en mi propio tablero: no puedo mover ninguna ficha durante 1s.
+      const [iceFrozen, setIceFrozen] = useState(false);
+      const iceFrozenRef = useRef(false);
+      const iceTimeoutRef = useRef(null);
+      useEffect(() => () => clearTimeout(iceTimeoutRef.current), []);
+
+      useEffect(() => {
+        const handler = (e) => {
+          const item = e.detail;
+          if (!item || item.target !== playerName || finishedRef.current) return;
+          iceFrozenRef.current = true;
+          setIceFrozen(true);
+          window.showIceToast?.(item.from);
+          navigator.vibrate?.([60, 40, 60]);
+          clearTimeout(iceTimeoutRef.current);
+          iceTimeoutRef.current = setTimeout(() => {
+            iceFrozenRef.current = false;
+            setIceFrozen(false);
+          }, 1000);
+        };
+        window.addEventListener('rrIceReceived', handler);
+        return () => window.removeEventListener('rrIceReceived', handler);
+      }, [playerName]);
 
       // ── Botones de prueba de power-ups (solo Rubiking, para QA) ──
       // Se autentican vía Firebase Auth real (useRubikingAuthed) Y el nombre activo
@@ -6411,8 +6680,16 @@
       }, [playerName]);
 
       const testCascade = useCallback(() => {
-        const rows = 1 + Math.floor(Math.random() * 4); // 1..4
-        window.__fbSendCascade?.(playerName, playerName, rows);
+        const cols = Array.from({ length: boardSize }, () => 1 + Math.floor(Math.random() * 4));
+        window.__fbSendCascade?.(playerName, playerName, cols);
+      }, [playerName, boardSize]);
+
+      const testJump = useCallback(() => {
+        window.__fbSendJump?.(playerName, playerName);
+      }, [playerName]);
+
+      const testIce = useCallback(() => {
+        window.__fbSendIce?.(playerName, playerName);
       }, [playerName]);
 
       // ── Consenso de "nuevo juego" / "reiniciar" ──
@@ -6642,18 +6919,40 @@
           const item = e.detail;
           if (!item || item.target !== playerName || finishedRef.current) return;
           setTiles(curTiles => {
+            // Salvaguarda: si el tablero no tiene el tamaño esperado (posible
+            // carrera nivel/patrón, ver __fbVerifyGameLevel más arriba), no tocar
+            // nada — así se evita añadir/perder fichas y crear una fila fantasma.
+            if (curTiles.length !== boardSize * boardSize) {
+              console.error('[SuddenSwap] tablero con tamaño inesperado, se omite', curTiles.length, boardSize*boardSize);
+              return curTiles;
+            }
             const correctPositions = CENTER.filter((pos, i) => {
               const t = curTiles[pos];
               return t && rrPatRef.current.length > i && t.colorId === RR_IDS[rrPatRef.current[i]];
             });
-            if (!correctPositions.length) return curTiles;
-            const pos = correctPositions[Math.floor(Math.random() * correctPositions.length)];
-            const options = RR_IDS.filter(c => c !== curTiles[pos].colorId);
-            const wrongColor = options[Math.floor(Math.random() * options.length)];
+            // De cada ficha bien colocada, mira si tiene un vecino válido arriba,
+            // a la izquierda o a la derecha (nunca la casilla vacía ni un hueco).
+            const neighborsOf = (pos) => {
+              const row = Math.floor(pos / boardSize), col = pos % boardSize;
+              const cands = [];
+              if (row > 0) cands.push(pos - boardSize);           // arriba
+              if (col > 0) cands.push(pos - 1);                   // izquierda
+              if (col < boardSize - 1) cands.push(pos + 1);       // derecha
+              return cands.filter(n => curTiles[n] != null);      // sin huecos ni casilla vacía
+            };
+            const swappable = correctPositions
+              .map(pos => ({ pos, cands: neighborsOf(pos) }))
+              .filter(o => o.cands.length);
+            if (!swappable.length) return curTiles;
+            const chosen = swappable[Math.floor(Math.random() * swappable.length)];
+            const pos = chosen.pos;
+            const neighborPos = chosen.cands[Math.floor(Math.random() * chosen.cands.length)];
+            // Intercambia de posición las dos fichas (no cambia colores → nunca
+            // desequilibra el número de fichas de cada color disponibles).
             const nt = [...curTiles];
-            nt[pos] = { ...nt[pos], colorId: wrongColor };
-            setSabotageFlashIdx(pos);
-            setTimeout(() => setSabotageFlashIdx(p => p === pos ? null : p), 700);
+            [nt[pos], nt[neighborPos]] = [nt[neighborPos], nt[pos]];
+            setSabotageFlashIdx([pos, neighborPos]);
+            setTimeout(() => setSabotageFlashIdx(p => p.filter(i => i !== pos && i !== neighborPos)), 700);
             return nt;
           });
           window.showSuddenSwapToast?.(item.from);
@@ -6661,36 +6960,45 @@
         };
         window.addEventListener('rrSabotageReceived', handler);
         return () => window.removeEventListener('rrSabotageReceived', handler);
-      }, [playerName]);
+      }, [playerName, boardSize, patternSize, mask]);
 
-      // Recibe una Cascada: anima el desplazamiento (las fichas se ven bajar y brillar,
-      // las que salen por abajo reaparecen por arriba) y, al terminar la animación,
-      // aplica el estado final ya desplazado N filas (1-4), con wrap-around.
+      // Recibe una Cascada: cada columna baja una distancia independiente (1-4 filas);
+      // anima el deslizamiento (solo brilla la ficha que entra primero por arriba en
+      // cada columna) y, al terminar, aplica el estado final ya desplazado con wrap-around.
       // No se aplica en tableros con forma irregular (mask), para no romper la silueta.
       useEffect(() => {
         const handler = (e) => {
           const item = e.detail;
           if (!item || item.target !== playerName || finishedRef.current || mask) return;
-          const rows = ((item.rows || 1) % boardSize + boardSize) % boardSize;
-          if (!rows) return;
+          const rawCols = Array.isArray(item.cols) ? item.cols : [];
+          const cols = Array.from({ length: boardSize }, (_, c) => {
+            const v = Math.min(4, Math.max(1, Math.round(Number(rawCols[c]) || 1)));
+            return v % boardSize || boardSize; // si boardSize<=4, envuelve dentro del propio tablero
+          });
+          if (cols.every(r => !r)) return;
           const snapshot = tilesRef.current.slice();
-          // Las filas "fantasma" que se ven venir por arriba son una copia de las
-          // últimas `rows` filas actuales (las que van a envolver hacia arriba).
-          const ghostTiles = [];
-          for (let r = boardSize - rows; r < boardSize; r++) {
-            for (let c = 0; c < boardSize; c++) ghostTiles.push(snapshot[r * boardSize + c]);
-          }
-          setCascadeAnim({ rows, ghostTiles, snapshot });
+          // Por cada columna, la "ficha fantasma" que se ve venir por arriba es una
+          // copia de las últimas `cols[c]` fichas de esa columna (las que van a envolver).
+          const ghostTilesByCol = cols.map((rows, c) => {
+            const arr = [];
+            for (let k = 0; k < rows; k++) {
+              const r = boardSize - rows + k;
+              arr.push(snapshot[r * boardSize + c]);
+            }
+            return arr;
+          });
+          setCascadeAnim({ cols, ghostTilesByCol, snapshot });
           window.showCascadeToast?.(item.from);
           navigator.vibrate?.([40, 30, 40, 30, 90]);
           clearTimeout(cascadeAnimTimeoutRef.current);
           cascadeAnimTimeoutRef.current = setTimeout(() => {
             const nt = new Array(snapshot.length);
-            for (let idx = 0; idx < snapshot.length; idx++) {
-              const row = Math.floor(idx / boardSize);
-              const col = idx % boardSize;
-              const newRow = (row + rows) % boardSize;
-              nt[newRow * boardSize + col] = snapshot[idx];
+            for (let c = 0; c < boardSize; c++) {
+              const rows = cols[c];
+              for (let row = 0; row < boardSize; row++) {
+                const newRow = (row + rows) % boardSize;
+                nt[newRow * boardSize + c] = snapshot[row * boardSize + c];
+              }
             }
             setTiles(nt);
             setCascadeAnim(null);
@@ -7152,7 +7460,35 @@
       useEffect(() => () => { if(voiceRef.current){voiceRef.current.onend=null;voiceRef.current.stop();} }, []);
 
       const handleTile = useCallback((idx) => {
-        if (finished || countdown !== null || cascadeAnim) return;
+        if (finished || countdown !== null || cascadeAnim || jumpAnim || iceFrozenRef.current) return;
+        // Trampa de "Salto" armada: el toque no mueve la ficha, hace subir toda su
+        // columna entre 1 y 4 casillas (wrap-around por abajo) y consume la trampa.
+        if (jumpArmedRef.current) {
+          jumpArmedRef.current = false;
+          setJumpArmed(false);
+          if (tiles.length === boardSize * boardSize) {
+            const col = idx % boardSize;
+            const rows = Math.min(1 + Math.floor(Math.random() * 4), boardSize - 1) || 1;
+            const snapshotCol = [];
+            for (let row = 0; row < boardSize; row++) snapshotCol.push(tiles[row * boardSize + col]);
+            const ghostTiles = snapshotCol.slice(0, rows);
+            setJumpAnim({ col, rows, ghostTiles, snapshotCol });
+            clearTimeout(jumpAnimTimeoutRef.current);
+            jumpAnimTimeoutRef.current = setTimeout(() => {
+              setTiles(curTiles => {
+                if (curTiles.length !== boardSize * boardSize) return curTiles;
+                const nt = [...curTiles];
+                for (let row = 0; row < boardSize; row++) {
+                  const srcRow = (row + rows) % boardSize;
+                  nt[row * boardSize + col] = snapshotCol[srcRow];
+                }
+                return nt;
+              });
+              setJumpAnim(null);
+            }, 560);
+          }
+          return;
+        }
         const ei=tiles.indexOf(null);
         if (!canMove(idx,ei,boardSize,mask)) return;
         const movedTile = tiles[idx];
@@ -7204,13 +7540,17 @@
           const targets = otherProgressRef.current.filter(p => p.correct > 4);
           if (targets.length) {
             const victim = targets[Math.floor(Math.random() * targets.length)];
-            // Alterna entre Sudden Swap y Cascada cada vez que se cumple la condición.
-            // La Cascada reordena todo el tablero, así que se omite en tableros con
-            // forma irregular (mask) para no romper la silueta; en ese caso siempre
-            // se ofrece Sudden Swap.
-            const useCascade = !mask && (powerUpAlternateRef.current % 2 === 1);
+            // Rota entre Sudden Swap, Cascada, Salto y Hielo cada vez que se cumple
+            // la condición. Cascada y Salto reordenan fichas por columna, así que se
+            // omiten en tableros con forma irregular (mask) para no romper la
+            // silueta; Sudden Swap y Hielo no reordenan nada, así que son seguros
+            // siempre.
+            const pool = mask ? ['sudden', 'ice'] : ['sudden', 'cascade', 'jump', 'ice'];
+            const choice = pool[powerUpAlternateRef.current % pool.length];
             powerUpAlternateRef.current += 1;
-            if (useCascade) triggerCascadePrompt(victim.name);
+            if (choice === 'cascade') triggerCascadePrompt(victim.name);
+            else if (choice === 'jump') triggerJumpPrompt(victim.name);
+            else if (choice === 'ice') triggerIcePrompt(victim.name);
             else triggerSabotagePrompt(victim.name);
           }
         }
@@ -7238,7 +7578,7 @@
             },50);
           }
         }
-      }, [tiles, finished, countdown, rrPat, time, moves, sendPresence, gameCode, voiceOn, usedHints, activePl, playerName, triggerSabotagePrompt, triggerCascadePrompt, mask, cascadeAnim]);
+      }, [tiles, finished, countdown, rrPat, time, moves, sendPresence, gameCode, voiceOn, usedHints, activePl, playerName, triggerSabotagePrompt, triggerCascadePrompt, triggerJumpPrompt, triggerIcePrompt, mask, cascadeAnim, jumpAnim, iceFrozen]);
 
       useEffect(() => { handleTileRef.current = handleTile; }, [handleTile]);
 
@@ -7421,19 +7761,31 @@
 
           {/* Botones de prueba de power-ups — solo visibles para Rubiking (QA) */}
           {isRubikingTester && (
-            <div style={{display:'flex',gap:'6px',width:'100%',maxWidth:'380px',marginBottom:'6px'}}>
+            <div style={{display:'flex',flexWrap:'wrap',gap:'6px',width:'100%',maxWidth:'380px',marginBottom:'6px'}}>
               <button onClick={testSuddenSwap} style={{
-                flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
+                flex:'1 1 45%', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
                 padding:'6px 10px', borderRadius:'10px', cursor:'pointer',
                 background:'rgba(168,85,247,.18)', border:'1.5px dashed rgba(168,85,247,.6)',
                 color:'#d8b4fe', fontSize:'11px', fontWeight:700,
               }}>⚡ Probar Sudden Swap</button>
               <button onClick={testCascade} style={{
-                flex:1, display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
+                flex:'1 1 45%', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
                 padding:'6px 10px', borderRadius:'10px', cursor:'pointer',
                 background:'rgba(56,189,248,.18)', border:'1.5px dashed rgba(56,189,248,.6)',
                 color:'#7dd3fc', fontSize:'11px', fontWeight:700,
               }}>🌊 Probar Cascada</button>
+              <button onClick={testJump} style={{
+                flex:'1 1 45%', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
+                padding:'6px 10px', borderRadius:'10px', cursor:'pointer',
+                background:'rgba(251,191,36,.18)', border:'1.5px dashed rgba(251,191,36,.6)',
+                color:'#fde68a', fontSize:'11px', fontWeight:700,
+              }}>🦘 Probar Salto</button>
+              <button onClick={testIce} style={{
+                flex:'1 1 45%', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
+                padding:'6px 10px', borderRadius:'10px', cursor:'pointer',
+                background:'rgba(125,211,252,.18)', border:'1.5px dashed rgba(125,211,252,.6)',
+                color:'#e0f2fe', fontSize:'11px', fontWeight:700,
+              }}>❄️ Probar Hielo</button>
             </div>
           )}
 
@@ -7481,6 +7833,44 @@
                   display:'flex', alignItems:'center', justifyContent:'center',
                   fontSize:'11px', fontWeight:800, color:'#fff', flexShrink:0
                 }}>{cascadePrompt.secondsLeft}</span>
+              </div>
+            )}
+
+            {jumpPrompt && (
+              <div onClick={confirmJump} style={{
+                position:'absolute', bottom:'calc(100% + 8px)', left:'50%',
+                background:'linear-gradient(135deg, rgba(251,191,36,.95), rgba(180,83,9,.95))',
+                border:'1.5px solid rgba(253,230,138,.7)', borderRadius:'14px',
+                padding:'10px 14px 10px 16px', display:'flex', alignItems:'center', gap:'10px',
+                boxShadow:'0 8px 24px rgba(0,0,0,.5), 0 0 20px rgba(251,191,36,.45)',
+                cursor:'pointer', zIndex:50, whiteSpace:'nowrap',
+                animation:'rrPromptGrow .35s cubic-bezier(.34,1.56,.64,1) forwards'
+              }}>
+                <span style={{fontSize:'12.5px', fontWeight:700, color:'#fff'}}>¿Mandar Salto?</span>
+                <span style={{
+                  width:'20px', height:'20px', borderRadius:'50%', background:'rgba(255,255,255,.28)',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  fontSize:'11px', fontWeight:800, color:'#fff', flexShrink:0
+                }}>{jumpPrompt.secondsLeft}</span>
+              </div>
+            )}
+
+            {icePrompt && (
+              <div onClick={confirmIce} style={{
+                position:'absolute', bottom:'calc(100% + 8px)', left:'50%',
+                background:'linear-gradient(135deg, rgba(125,211,252,.95), rgba(3,105,161,.95))',
+                border:'1.5px solid rgba(224,242,254,.7)', borderRadius:'14px',
+                padding:'10px 14px 10px 16px', display:'flex', alignItems:'center', gap:'10px',
+                boxShadow:'0 8px 24px rgba(0,0,0,.5), 0 0 20px rgba(125,211,252,.45)',
+                cursor:'pointer', zIndex:50, whiteSpace:'nowrap',
+                animation:'rrPromptGrow .35s cubic-bezier(.34,1.56,.64,1) forwards'
+              }}>
+                <span style={{fontSize:'12.5px', fontWeight:700, color:'#fff'}}>¿Mandar Hielo?</span>
+                <span style={{
+                  width:'20px', height:'20px', borderRadius:'50%', background:'rgba(255,255,255,.28)',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  fontSize:'11px', fontWeight:800, color:'#fff', flexShrink:0
+                }}>{icePrompt.secondsLeft}</span>
               </div>
             )}
 
@@ -7631,9 +8021,25 @@
                 );
               })()}
               {cascadeAnim && (
-                <CascadeSlide rows={cascadeAnim.rows} boardSize={boardSize}
-                  ghostTiles={cascadeAnim.ghostTiles} snapshotTiles={cascadeAnim.snapshot}
+                <CascadeSlide cols={cascadeAnim.cols} boardSize={boardSize}
+                  ghostTilesByCol={cascadeAnim.ghostTilesByCol} snapshotTiles={cascadeAnim.snapshot}
                   colorMap={getColorMap(effectivePride, colorblind, seasonAlt)}/>
+              )}
+              {jumpAnim && (
+                <JumpSlide col={jumpAnim.col} boardSize={boardSize} rows={jumpAnim.rows}
+                  ghostTiles={jumpAnim.ghostTiles} snapshotCol={jumpAnim.snapshotCol}
+                  colorMap={getColorMap(effectivePride, colorblind, seasonAlt)}/>
+              )}
+              {jumpArmed && !jumpAnim && (
+                <div style={{
+                  position:'absolute', top:'4px', left:'50%', transform:'translateX(-50%)',
+                  background:'linear-gradient(135deg, rgba(251,191,36,.95), rgba(180,83,9,.95))',
+                  border:'1px solid rgba(253,230,138,.7)', borderRadius:'999px',
+                  padding:'3px 10px', fontSize:'10.5px', fontWeight:800, color:'#fff',
+                  display:'flex', alignItems:'center', gap:'5px', zIndex:42, pointerEvents:'none',
+                  boxShadow:'0 4px 14px rgba(0,0,0,.4), 0 0 16px rgba(251,191,36,.5)',
+                  animation:'suddenSwapPulse 1.3s ease-in-out infinite',
+                }}>🦘 ¡Salto armado! Tu próximo toque hará subir una columna</div>
               )}
               {tiles.map((tile,idx)=>{
                 if (tile===undefined) return <div key={`void-${idx}`} style={{width:'var(--tile)',height:'var(--tile)'}}/>;
@@ -7694,14 +8100,14 @@
                           draggable={false}
                           style={{
                     width:'var(--tile)',height:'var(--tile)',borderRadius:'8px',border:'none',
-                    cursor:isAdj?'pointer':'default',
+                    cursor:iceFrozen ? 'not-allowed' : (isAdj?'pointer':'default'),
                     background: (scribbleMode || mapleMode) ? 'transparent' : (crayonMode
                       ? `url(${tileCharcoalUrl}),`+
                         `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`
                       : `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`),
                     backgroundSize: crayonMode ? '100% 100%, 100% 100%' : undefined,
                     backgroundBlendMode: scribbleMode ? undefined : (crayonMode ? 'multiply, normal' : undefined),
-                    boxShadow:idx===sabotageFlashIdx
+                    boxShadow:sabotageFlashIdx.includes(idx)
                       ? `0 0 0 4px rgba(168,85,247,1),0 0 34px 10px rgba(168,85,247,.9)`
                       : idx===hintMove
                       ? `0 4px 0 ${c.shadow},0 0 0 3px rgba(0,220,255,.9),0 0 18px rgba(0,220,255,.7),inset 0 1px 0 rgba(255,255,255,.25)`
@@ -7710,7 +8116,7 @@
                     transition:'transform .1s,filter .1s,box-shadow .2s',
                     transform:isAdj?'scale(1.02) translateZ(0)':'translateZ(0)',
                     filter:isAdj?'brightness(1.1)':'brightness(1)',
-                    animation:idx===sabotageFlashIdx?'rrSabotageFlash .7s ease-out':idx===lastMoved?'tileSlide .15s ease':idx===hintMove?'hintTilePulse 0.9s ease-in-out infinite':'none',
+                    animation:sabotageFlashIdx.includes(idx)?'rrSabotageFlash .7s ease-out':idx===lastMoved?'tileSlide .15s ease':idx===hintMove?'hintTilePulse 0.9s ease-in-out infinite':'none',
                     position:'relative',overflow:'hidden',
                   }}>
                     {mapleMode ? (
@@ -7776,12 +8182,27 @@
                     ) : (
                     <div style={{position:'absolute',top:0,left:0,right:0,height:'45%',borderRadius:'8px 8px 50% 50%',background:'linear-gradient(to bottom,rgba(255,255,255,.2),transparent)',pointerEvents:'none'}}/>
                     )}
-                    {idx===sabotageFlashIdx && (
+                    {sabotageFlashIdx.includes(idx) && (
                       <div style={{
                         position:'absolute', inset:'-45%', pointerEvents:'none',
                         background:'repeating-linear-gradient(135deg, rgba(125,211,252,.95) 0%, rgba(125,211,252,.95) 7%, transparent 7%, transparent 16.6667%)',
                         animation:'rrScanSweep .5s linear'
                       }}/>
+                    )}
+                    {iceFrozen && (
+                      <>
+                        {/* Teñido azul muy claro combinado con el color propio de la ficha */}
+                        <div style={{
+                          position:'absolute', inset:0, borderRadius:'8px', pointerEvents:'none',
+                          background:'rgba(191,236,255,.55)',
+                        }}/>
+                        {/* Mismas rayas diagonales de Sudden Swap, en bucle mientras dura el hielo */}
+                        <div style={{
+                          position:'absolute', inset:'-45%', pointerEvents:'none',
+                          background:'repeating-linear-gradient(135deg, rgba(224,242,254,.95) 0%, rgba(224,242,254,.95) 7%, transparent 7%, transparent 16.6667%)',
+                          animation:'rrScanSweep .5s linear infinite'
+                        }}/>
+                      </>
                     )}
                     {voiceOn && isAdj && (
                       <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',
