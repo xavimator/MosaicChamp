@@ -6056,7 +6056,7 @@
     // distancia (1-4 filas), con la ficha que entra primero por arriba brillando en
     // azul; el resto de fichas se mueve sin iluminarse. Usa un render simplificado
     // (sin texturas de temporada) porque es una animación breve.
-    function CascadeSlide({ cols, boardSize, ghostTilesByCol, snapshotTiles, colorMap }) {
+    function CascadeSlide({ cols, boardSize, ghostTilesByCol, snapshotTiles, colorMap, geo }) {
       const [play, setPlay] = useState(false);
       useEffect(() => {
         let raf1 = requestAnimationFrame(() => {
@@ -6064,21 +6064,26 @@
         });
         return () => cancelAnimationFrame(raf1);
       }, []);
+      if (!geo || !geo.cellPx) return null; // sin medida fiable, no animamos para no desencajar
+
+      const { originLeft, originTop, cellPx, gapPx } = geo;
+      const step = cellPx + gapPx;
+      const totalPx = boardSize * step - gapPx;
 
       const cell = (tile, key, glowing) => {
         if (tile === undefined) {
-          return <div key={key} style={{ width:'var(--tile)', height:'var(--tile)' }}/>;
+          return <div key={key} style={{ position:'absolute', width:cellPx, height:cellPx }}/>;
         }
         if (tile === null) {
           return <div key={key} style={{
-            width:'var(--tile)', height:'var(--tile)', borderRadius:'8px',
+            position:'absolute', width:cellPx, height:cellPx, borderRadius:'8px',
             background:'rgba(0,0,0,.3)', border:'2px dashed rgba(255,255,255,.08)',
           }}/>;
         }
         const c = colorMap[tile.colorId] || { bg:'#888', shine:'#aaa', shadow:'#444' };
         return (
           <div key={key} style={{
-            width:'var(--tile)', height:'var(--tile)', borderRadius:'8px',
+            position:'absolute', width:cellPx, height:cellPx, borderRadius:'8px',
             background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`,
             boxShadow: glowing
               ? `0 4px 0 ${c.shadow}, 0 0 0 3px rgba(56,189,248,.75), 0 0 22px 6px rgba(56,189,248,.85)`
@@ -6090,29 +6095,30 @@
 
       return (
         <div style={{
-          position:'absolute', inset:'12px', overflow:'hidden', borderRadius:'10px',
-          pointerEvents:'none', zIndex:40,
+          position:'absolute', left:originLeft, top:originTop, width:totalPx, height:totalPx,
+          overflow:'hidden', borderRadius:'10px', pointerEvents:'none', zIndex:40,
           WebkitMaskImage:'linear-gradient(to bottom, transparent 0, black 10%, black 90%, transparent 100%)',
           maskImage:'linear-gradient(to bottom, transparent 0, black 10%, black 90%, transparent 100%)',
         }}>
-          <div style={{
-            display:'flex', flexDirection:'row', gap:'5px',
-            height:`calc(${boardSize} * (var(--tile) + 5px) - 5px)`,
-          }}>
-            {cols.map((rows, c) => (
-              <div key={c} style={{
-                display:'flex', flexDirection:'column', gap:'5px', width:'var(--tile)', flexShrink:0,
-                transform: play ? 'translateY(0)' : `translateY(calc(-1 * ${rows} * (var(--tile) + 5px)))`,
-                // Misma velocidad para todas las columnas: la duración es
-                // proporcional a la distancia que recorre cada una.
-                transition: play ? `transform ${(0.32 + rows * 0.09).toFixed(2)}s cubic-bezier(.3,.85,.4,1)` : 'none',
-                willChange:'transform',
-              }}>
-                {ghostTilesByCol[c].map((t, i) => cell(t, `g${c}-${i}`, i === 0))}
-                {snapshotTiles.filter((_, idx) => idx % boardSize === c).map((t, i) => cell(t, `s${c}-${i}`, false))}
-              </div>
-            ))}
-          </div>
+          {cols.map((rows, c) => (
+            <div key={c} style={{
+              position:'absolute', left:c * step, top:0, width:cellPx, height:totalPx,
+              transform: play ? 'translateY(0)' : `translateY(${-rows * step}px)`,
+              // Misma velocidad para todas las columnas: la duración es
+              // proporcional a la distancia que recorre cada una.
+              transition: play ? `transform ${(0.32 + rows * 0.09).toFixed(2)}s cubic-bezier(.3,.85,.4,1)` : 'none',
+              willChange:'transform',
+            }}>
+              {ghostTilesByCol[c].map((t, i) => {
+                const el = cell(t, `g${c}-${i}`, i === 0);
+                return React.cloneElement(el, { style:{ ...el.props.style, top:i * step, left:0 } });
+              })}
+              {snapshotTiles.filter((_, idx) => idx % boardSize === c).map((t, i) => {
+                const el = cell(t, `s${c}-${i}`, false);
+                return React.cloneElement(el, { style:{ ...el.props.style, top:(rows + i) * step, left:0 } });
+              })}
+            </div>
+          ))}
         </div>
       );
     }
@@ -6120,7 +6126,7 @@
     // ── Salto: overlay animado de una sola columna subiendo entre 1 y 4 casillas,
     // con la ficha que entra al final por abajo brillando en ámbar. Misma técnica
     // de "fantasma" que la Cascada pero en una sola tira vertical y hacia arriba.
-    function JumpSlide({ col, boardSize, rows, ghostTiles, snapshotCol, colorMap }) {
+    function JumpSlide({ col, boardSize, rows, ghostTiles, snapshotCol, colorMap, geo }) {
       const [play, setPlay] = useState(false);
       useEffect(() => {
         let raf1 = requestAnimationFrame(() => {
@@ -6128,21 +6134,26 @@
         });
         return () => cancelAnimationFrame(raf1);
       }, []);
+      if (!geo || !geo.cellPx) return null;
+
+      const { originLeft, originTop, cellPx, gapPx } = geo;
+      const step = cellPx + gapPx;
+      const totalPx = boardSize * step - gapPx;
 
       const cell = (tile, key, glowing) => {
         if (tile === undefined) {
-          return <div key={key} style={{ width:'var(--tile)', height:'var(--tile)' }}/>;
+          return <div key={key} style={{ position:'absolute', width:cellPx, height:cellPx }}/>;
         }
         if (tile === null) {
           return <div key={key} style={{
-            width:'var(--tile)', height:'var(--tile)', borderRadius:'8px',
+            position:'absolute', width:cellPx, height:cellPx, borderRadius:'8px',
             background:'rgba(0,0,0,.3)', border:'2px dashed rgba(255,255,255,.08)',
           }}/>;
         }
         const c = colorMap[tile.colorId] || { bg:'#888', shine:'#aaa', shadow:'#444' };
         return (
           <div key={key} style={{
-            width:'var(--tile)', height:'var(--tile)', borderRadius:'8px',
+            position:'absolute', width:cellPx, height:cellPx, borderRadius:'8px',
             background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`,
             boxShadow: glowing
               ? `0 4px 0 ${c.shadow}, 0 0 0 3px rgba(251,191,36,.75), 0 0 22px 6px rgba(251,191,36,.85)`
@@ -6154,20 +6165,26 @@
 
       return (
         <div style={{
-          position:'absolute', top:'12px', left:`calc(12px + ${col} * (var(--tile) + 5px))`,
-          width:'var(--tile)', height:`calc(${boardSize} * (var(--tile) + 5px) - 5px)`,
+          position:'absolute', left:originLeft + col * step, top:originTop,
+          width:cellPx, height:totalPx,
           overflow:'hidden', borderRadius:'8px', pointerEvents:'none', zIndex:41,
           WebkitMaskImage:'linear-gradient(to bottom, transparent 0, black 10%, black 90%, transparent 100%)',
           maskImage:'linear-gradient(to bottom, transparent 0, black 10%, black 90%, transparent 100%)',
         }}>
           <div style={{
-            display:'flex', flexDirection:'column', gap:'5px',
-            transform: play ? `translateY(calc(-1 * ${rows} * (var(--tile) + 5px)))` : 'translateY(0)',
+            position:'absolute', left:0, top:0, width:cellPx, height:totalPx,
+            transform: play ? `translateY(${-rows * step}px)` : 'translateY(0)',
             transition: play ? 'transform .5s cubic-bezier(.3,.85,.4,1)' : 'none',
             willChange:'transform',
           }}>
-            {snapshotCol.map((t, i) => cell(t, `s${i}`, false))}
-            {ghostTiles.map((t, i) => cell(t, `g${i}`, i === ghostTiles.length - 1))}
+            {snapshotCol.map((t, i) => {
+              const el = cell(t, `s${i}`, false);
+              return React.cloneElement(el, { style:{ ...el.props.style, top:i * step, left:0 } });
+            })}
+            {ghostTiles.map((t, i) => {
+              const el = cell(t, `g${i}`, i === ghostTiles.length - 1);
+              return React.cloneElement(el, { style:{ ...el.props.style, top:(boardSize + i) * step, left:0 } });
+            })}
           </div>
         </div>
       );
@@ -6407,6 +6424,23 @@
 
       const [tiles,       setTiles]        = useState(()=>shuffle(buildSolved(boardSize, mask), boardSize, 300, mask));
       const tilesRef = useRef(tiles);
+      const gridBoxRef = useRef(null); // el contenedor real del grid, para medir tamaño de celda en px
+      const measureGridCell = useCallback(() => {
+        const el = gridBoxRef.current;
+        if (!el) return null;
+        const rect = el.getBoundingClientRect();
+        const cs = getComputedStyle(el);
+        const padL = parseFloat(cs.paddingLeft) || 0;
+        const padT = parseFloat(cs.paddingTop) || 0;
+        const padR = parseFloat(cs.paddingRight) || 0;
+        const padB = parseFloat(cs.paddingBottom) || 0;
+        const gapPx = 5;
+        const contentW = rect.width - padL - padR;
+        const contentH = rect.height - padT - padB;
+        const cellPx = (contentW - (boardSize - 1) * gapPx) / boardSize;
+        const cellPxH = (contentH - (boardSize - 1) * gapPx) / boardSize;
+        return { originLeft: padL, originTop: padT, cellPx: Math.min(cellPx, cellPxH), gapPx };
+      }, [boardSize]);
       useEffect(() => { tilesRef.current = tiles; }, [tiles]);
       const [moves,       setMoves]        = useState(0);
       const [time,        setTime]         = useState(0);
@@ -6996,7 +7030,7 @@
             }
             return arr;
           });
-          setCascadeAnim({ cols, ghostTilesByCol, snapshot });
+          setCascadeAnim({ cols, ghostTilesByCol, snapshot, geo: measureGridCell() });
           window.showCascadeToast?.(item.from);
           navigator.vibrate?.([40, 30, 40, 30, 90]);
           clearTimeout(cascadeAnimTimeoutRef.current);
@@ -7015,7 +7049,7 @@
         };
         window.addEventListener('rrCascadeReceived', handler);
         return () => window.removeEventListener('rrCascadeReceived', handler);
-      }, [playerName, boardSize, mask]);
+      }, [playerName, boardSize, mask, measureGridCell]);
 
       // Fija el nivel activo (para que rrShuffle/reset regeneren un patrón del tamaño correcto)
       // y ajusta el tamaño de ficha (--tile) global a este tablero.
@@ -7481,7 +7515,7 @@
             const snapshotCol = [];
             for (let row = 0; row < boardSize; row++) snapshotCol.push(tiles[row * boardSize + col]);
             const ghostTiles = snapshotCol.slice(0, rows);
-            setJumpAnim({ col, rows, ghostTiles, snapshotCol });
+            setJumpAnim({ col, rows, ghostTiles, snapshotCol, geo: measureGridCell() });
             clearTimeout(jumpAnimTimeoutRef.current);
             jumpAnimTimeoutRef.current = setTimeout(() => {
               setTiles(curTiles => {
@@ -7587,7 +7621,7 @@
             },50);
           }
         }
-      }, [tiles, finished, countdown, rrPat, time, moves, sendPresence, gameCode, voiceOn, usedHints, activePl, playerName, triggerSabotagePrompt, triggerCascadePrompt, triggerJumpPrompt, triggerIcePrompt, mask, cascadeAnim, jumpAnim, iceFrozen]);
+      }, [tiles, finished, countdown, rrPat, time, moves, sendPresence, gameCode, voiceOn, usedHints, activePl, playerName, triggerSabotagePrompt, triggerCascadePrompt, triggerJumpPrompt, triggerIcePrompt, mask, cascadeAnim, jumpAnim, iceFrozen, measureGridCell]);
 
       useEffect(() => { handleTileRef.current = handleTile; }, [handleTile]);
 
@@ -8007,7 +8041,7 @@
                                        color:darkText?'rgba(20,20,22,.94)':'rgba(255,255,255,.87)'}}>{n}</div>
                 ))}
               </div>
-              <div style={{position:'relative',display:'grid',gridTemplateColumns:`repeat(${boardSize},var(--tile))`,gap:'5px',padding:'12px',background:'rgba(255,255,255,.04)',borderRadius:'16px',border:'1px solid rgba(255,255,255,.08)',boxShadow:'0 20px 60px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.1)',WebkitTransform:'translateZ(0)',transform:'translateZ(0)',isolation:'isolate'}}>
+              <div ref={gridBoxRef} style={{position:'relative',display:'grid',gridTemplateColumns:`repeat(${boardSize},var(--tile))`,gap:'5px',padding:'12px',background:'rgba(255,255,255,.04)',borderRadius:'16px',border:'1px solid rgba(255,255,255,.08)',boxShadow:'0 20px 60px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.1)',WebkitTransform:'translateZ(0)',transform:'translateZ(0)',isolation:'isolate'}}>
               {/* Marco de pulso sobre el grupo central */}
               {(() => {
                 if (!patternSize) return null; // nivel cross: forma irregular, sin marco
@@ -8032,12 +8066,12 @@
               {cascadeAnim && (
                 <CascadeSlide cols={cascadeAnim.cols} boardSize={boardSize}
                   ghostTilesByCol={cascadeAnim.ghostTilesByCol} snapshotTiles={cascadeAnim.snapshot}
-                  colorMap={getColorMap(effectivePride, colorblind, seasonAlt)}/>
+                  colorMap={getColorMap(effectivePride, colorblind, seasonAlt)} geo={cascadeAnim.geo}/>
               )}
               {jumpAnim && (
                 <JumpSlide col={jumpAnim.col} boardSize={boardSize} rows={jumpAnim.rows}
                   ghostTiles={jumpAnim.ghostTiles} snapshotCol={jumpAnim.snapshotCol}
-                  colorMap={getColorMap(effectivePride, colorblind, seasonAlt)}/>
+                  colorMap={getColorMap(effectivePride, colorblind, seasonAlt)} geo={jumpAnim.geo}/>
               )}
               {jumpArmed && !jumpAnim && (
                 <div style={{
