@@ -7637,13 +7637,22 @@
         if (colorSwitchArmedRef.current) {
           const t = tiles[idx];
           if (!t) return; // el hueco no tiene ficha que recolorear
+          // IMPORTANTE: cada ficha se identifica en React con la key `colorId-num`
+          // (así el motor de animación puede seguirla mientras se mueve). Si al
+          // recolorear conserváramos el `num` original, la ficha modificada podría
+          // acabar con la MISMA key que otra ficha real del tablero que ya tenga
+          // ese color+num (p.ej. "red-3" ya existente en otra casilla) — React
+          // confunde ambos nodos al reconciliar y el tablero muestra fichas/filas
+          // fantasma. Los `num` reales siempre son positivos (empiezan en 1), así
+          // que usamos un negativo único por posición para que nunca colisione.
+          const csNum = -(idx + 1);
           if (colorSwitchActiveIdxRef.current === idx) {
             setTiles(curTiles => {
               const cur = curTiles[idx];
               if (!cur) return curTiles;
               const nt = [...curTiles];
               const nextColorIdx = (RR_IDS.indexOf(cur.colorId) + 1) % RR_IDS.length;
-              nt[idx] = { ...cur, colorId: RR_IDS[nextColorIdx] };
+              nt[idx] = { colorId: RR_IDS[nextColorIdx], num: csNum };
               return nt;
             });
             navigator.vibrate?.(15);
@@ -7659,7 +7668,7 @@
               if (!cur) return curTiles;
               const nt = [...curTiles];
               const nextColorIdx = (RR_IDS.indexOf(cur.colorId) + 1) % RR_IDS.length;
-              nt[idx] = { ...cur, colorId: RR_IDS[nextColorIdx] };
+              nt[idx] = { colorId: RR_IDS[nextColorIdx], num: csNum };
               return nt;
             });
             navigator.vibrate?.([20, 15, 20]);
