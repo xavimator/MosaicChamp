@@ -841,6 +841,19 @@
       window.__fbSendIce = (targetName, fromName) =>
         push(iceRef, { target: targetName, from: fromName, ts: Date.now() });
 
+      // Sabotaje 5: Color Switch — quien va perdiendo recolorea varias de sus
+      // PROPIAS fichas (no afecta al rival, no reordena nada); solo se avisa
+      // al resto de jugadores con un toast. Por eso no lleva "target": cualquier
+      // otro jugador que reciba el evento simplemente ve el aviso.
+      const csRef   = ref(db, `${base}/colorswitch`);
+      const csQuery = query(csRef, orderByChild('ts'), startAfter(Date.now()));
+      unsubs.push(onChildAdded(csQuery, snap => {
+        const item = snap.val();
+        if (item?.from) window.__fbColorSwitchReceived?.(item);
+      }));
+      window.__fbSendColorSwitch = (fromName, capacity) =>
+        push(csRef, { from: fromName, capacity, ts: Date.now() });
+
       // Consenso para "nuevo juego" / "reiniciar": los demás jugadores tienen 5s
       // para rechazarlo; si nadie rechaza (o aceptan) se procede como antes.
       const resetReqRef   = ref(db, `${base}/resetRequest`);
@@ -2554,6 +2567,24 @@
     }
     .ice-toast .toast-title { background:linear-gradient(90deg,#e0f2fe,#bae6fd,#7dd3fc); -webkit-background-clip:text; background-size:200% auto; animation:shimmer 2.4s linear infinite; }
 
+    /* ══ Toast vistoso de "Color Switch" (mismo estilo, paleta arcoíris) ══ */
+    @keyframes colorSwitchPulse {
+      0%,100% { box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 30px rgba(236,72,153,.5); }
+      50%     { box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 48px rgba(236,72,153,.9); }
+    }
+    .colorswitch-toast {
+      border:1.5px solid rgba(253,224,71,.65) !important;
+      box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 30px rgba(236,72,153,.5);
+      animation:toastIn .4s cubic-bezier(.34,1.4,.64,1), colorSwitchPulse 1.3s ease-in-out .4s 2;
+    }
+    .colorswitch-toast .toast-title { background:linear-gradient(90deg,#f472b6,#a855f7,#60a5fa,#facc15); -webkit-background-clip:text; background-size:300% auto; animation:shimmer 2.4s linear infinite; }
+
+    /* ══ Ficha en proceso de recoloreo (Color Switch): brillo arcoíris ══ */
+    @keyframes colorSwitchGlow {
+      0%,100% { filter:brightness(1.15); box-shadow:0 4px 0 rgba(0,0,0,.3),0 0 0 3px rgba(236,72,153,.85),0 0 18px rgba(168,85,247,.7); }
+      50%     { filter:brightness(1.4);  box-shadow:0 4px 0 rgba(0,0,0,.3),0 0 0 3px rgba(250,204,21,.9),0 0 24px rgba(96,165,250,.85); }
+    }
+
     /* ══ Prompt "¿Mandar Sudden Swap?": entrada creciente ══ */
     @keyframes rrPromptGrow {
       0%   { transform:translateX(-50%) scale(.35); opacity:0; }
@@ -2984,6 +3015,22 @@
       setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(),400); }, 3200);
     }
     window.showIceToast = showIceToast;
+
+    function showColorSwitchToast(fromName, capacity) {
+      const el = document.createElement('div');
+      el.className = 'toast colorswitch-toast';
+      const label = capacity ? `Color Switch ${capacity}!` : 'Color Switch!';
+      el.innerHTML = `<div class="toast-row">
+        <div>
+          <div class="toast-title">${label}</div>
+          <div class="toast-msg" style="color:#fff;font-weight:700;">by ${fromName}!!!</div>
+        </div>
+      </div>`;
+      document.getElementById('toast-container').appendChild(el);
+      setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(),400); }, 3200);
+    }
+    window.showColorSwitchToast = showColorSwitchToast;
+
     window.__showForegroundNotification = function(title, body) {
       showDiscreteToast('🔔', [title, body].filter(Boolean).join(' — '), '#7c3aed');
     };
@@ -3028,6 +3075,9 @@
     };
     window.__fbIceReceived = function(item) {
       window.dispatchEvent(new CustomEvent('rrIceReceived', { detail: item }));
+    };
+    window.__fbColorSwitchReceived = function(item) {
+      window.dispatchEvent(new CustomEvent('rrColorSwitchReceived', { detail: item }));
     };
     window.__fbResetRequestReceived = function(item) {
       window.dispatchEvent(new CustomEvent('rrResetRequest', { detail: item }));
@@ -6712,6 +6762,76 @@
         return () => window.removeEventListener('rrIceReceived', handler);
       }, [playerName]);
 
+      // ── Power-up "Color Switch": quien va perdiendo puede recolorear varias
+      // de sus PROPIAS fichas (no se envía al rival). Toca una ficha para
+      // ciclar su color; tocar otra ficha distinta fija la anterior y consume
+      // uno de los usos disponibles. La capacidad (cuántas fichas distintas
+      // se pueden recolorear en esa activación) es igual a patternSize, el
+      // tamaño de columna del centro (p.ej. 4 en un centro 4x4 → "Color
+      // Switch 4"). No reordena nada, así que es seguro también con mask.
+      const [colorSwitchPrompt, setColorSwitchPrompt] = useState(null); // {secondsLeft, capacity}
+      const colorSwitchPromptActiveRef = useRef(false);
+      const colorSwitchPromptTickRef   = useRef(null);
+
+      const triggerColorSwitchPrompt = useCallback(() => {
+        const capacity = Math.max(1, patternSize || 1);
+        colorSwitchPromptActiveRef.current = true;
+        setColorSwitchPrompt({ secondsLeft: 5, capacity });
+        clearInterval(colorSwitchPromptTickRef.current);
+        colorSwitchPromptTickRef.current = setInterval(() => {
+          setColorSwitchPrompt(p => {
+            if (!p) return p;
+            const next = p.secondsLeft - 1;
+            if (next <= 0) {
+              clearInterval(colorSwitchPromptTickRef.current);
+              colorSwitchPromptActiveRef.current = false;
+              return null;
+            }
+            return { ...p, secondsLeft: next };
+          });
+        }, 1000);
+      }, [patternSize]);
+
+      // Armado en mi propio tablero: cuántas fichas distintas me quedan por
+      // recolorear y cuál es la que estoy cambiando de color ahora mismo.
+      const [colorSwitchArmed, setColorSwitchArmed] = useState(false);
+      const colorSwitchArmedRef = useRef(false);
+      const [colorSwitchRemaining, setColorSwitchRemaining] = useState(0);
+      const colorSwitchRemainingRef = useRef(0);
+      const [colorSwitchActiveIdx, setColorSwitchActiveIdx] = useState(null);
+      const colorSwitchActiveIdxRef = useRef(null);
+
+      const confirmColorSwitch = useCallback(() => {
+        setColorSwitchPrompt(p => {
+          if (p) {
+            colorSwitchArmedRef.current = true;
+            colorSwitchRemainingRef.current = p.capacity;
+            colorSwitchActiveIdxRef.current = null;
+            setColorSwitchArmed(true);
+            setColorSwitchRemaining(p.capacity);
+            setColorSwitchActiveIdx(null);
+            window.__fbSendColorSwitch?.(playerName, p.capacity);
+          }
+          return null;
+        });
+        clearInterval(colorSwitchPromptTickRef.current);
+        colorSwitchPromptActiveRef.current = false;
+      }, [playerName]);
+
+      useEffect(() => () => clearInterval(colorSwitchPromptTickRef.current), []);
+
+      // Aviso a los demás jugadores (Color Switch no les afecta, solo se les
+      // notifica con un toast quién lo está usando).
+      useEffect(() => {
+        const handler = (e) => {
+          const item = e.detail;
+          if (!item || item.from === playerName) return;
+          window.showColorSwitchToast?.(item.from, item.capacity);
+        };
+        window.addEventListener('rrColorSwitchReceived', handler);
+        return () => window.removeEventListener('rrColorSwitchReceived', handler);
+      }, [playerName]);
+
       // ── Botones de prueba de power-ups (solo Rubiking, para QA) ──
       // Se autentican vía Firebase Auth real (useRubikingAuthed) Y el nombre activo
       // en esta partida debe ser 'rubiking', igual que el resto de accesos de admin.
@@ -6734,6 +6854,10 @@
       const testIce = useCallback(() => {
         window.__fbSendIce?.(playerName, playerName);
       }, [playerName]);
+
+      const testColorSwitch = useCallback(() => {
+        triggerColorSwitchPrompt();
+      }, [triggerColorSwitchPrompt]);
 
       // ── Consenso de "nuevo juego" / "reiniciar" ──
       const [resetVotePrompt, setResetVotePrompt] = useState(null); // {requestId, from, action, secondsLeft} (para mí, si me llega un pedido)
@@ -7504,6 +7628,51 @@
 
       const handleTile = useCallback((idx) => {
         if (finished || countdown !== null || cascadeAnim || jumpAnim || iceFrozenRef.current) return;
+
+        // Color Switch armado: el toque no mueve la ficha, cicla su color entre
+        // los disponibles. Tocar una ficha DISTINTA a la que se está cambiando
+        // fija el color actual y consume uno de los usos disponibles (máx =
+        // patternSize). Al agotarse los usos, el siguiente toque en otra ficha
+        // desarma el power-up y se trata como un movimiento normal.
+        if (colorSwitchArmedRef.current) {
+          const t = tiles[idx];
+          if (!t) return; // el hueco no tiene ficha que recolorear
+          if (colorSwitchActiveIdxRef.current === idx) {
+            setTiles(curTiles => {
+              const cur = curTiles[idx];
+              if (!cur) return curTiles;
+              const nt = [...curTiles];
+              const nextColorIdx = (RR_IDS.indexOf(cur.colorId) + 1) % RR_IDS.length;
+              nt[idx] = { ...cur, colorId: RR_IDS[nextColorIdx] };
+              return nt;
+            });
+            navigator.vibrate?.(15);
+            return;
+          }
+          if (colorSwitchRemainingRef.current > 0) {
+            colorSwitchRemainingRef.current -= 1;
+            setColorSwitchRemaining(colorSwitchRemainingRef.current);
+            colorSwitchActiveIdxRef.current = idx;
+            setColorSwitchActiveIdx(idx);
+            setTiles(curTiles => {
+              const cur = curTiles[idx];
+              if (!cur) return curTiles;
+              const nt = [...curTiles];
+              const nextColorIdx = (RR_IDS.indexOf(cur.colorId) + 1) % RR_IDS.length;
+              nt[idx] = { ...cur, colorId: RR_IDS[nextColorIdx] };
+              return nt;
+            });
+            navigator.vibrate?.([20, 15, 20]);
+            return;
+          }
+          // Sin usos restantes: se desarma y este toque pasa a tratarse como un
+          // movimiento normal (sigue el flujo de más abajo).
+          colorSwitchArmedRef.current = false;
+          setColorSwitchArmed(false);
+          colorSwitchActiveIdxRef.current = null;
+          setColorSwitchActiveIdx(null);
+        }
+
         // Trampa de "Salto" armada: el toque no mueve la ficha, hace subir toda su
         // columna entre 1 y 4 casillas (wrap-around por abajo) y consume la trampa.
         if (jumpArmedRef.current) {
@@ -7579,21 +7748,24 @@
         }
         if (matchIndexRef.current >= 2 && activePl.length > 1 &&
             prevCorrectRef.current === 1 && centerCorrectCount === 2 &&
-            !sabotagePromptActiveRef.current && !cascadePromptActiveRef.current) {
+            !sabotagePromptActiveRef.current && !cascadePromptActiveRef.current &&
+            !colorSwitchPromptActiveRef.current) {
           const targets = otherProgressRef.current.filter(p => p.correct > 4);
           if (targets.length) {
             const victim = targets[Math.floor(Math.random() * targets.length)];
-            // Rota entre Sudden Swap, Cascada, Salto y Hielo cada vez que se cumple
-            // la condición. Cascada y Salto reordenan fichas por columna, así que se
-            // omiten en tableros con forma irregular (mask) para no romper la
-            // silueta; Sudden Swap y Hielo no reordenan nada, así que son seguros
-            // siempre.
-            const pool = mask ? ['sudden', 'ice'] : ['sudden', 'cascade', 'jump', 'ice'];
+            // Rota entre Sudden Swap, Cascada, Salto, Hielo y Color Switch cada vez
+            // que se cumple la condición. Cascada y Salto reordenan fichas por
+            // columna, así que se omiten en tableros con forma irregular (mask)
+            // para no romper la silueta; Sudden Swap, Hielo y Color Switch no
+            // reordenan nada (Color Switch solo recolorea in-situ), así que son
+            // seguros siempre.
+            const pool = mask ? ['sudden', 'ice', 'colorswitch'] : ['sudden', 'cascade', 'jump', 'ice', 'colorswitch'];
             const choice = pool[powerUpAlternateRef.current % pool.length];
             powerUpAlternateRef.current += 1;
             if (choice === 'cascade') triggerCascadePrompt(victim.name);
             else if (choice === 'jump') triggerJumpPrompt(victim.name);
             else if (choice === 'ice') triggerIcePrompt(victim.name);
+            else if (choice === 'colorswitch') triggerColorSwitchPrompt();
             else triggerSabotagePrompt(victim.name);
           }
         }
@@ -7621,7 +7793,7 @@
             },50);
           }
         }
-      }, [tiles, finished, countdown, rrPat, time, moves, sendPresence, gameCode, voiceOn, usedHints, activePl, playerName, triggerSabotagePrompt, triggerCascadePrompt, triggerJumpPrompt, triggerIcePrompt, mask, cascadeAnim, jumpAnim, iceFrozen, measureGridCell]);
+      }, [tiles, finished, countdown, rrPat, time, moves, sendPresence, gameCode, voiceOn, usedHints, activePl, playerName, triggerSabotagePrompt, triggerCascadePrompt, triggerJumpPrompt, triggerIcePrompt, triggerColorSwitchPrompt, mask, cascadeAnim, jumpAnim, iceFrozen, measureGridCell]);
 
       useEffect(() => { handleTileRef.current = handleTile; }, [handleTile]);
 
@@ -7829,6 +8001,12 @@
                 background:'rgba(125,211,252,.18)', border:'1.5px dashed rgba(125,211,252,.6)',
                 color:'#e0f2fe', fontSize:'11px', fontWeight:700,
               }}>❄️ Probar Hielo</button>
+              <button onClick={testColorSwitch} style={{
+                flex:'1 1 45%', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
+                padding:'6px 10px', borderRadius:'10px', cursor:'pointer',
+                background:'rgba(236,72,153,.18)', border:'1.5px dashed rgba(236,72,153,.6)',
+                color:'#f9a8d4', fontSize:'11px', fontWeight:700,
+              }}>🎨 Probar Color Switch</button>
             </div>
           )}
 
@@ -7914,6 +8092,25 @@
                   display:'flex', alignItems:'center', justifyContent:'center',
                   fontSize:'11px', fontWeight:800, color:'#fff', flexShrink:0
                 }}>{icePrompt.secondsLeft}</span>
+              </div>
+            )}
+
+            {colorSwitchPrompt && (
+              <div onClick={confirmColorSwitch} style={{
+                position:'absolute', bottom:'calc(100% + 8px)', left:'50%',
+                background:'linear-gradient(135deg, rgba(236,72,153,.95), rgba(139,92,246,.95))',
+                border:'1.5px solid rgba(253,224,71,.7)', borderRadius:'14px',
+                padding:'10px 14px 10px 16px', display:'flex', alignItems:'center', gap:'10px',
+                boxShadow:'0 8px 24px rgba(0,0,0,.5), 0 0 20px rgba(236,72,153,.45)',
+                cursor:'pointer', zIndex:50, whiteSpace:'nowrap',
+                animation:'rrPromptGrow .35s cubic-bezier(.34,1.56,.64,1) forwards'
+              }}>
+                <span style={{fontSize:'12.5px', fontWeight:700, color:'#fff'}}>¿Usar Color Switch {colorSwitchPrompt.capacity}?</span>
+                <span style={{
+                  width:'20px', height:'20px', borderRadius:'50%', background:'rgba(255,255,255,.28)',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  fontSize:'11px', fontWeight:800, color:'#fff', flexShrink:0
+                }}>{colorSwitchPrompt.secondsLeft}</span>
               </div>
             )}
 
@@ -8084,6 +8281,17 @@
                   animation:'suddenSwapPulse 1.3s ease-in-out infinite',
                 }}>🦘 ¡Salto armado! Tu próximo toque hará subir una columna</div>
               )}
+              {colorSwitchArmed && (
+                <div style={{
+                  position:'absolute', top:'4px', left:'50%', transform:'translateX(-50%)',
+                  background:'linear-gradient(135deg, rgba(236,72,153,.95), rgba(139,92,246,.95))',
+                  border:'1px solid rgba(253,224,71,.7)', borderRadius:'999px',
+                  padding:'3px 10px', fontSize:'10.5px', fontWeight:800, color:'#fff',
+                  display:'flex', alignItems:'center', gap:'5px', zIndex:42, pointerEvents:'none',
+                  boxShadow:'0 4px 14px rgba(0,0,0,.4), 0 0 16px rgba(236,72,153,.5)',
+                  animation:'colorSwitchPulse 1.3s ease-in-out infinite',
+                }}>🎨 ¡Color Switch! Toca fichas para recolorearlas ({colorSwitchRemaining} restantes)</div>
+              )}
               {tiles.map((tile,idx)=>{
                 if (tile===undefined) return <div key={`void-${idx}`} style={{width:'var(--tile)',height:'var(--tile)'}}/>;
                 const isCenter = CENTER.includes(idx);
@@ -8143,7 +8351,7 @@
                           draggable={false}
                           style={{
                     width:'var(--tile)',height:'var(--tile)',borderRadius:'8px',border:'none',
-                    cursor:iceFrozen ? 'not-allowed' : (isAdj?'pointer':'default'),
+                    cursor:iceFrozen ? 'not-allowed' : (colorSwitchArmed ? 'pointer' : (isAdj?'pointer':'default')),
                     background: (scribbleMode || mapleMode) ? 'transparent' : (crayonMode
                       ? `url(${tileCharcoalUrl}),`+
                         `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`
@@ -8152,6 +8360,8 @@
                     backgroundBlendMode: scribbleMode ? undefined : (crayonMode ? 'multiply, normal' : undefined),
                     boxShadow:sabotageFlashIdx.includes(idx)
                       ? `0 0 0 4px rgba(168,85,247,1),0 0 34px 10px rgba(168,85,247,.9)`
+                      : idx===colorSwitchActiveIdx
+                      ? `0 4px 0 ${c.shadow},0 0 0 3px rgba(236,72,153,.9),0 0 22px rgba(168,85,247,.8),inset 0 1px 0 rgba(255,255,255,.25)`
                       : idx===hintMove
                       ? `0 4px 0 ${c.shadow},0 0 0 3px rgba(0,220,255,.9),0 0 18px rgba(0,220,255,.7),inset 0 1px 0 rgba(255,255,255,.25)`
                       : (scribbleMode || mapleMode) ? 'none'
@@ -8159,7 +8369,7 @@
                     transition:'transform .1s,filter .1s,box-shadow .2s',
                     transform:isAdj?'scale(1.02) translateZ(0)':'translateZ(0)',
                     filter:isAdj?'brightness(1.1)':'brightness(1)',
-                    animation:sabotageFlashIdx.includes(idx)?'rrSabotageFlash .7s ease-out':idx===lastMoved?'tileSlide .15s ease':idx===hintMove?'hintTilePulse 0.9s ease-in-out infinite':'none',
+                    animation:sabotageFlashIdx.includes(idx)?'rrSabotageFlash .7s ease-out':idx===lastMoved?'tileSlide .15s ease':idx===colorSwitchActiveIdx?'colorSwitchGlow 0.8s ease-in-out infinite':idx===hintMove?'hintTilePulse 0.9s ease-in-out infinite':'none',
                     position:'relative',overflow:'hidden',
                   }}>
                     {mapleMode ? (
