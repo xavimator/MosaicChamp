@@ -841,6 +841,20 @@
       window.__fbSendIce = (targetName, fromName) =>
         push(iceRef, { target: targetName, from: fromName, ts: Date.now() });
 
+      // Sabotaje 6: SpinRound — igual que Salto pero en horizontal: arma una trampa
+      // en el rival y la próxima ficha que toque hace que TODA esa fila gire 2x el
+      // tamaño del patrón interior (wrap-around por la derecha). El desplazamiento
+      // se recalcula localmente en el receptor a partir de su propio patternSize,
+      // así que no hace falta mandarlo por la red.
+      const spinRef   = ref(db, `${base}/spinround`);
+      const spinQuery = query(spinRef, orderByChild('ts'), startAfter(Date.now()));
+      unsubs.push(onChildAdded(spinQuery, snap => {
+        const item = snap.val();
+        if (item?.target) window.__fbSpinRoundReceived?.(item);
+      }));
+      window.__fbSendSpinRound = (targetName, fromName) =>
+        push(spinRef, { target: targetName, from: fromName, ts: Date.now() });
+
       // Sabotaje 5: Color Switch — quien va perdiendo recolorea varias de sus
       // PROPIAS fichas (no afecta al rival, no reordena nada); solo se avisa
       // al resto de jugadores con un toast. Por eso no lleva "target": cualquier
@@ -2519,6 +2533,12 @@
       50%     { box-shadow:0 0 0 3px rgba(253,230,138,.9),0 0 30px 10px rgba(251,191,36,1); filter:brightness(1.6); }
     }
 
+    /* ══ Ficha que entra al terminar SpinRound: brillo turquesa continuo ══ */
+    @keyframes rrSpinFlash {
+      0%,100% { box-shadow:0 0 0 3px rgba(45,212,191,.7),0 0 20px 6px rgba(45,212,191,.75); filter:brightness(1.35); }
+      50%     { box-shadow:0 0 0 3px rgba(153,246,228,.9),0 0 30px 10px rgba(45,212,191,1); filter:brightness(1.6); }
+    }
+
     /* ══ Toast vistoso de "Sudden Swap" (estilo del toast de finished!) ══ */
     @keyframes suddenSwapPulse {
       0%,100% { box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 30px rgba(168,85,247,.5); }
@@ -2554,6 +2574,18 @@
       animation:toastIn .4s cubic-bezier(.34,1.4,.64,1), jumpPulse 1.3s ease-in-out .4s 2;
     }
     .jump-toast .toast-title { background:linear-gradient(90deg,#fde68a,#fbbf24,#f59e0b); -webkit-background-clip:text; background-size:200% auto; animation:shimmer 2.4s linear infinite; }
+
+    /* ══ Toast vistoso de "SpinRound" (mismo estilo, paleta turquesa) ══ */
+    @keyframes spinRoundPulse {
+      0%,100% { box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 30px rgba(45,212,191,.5); }
+      50%     { box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 48px rgba(45,212,191,.9); }
+    }
+    .spinround-toast {
+      border:1.5px solid rgba(45,212,191,.65) !important;
+      box-shadow:0 8px 32px rgba(0,0,0,.6),0 0 30px rgba(45,212,191,.5);
+      animation:toastIn .4s cubic-bezier(.34,1.4,.64,1), spinRoundPulse 1.3s ease-in-out .4s 2;
+    }
+    .spinround-toast .toast-title { background:linear-gradient(90deg,#99f6e4,#2dd4bf,#0d9488); -webkit-background-clip:text; background-size:200% auto; animation:shimmer 2.4s linear infinite; }
 
     /* ══ Toast vistoso de "Hielo" (mismo estilo, paleta cian-hielo) ══ */
     @keyframes icePulse {
@@ -3002,6 +3034,20 @@
     }
     window.showJumpToast = showJumpToast;
 
+    function showSpinRoundToast(fromName) {
+      const el = document.createElement('div');
+      el.className = 'toast spinround-toast';
+      el.innerHTML = `<div class="toast-row">
+        <div>
+          <div class="toast-title">SpinRound!</div>
+          <div class="toast-msg" style="color:#fff;font-weight:700;">by ${fromName}!!!</div>
+        </div>
+      </div>`;
+      document.getElementById('toast-container').appendChild(el);
+      setTimeout(()=>{ el.classList.add('out'); setTimeout(()=>el.remove(),400); }, 3200);
+    }
+    window.showSpinRoundToast = showSpinRoundToast;
+
     function showIceToast(fromName) {
       const el = document.createElement('div');
       el.className = 'toast ice-toast';
@@ -3075,6 +3121,9 @@
     };
     window.__fbIceReceived = function(item) {
       window.dispatchEvent(new CustomEvent('rrIceReceived', { detail: item }));
+    };
+    window.__fbSpinRoundReceived = function(item) {
+      window.dispatchEvent(new CustomEvent('rrSpinRoundReceived', { detail: item }));
     };
     window.__fbColorSwitchReceived = function(item) {
       window.dispatchEvent(new CustomEvent('rrColorSwitchReceived', { detail: item }));
@@ -5170,6 +5219,20 @@
       // contraseña para un alias libre). Devuelve si la sesión debe tratarse como efímera
       // (sin contraseña → se borrarán los datos al salir) o null si falló la verificación.
       const resolveAlias = async () => {
+        if (typedRubiking) {
+          // 'rubiking' NUNCA pasa por el sistema de alias con hash (aliasClaimed):
+          // usa Firebase Auth real. Si ya se verificó la contraseña en el cuadro de
+          // arriba (rubikingAuthed / passSession), no hay que volver a pedirla aquí;
+          // solo si por algún motivo aún no hay sesión, se intenta con lo escrito.
+          if (!rubikingAuthed) {
+            const res = await window.__fbSignInRubiking?.(password.trim()) ?? { ok:false };
+            if (!res.ok) { setPasswordError(window.T.wrongPassword); return null; }
+          }
+          setPasswordError('');
+          const done = await loadProgress(name.trim());
+          await checkLevel8(done);
+          return { ephemeral: false, done };
+        }
         if (aliasClaimed) {
           const ok = await window.__fbVerifyAliasPassword?.(name.trim(), password) ?? false;
           if (!ok) { setPasswordError(window.T.wrongPassword); return null; }
@@ -6240,6 +6303,78 @@
       );
     }
 
+    // SpinRound: como JumpSlide pero horizontal y con varias vueltas completas de
+    // "carrete" antes de frenar en la posición final (efecto tragaperras). La tira
+    // repite el contenido de la fila `loops` veces (una vuelta completa no cambia
+    // el patrón visible, así que es seguro repetir) y añade `shift` fichas finales
+    // al final para aterrizar exactamente en el desplazamiento real.
+    function SpinRoundSlide({ row, boardSize, shift, loops, ghostTiles, snapshotRow, colorMap, geo }) {
+      const [play, setPlay] = useState(false);
+      useEffect(() => {
+        let raf1 = requestAnimationFrame(() => {
+          raf1 = requestAnimationFrame(() => setPlay(true));
+        });
+        return () => cancelAnimationFrame(raf1);
+      }, []);
+      if (!geo || !geo.cellPx) return null;
+
+      const { originLeft, originTop, cellPx, gapPx } = geo;
+      const step = cellPx + gapPx;
+      const totalPx = boardSize * step - gapPx;
+      const totalShiftPx = (loops * boardSize + shift) * step;
+
+      const cell = (tile, key, glowing) => {
+        if (tile === undefined) {
+          return <div key={key} style={{ position:'absolute', width:cellPx, height:cellPx }}/>;
+        }
+        if (tile === null) {
+          return <div key={key} style={{
+            position:'absolute', width:cellPx, height:cellPx, borderRadius:'8px',
+            background:'rgba(0,0,0,.3)', border:'2px dashed rgba(255,255,255,.08)',
+          }}/>;
+        }
+        const c = colorMap[tile.colorId] || { bg:'#888', shine:'#aaa', shadow:'#444' };
+        return (
+          <div key={key} style={{
+            position:'absolute', width:cellPx, height:cellPx, borderRadius:'8px',
+            background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`,
+            boxShadow: glowing
+              ? `0 4px 0 ${c.shadow}, 0 0 0 3px rgba(45,212,191,.75), 0 0 22px 6px rgba(45,212,191,.85)`
+              : `0 4px 0 ${c.shadow}`,
+            animation: glowing ? 'rrSpinFlash 1s ease-in-out infinite' : 'none',
+          }}/>
+        );
+      };
+
+      return (
+        <div style={{
+          position:'absolute', left:originLeft, top:originTop + row * step,
+          width:totalPx, height:cellPx,
+          overflow:'hidden', borderRadius:'8px', pointerEvents:'none', zIndex:41,
+          WebkitMaskImage:'linear-gradient(to right, transparent 0, black 6%, black 94%, transparent 100%)',
+          maskImage:'linear-gradient(to right, transparent 0, black 6%, black 94%, transparent 100%)',
+        }}>
+          <div style={{
+            position:'absolute', left:0, top:0, width:totalPx, height:cellPx,
+            transform: play ? `translateX(${-totalShiftPx}px)` : 'translateX(0)',
+            transition: play ? 'transform 1.3s cubic-bezier(.13,.79,.24,1)' : 'none',
+            willChange:'transform',
+          }}>
+            {Array.from({ length: loops + 1 }).map((_, loopIdx) =>
+              snapshotRow.map((t, i) => {
+                const el = cell(t, `l${loopIdx}-${i}`, false);
+                return React.cloneElement(el, { style:{ ...el.props.style, left:(loopIdx * boardSize + i) * step, top:0 } });
+              })
+            )}
+            {ghostTiles.map((t, i) => {
+              const el = cell(t, `g${i}`, i === ghostTiles.length - 1);
+              return React.cloneElement(el, { style:{ ...el.props.style, left:((loops + 1) * boardSize + i) * step, top:0 } });
+            })}
+          </div>
+        </div>
+      );
+    }
+
         function TutorialOverlay({ step, hl, onNext, onClose }) {
       if (!step || !hl) return null;
       const { pat, ctr, voice, invite } = hl;
@@ -6703,6 +6838,68 @@
         return () => window.removeEventListener('rrJumpReceived', handler);
       }, [playerName]);
 
+      // ── Power-up "SpinRound": igual que Salto pero en horizontal. Arma una
+      // trampa en el rival; la próxima ficha que toque hace que TODA esa fila gire
+      // 2x patternSize casillas (wrap-around por la derecha) en vez de mover la
+      // ficha normalmente. Se excluye en tableros con mask (igual que Cascada y
+      // Salto) porque reordena por fila.
+      const [spinRoundPrompt, setSpinRoundPrompt] = useState(null); // {target, secondsLeft}
+      const spinRoundPromptActiveRef = useRef(false);
+      const spinRoundPromptTickRef   = useRef(null);
+
+      const triggerSpinRoundPrompt = useCallback((targetName) => {
+        spinRoundPromptActiveRef.current = true;
+        setSpinRoundPrompt({ target: targetName, secondsLeft: 5 });
+        clearInterval(spinRoundPromptTickRef.current);
+        spinRoundPromptTickRef.current = setInterval(() => {
+          setSpinRoundPrompt(p => {
+            if (!p) return p;
+            const next = p.secondsLeft - 1;
+            if (next <= 0) {
+              clearInterval(spinRoundPromptTickRef.current);
+              spinRoundPromptActiveRef.current = false;
+              return null;
+            }
+            return { ...p, secondsLeft: next };
+          });
+        }, 1000);
+      }, []);
+
+      const confirmSpinRound = useCallback(() => {
+        setSpinRoundPrompt(p => {
+          if (p) window.__fbSendSpinRound?.(p.target, playerName);
+          return null;
+        });
+        clearInterval(spinRoundPromptTickRef.current);
+        spinRoundPromptActiveRef.current = false;
+      }, [playerName]);
+
+      useEffect(() => () => clearInterval(spinRoundPromptTickRef.current), []);
+
+      // Trampa armada en mi propio tablero, a la espera de mi próximo toque.
+      const [spinRoundArmed, setSpinRoundArmed] = useState(false);
+      const spinRoundArmedRef = useRef(false);
+
+      // Animación de SpinRound: desplazamiento visible de una sola fila hacia la
+      // izquierda, con varias vueltas completas y frenada final, brillo turquesa
+      // en la ficha que entra al final por la derecha.
+      const [spinRoundAnim, setSpinRoundAnim] = useState(null); // {row, shift, loops, ghostTiles, snapshotRow}
+      const spinRoundAnimTimeoutRef = useRef(null);
+      useEffect(() => () => clearTimeout(spinRoundAnimTimeoutRef.current), []);
+
+      useEffect(() => {
+        const handler = (e) => {
+          const item = e.detail;
+          if (!item || item.target !== playerName || finishedRef.current) return;
+          spinRoundArmedRef.current = true;
+          setSpinRoundArmed(true);
+          window.showSpinRoundToast?.(item.from);
+          navigator.vibrate?.([30, 20, 30, 20, 60]);
+        };
+        window.addEventListener('rrSpinRoundReceived', handler);
+        return () => window.removeEventListener('rrSpinRoundReceived', handler);
+      }, [playerName]);
+
       // ── Power-up "Hielo": congela al rival 1 segundo (no puede mover ninguna
       // ficha); no reordena nada, es seguro también en tableros con mask.
       const [icePrompt, setIcePrompt] = useState(null); // {target, secondsLeft}
@@ -6849,6 +7046,10 @@
 
       const testJump = useCallback(() => {
         window.__fbSendJump?.(playerName, playerName);
+      }, [playerName]);
+
+      const testSpinRound = useCallback(() => {
+        window.__fbSendSpinRound?.(playerName, playerName);
       }, [playerName]);
 
       const testIce = useCallback(() => {
@@ -7627,7 +7828,7 @@
       useEffect(() => () => { if(voiceRef.current){voiceRef.current.onend=null;voiceRef.current.stop();} }, []);
 
       const handleTile = useCallback((idx) => {
-        if (finished || countdown !== null || cascadeAnim || jumpAnim || iceFrozenRef.current) return;
+        if (finished || countdown !== null || cascadeAnim || jumpAnim || spinRoundAnim || iceFrozenRef.current) return;
 
         // Color Switch armado: el toque no mueve la ficha, cicla su color entre
         // los disponibles. Tocar una ficha DISTINTA a la que se está cambiando
@@ -7710,6 +7911,33 @@
           }
           return;
         }
+        if (spinRoundArmedRef.current) {
+          spinRoundArmedRef.current = false;
+          setSpinRoundArmed(false);
+          if (tiles.length === boardSize * boardSize) {
+            const row = Math.floor(idx / boardSize);
+            const shift = ((2 * (patternSize || 1)) % boardSize) || 1;
+            const loops = 2;
+            const snapshotRow = [];
+            for (let col = 0; col < boardSize; col++) snapshotRow.push(tiles[row * boardSize + col]);
+            const ghostTiles = snapshotRow.slice(0, shift);
+            setSpinRoundAnim({ row, shift, loops, ghostTiles, snapshotRow, geo: measureGridCell() });
+            clearTimeout(spinRoundAnimTimeoutRef.current);
+            spinRoundAnimTimeoutRef.current = setTimeout(() => {
+              setTiles(curTiles => {
+                if (curTiles.length !== boardSize * boardSize) return curTiles;
+                const nt = [...curTiles];
+                for (let col = 0; col < boardSize; col++) {
+                  const srcCol = (col + shift) % boardSize;
+                  nt[row * boardSize + col] = snapshotRow[srcCol];
+                }
+                return nt;
+              });
+              setSpinRoundAnim(null);
+            }, 1350);
+          }
+          return;
+        }
         const ei=tiles.indexOf(null);
         if (!canMove(idx,ei,boardSize,mask)) return;
         const movedTile = tiles[idx];
@@ -7758,23 +7986,24 @@
         if (matchIndexRef.current >= 2 && activePl.length > 1 &&
             prevCorrectRef.current === 1 && centerCorrectCount === 2 &&
             !sabotagePromptActiveRef.current && !cascadePromptActiveRef.current &&
-            !colorSwitchPromptActiveRef.current) {
+            !colorSwitchPromptActiveRef.current && !spinRoundPromptActiveRef.current) {
           const targets = otherProgressRef.current.filter(p => p.correct > 4);
           if (targets.length) {
             const victim = targets[Math.floor(Math.random() * targets.length)];
-            // Rota entre Sudden Swap, Cascada, Salto, Hielo y Color Switch cada vez
-            // que se cumple la condición. Cascada y Salto reordenan fichas por
-            // columna, así que se omiten en tableros con forma irregular (mask)
-            // para no romper la silueta; Sudden Swap, Hielo y Color Switch no
-            // reordenan nada (Color Switch solo recolorea in-situ), así que son
-            // seguros siempre.
-            const pool = mask ? ['sudden', 'ice', 'colorswitch'] : ['sudden', 'cascade', 'jump', 'ice', 'colorswitch'];
+            // Rota entre Sudden Swap, Cascada, Salto, Hielo, Color Switch y
+            // SpinRound cada vez que se cumple la condición. Cascada, Salto y
+            // SpinRound reordenan fichas por columna/fila, así que se omiten en
+            // tableros con forma irregular (mask) para no romper la silueta;
+            // Sudden Swap, Hielo y Color Switch no reordenan nada (Color Switch
+            // solo recolorea in-situ), así que son seguros siempre.
+            const pool = mask ? ['sudden', 'ice', 'colorswitch'] : ['sudden', 'cascade', 'jump', 'ice', 'colorswitch', 'spinround'];
             const choice = pool[powerUpAlternateRef.current % pool.length];
             powerUpAlternateRef.current += 1;
             if (choice === 'cascade') triggerCascadePrompt(victim.name);
             else if (choice === 'jump') triggerJumpPrompt(victim.name);
             else if (choice === 'ice') triggerIcePrompt(victim.name);
             else if (choice === 'colorswitch') triggerColorSwitchPrompt();
+            else if (choice === 'spinround') triggerSpinRoundPrompt(victim.name);
             else triggerSabotagePrompt(victim.name);
           }
         }
@@ -7802,7 +8031,7 @@
             },50);
           }
         }
-      }, [tiles, finished, countdown, rrPat, time, moves, sendPresence, gameCode, voiceOn, usedHints, activePl, playerName, triggerSabotagePrompt, triggerCascadePrompt, triggerJumpPrompt, triggerIcePrompt, triggerColorSwitchPrompt, mask, cascadeAnim, jumpAnim, iceFrozen, measureGridCell]);
+      }, [tiles, finished, countdown, rrPat, time, moves, sendPresence, gameCode, voiceOn, usedHints, activePl, playerName, triggerSabotagePrompt, triggerCascadePrompt, triggerJumpPrompt, triggerIcePrompt, triggerColorSwitchPrompt, triggerSpinRoundPrompt, mask, cascadeAnim, jumpAnim, spinRoundAnim, iceFrozen, patternSize, measureGridCell]);
 
       useEffect(() => { handleTileRef.current = handleTile; }, [handleTile]);
 
@@ -8016,6 +8245,12 @@
                 background:'rgba(236,72,153,.18)', border:'1.5px dashed rgba(236,72,153,.6)',
                 color:'#f9a8d4', fontSize:'11px', fontWeight:700,
               }}>🎨 Probar Color Switch</button>
+              <button onClick={testSpinRound} style={{
+                flex:'1 1 45%', display:'flex', alignItems:'center', justifyContent:'center', gap:'6px',
+                padding:'6px 10px', borderRadius:'10px', cursor:'pointer',
+                background:'rgba(45,212,191,.18)', border:'1.5px dashed rgba(45,212,191,.6)',
+                color:'#99f6e4', fontSize:'11px', fontWeight:700,
+              }}>🌀 Probar SpinRound</button>
             </div>
           )}
 
@@ -8082,6 +8317,25 @@
                   display:'flex', alignItems:'center', justifyContent:'center',
                   fontSize:'11px', fontWeight:800, color:'#fff', flexShrink:0
                 }}>{jumpPrompt.secondsLeft}</span>
+              </div>
+            )}
+
+            {spinRoundPrompt && (
+              <div onClick={confirmSpinRound} style={{
+                position:'absolute', bottom:'calc(100% + 8px)', left:'50%',
+                background:'linear-gradient(135deg, rgba(45,212,191,.95), rgba(13,148,136,.95))',
+                border:'1.5px solid rgba(153,246,228,.7)', borderRadius:'14px',
+                padding:'10px 14px 10px 16px', display:'flex', alignItems:'center', gap:'10px',
+                boxShadow:'0 8px 24px rgba(0,0,0,.5), 0 0 20px rgba(45,212,191,.45)',
+                cursor:'pointer', zIndex:50, whiteSpace:'nowrap',
+                animation:'rrPromptGrow .35s cubic-bezier(.34,1.56,.64,1) forwards'
+              }}>
+                <span style={{fontSize:'12.5px', fontWeight:700, color:'#fff'}}>¿Mandar SpinRound?</span>
+                <span style={{
+                  width:'20px', height:'20px', borderRadius:'50%', background:'rgba(255,255,255,.28)',
+                  display:'flex', alignItems:'center', justifyContent:'center',
+                  fontSize:'11px', fontWeight:800, color:'#fff', flexShrink:0
+                }}>{spinRoundPrompt.secondsLeft}</span>
               </div>
             )}
 
@@ -8289,6 +8543,22 @@
                   boxShadow:'0 4px 14px rgba(0,0,0,.4), 0 0 16px rgba(251,191,36,.5)',
                   animation:'suddenSwapPulse 1.3s ease-in-out infinite',
                 }}>🦘 ¡Salto armado! Tu próximo toque hará subir una columna</div>
+              )}
+              {spinRoundAnim && (
+                <SpinRoundSlide row={spinRoundAnim.row} boardSize={boardSize} shift={spinRoundAnim.shift}
+                  loops={spinRoundAnim.loops} ghostTiles={spinRoundAnim.ghostTiles} snapshotRow={spinRoundAnim.snapshotRow}
+                  colorMap={getColorMap(effectivePride, colorblind, seasonAlt)} geo={spinRoundAnim.geo}/>
+              )}
+              {spinRoundArmed && !spinRoundAnim && (
+                <div style={{
+                  position:'absolute', top:'4px', left:'50%', transform:'translateX(-50%)',
+                  background:'linear-gradient(135deg, rgba(45,212,191,.95), rgba(13,148,136,.95))',
+                  border:'1px solid rgba(153,246,228,.7)', borderRadius:'999px',
+                  padding:'3px 10px', fontSize:'10.5px', fontWeight:800, color:'#fff',
+                  display:'flex', alignItems:'center', gap:'5px', zIndex:42, pointerEvents:'none',
+                  boxShadow:'0 4px 14px rgba(0,0,0,.4), 0 0 16px rgba(45,212,191,.5)',
+                  animation:'suddenSwapPulse 1.3s ease-in-out infinite',
+                }}>🌀 ¡SpinRound armado! Tu próximo toque hará girar una fila</div>
               )}
               {colorSwitchArmed && (
                 <div style={{
