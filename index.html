@@ -29,6 +29,89 @@
     });
   }
   </script>
+
+  <!-- ══ AdMob (solo dentro de la app nativa Android/iOS vía Capacitor) ══
+       En la versión web/PWA (GitHub Pages, cdmon...) window.Capacitor no
+       existe o no es plataforma nativa, así que todo este bloque no hace
+       nada — no hace falta ningún guard adicional fuera de isNativePlatform().
+
+       IMPORTANTE — sustituye estos IDs por los tuyos reales de AdMob antes
+       de publicar. Los que hay ahora son los IDs de PRUEBA oficiales de
+       Google (nunca sirven anuncios reales, es normal y esperado usarlos
+       mientras desarrollas: https://developers.google.com/admob/android/test-ads)
+  -->
+  <script>
+  (() => {
+    const ADMOB_TEST_MODE = true; // ⚠️ pon esto a false cuando metas tus IDs reales
+    const ADMOB_BANNER_ID = 'ca-app-pub-3940256099942544/6300978111';       // TEST — sustituir
+    const ADMOB_INTERSTITIAL_ID = 'ca-app-pub-3940256099942544/1033173712'; // TEST — sustituir
+    const INTERSTITIAL_EVERY_N_RETOS = 2; // muestra 1 intersticial cada N "Nuevo reto" (ajusta a tu gusto)
+
+    let interstitialReady = false;
+    let retoCounter = 0;
+
+    async function prepareNextInterstitial(AdMob) {
+      try {
+        await AdMob.prepareInterstitial({ adId: ADMOB_INTERSTITIAL_ID, isTesting: ADMOB_TEST_MODE });
+        interstitialReady = true;
+      } catch (e) {
+        interstitialReady = false;
+        console.warn('AdMob: no se pudo preparar el intersticial', e);
+      }
+    }
+
+    async function initAds() {
+      if (!window.Capacitor?.isNativePlatform?.()) return; // solo en la app empaquetada
+      const AdMob = window.Capacitor.Plugins?.AdMob;
+      if (!AdMob) return;
+
+      try {
+        // Flujo de consentimiento GDPR/UMP (obligatorio si puede jugar gente de la UE/Reino Unido)
+        const consentInfo = await AdMob.requestConsentInfo();
+        if (consentInfo.isConsentFormAvailable && consentInfo.status === 'REQUIRED') {
+          await AdMob.showConsentForm();
+        }
+
+        await AdMob.initialize({ initializeForTesting: ADMOB_TEST_MODE });
+
+        // Reserva espacio fijo abajo del todo para que el banner no tape los
+        // controles del juego (movimientos/tiempo/botones).
+        document.body.classList.add('has-admob-banner');
+        AdMob.addListener('bannerAdSizeChanged', (info) => {
+          if (info?.height) document.documentElement.style.setProperty('--admob-banner-h', info.height + 'px');
+        });
+
+        await AdMob.showBanner({
+          adId: ADMOB_BANNER_ID,
+          adSize: 'ADAPTIVE_BANNER',
+          position: 'BOTTOM_CENTER',
+          margin: 0,
+          isTesting: ADMOB_TEST_MODE,
+        });
+
+        await prepareNextInterstitial(AdMob);
+      } catch (e) {
+        console.warn('AdMob: fallo al inicializar', e);
+      }
+    }
+
+    // Se llama desde el juego (botón "Nuevo reto") — muestra un intersticial
+    // cada INTERSTITIAL_EVERY_N_RETOS veces, sin bloquear el resto del flujo.
+    window.__admobShowInterstitial = function () {
+      if (!window.Capacitor?.isNativePlatform?.()) return;
+      const AdMob = window.Capacitor.Plugins?.AdMob;
+      if (!AdMob) return;
+      retoCounter += 1;
+      if (retoCounter % INTERSTITIAL_EVERY_N_RETOS !== 0 || !interstitialReady) return;
+      interstitialReady = false;
+      AdMob.showInterstitial().catch(e => console.warn('AdMob: fallo al mostrar intersticial', e));
+      AdMob.addListener('interstitialAdDismissed', () => prepareNextInterstitial(AdMob));
+      AdMob.addListener('interstitialAdFailedToShow', () => prepareNextInterstitial(AdMob));
+    };
+
+    window.addEventListener('load', initAds);
+  })();
+  </script>
   <script>
   /* ── Sonidos — Chrome + Safari/iOS ── */
   (() => {
@@ -2149,6 +2232,11 @@
 
     body { position:fixed; inset:0; overflow:hidden; overscroll-behavior:none; }
     #root { height:100%; overflow:hidden; }
+    /* Reserva espacio para el banner de AdMob (solo en la app nativa empaquetada;
+       ver bloque de script de AdMob más arriba). --admob-banner-h se actualiza
+       dinámicamente con el alto real del banner adaptativo; 50px es el valor de
+       respaldo mientras se carga. */
+    body.has-admob-banner #root { padding-bottom: var(--admob-banner-h, 50px); box-sizing: border-box; }
     :root { --tile:clamp(50px,calc((100vw - 64px)/5),62px); }
 
     @keyframes pulse      { 0%,100%{opacity:.2} 50%{opacity:.8} }
@@ -2615,6 +2703,16 @@
     @keyframes colorSwitchGlow {
       0%,100% { filter:brightness(1.15); box-shadow:0 4px 0 rgba(0,0,0,.3),0 0 0 3px rgba(236,72,153,.85),0 0 18px rgba(168,85,247,.7); }
       50%     { filter:brightness(1.4);  box-shadow:0 4px 0 rgba(0,0,0,.3),0 0 0 3px rgba(250,204,21,.9),0 0 24px rgba(96,165,250,.85); }
+    }
+
+    /* ══ Iconos de "carga del líder" (fila de 6 svg redondos) ══ */
+    @keyframes winnerIconAppear {
+      0%   { transform:scale(.4); opacity:0; }
+      100% { transform:scale(1);  opacity:.6; }
+    }
+    @keyframes winnerIconPulse {
+      0%,100% { transform:scale(1);    filter:brightness(1.1); }
+      50%     { transform:scale(1.12); filter:brightness(1.5); }
     }
 
     /* ══ Prompt "¿Mandar Sudden Swap?": entrada creciente ══ */
@@ -6031,6 +6129,7 @@
       const [name,   setName]   = useState(()=>localStorage.getItem('rr-player-name') || playerName || '');
       const [nameSaved, setNameSaved] = useState(false);
       const [premium, setPremium] = useState(()=>localStorage.getItem('mc-premium') === '1');
+      const [purchasing, setPurchasing] = useState(false);
 
       const toggleMute = () => {
         const next = !muted;
@@ -6058,18 +6157,49 @@
         setTimeout(()=>setNameSaved(false), 1800);
       };
 
-      const togglePremium = () => {
-        if (premium) return; // ya activo, no hay "cancelar" desde aquí
-        // NOTA: esta app no tiene una pasarela de pago real conectada (Stripe / Google Play
-        // Billing / App Store). Este interruptor solo guarda la preferencia localmente; para
-        // cobrar de verdad hace falta integrar un procesador de pagos en un backend.
-        const next = true;
-        setPremium(next);
-        localStorage.setItem('mc-premium', '1');
-        window.__isPremium = next;
-        window.dispatchEvent(new CustomEvent('premiumChange', { detail: next }));
-        window.playChime?.();
+      const togglePremium = async () => {
+        if (premium || purchasing) return;
+        if (!window.Capacitor?.isNativePlatform?.()) {
+          alert('Comprar solo está disponible dentro de la app instalada de Google Play, no en la versión web.');
+          return;
+        }
+        setPurchasing(true);
+        try {
+          const result = await window.__iapPurchaseRemoveAds?.();
+          if (result?.ok) {
+            setPremium(true);
+            window.playChime?.();
+          } else if (!result?.cancelled) {
+            alert('No se ha podido completar la compra. Inténtalo de nuevo en unos minutos.');
+          }
+        } finally {
+          setPurchasing(false);
+        }
       };
+
+      const restorePurchases = async () => {
+        if (purchasing || !window.Capacitor?.isNativePlatform?.()) return;
+        setPurchasing(true);
+        try {
+          const result = await window.__iapRestorePurchases?.();
+          if (result?.ok) {
+            setPremium(true);
+            window.playChime?.();
+          } else {
+            alert('No se ha encontrado ninguna compra anterior asociada a esta cuenta de Google Play.');
+          }
+        } finally {
+          setPurchasing(false);
+        }
+      };
+
+      // Si RevenueCat confirma el estado (al arrancar, o tras una compra/restauración
+      // en segundo plano) mientras este panel ya está abierto, lo reflejamos igual.
+      useEffect(() => {
+        const handler = (e) => { if (e.detail) setPremium(true); };
+        window.addEventListener('premiumChange', handler);
+        return () => window.removeEventListener('premiumChange', handler);
+      }, []);
 
       const Toggle = ({ on, onClick, disabled }) => (
         <button onClick={onClick} disabled={disabled} style={{
@@ -6145,19 +6275,29 @@
             <div style={sectionTitle}>✨ Sin anuncios</div>
             <div style={row}>
               <span style={{color:'#ddd',fontSize:'13px'}}>{premium ? 'Anuncios desactivados' : 'Quitar anuncios'}</span>
-              <button onClick={togglePremium} disabled={premium} style={{
+              <button onClick={togglePremium} disabled={premium || purchasing} style={{
                 background: premium ? 'rgba(74,222,128,.2)' : 'linear-gradient(135deg,#7c3aed,#4f1fbf)',
                 border: premium ? '1px solid rgba(74,222,128,.5)' : 'none',
                 borderRadius:'10px', padding:'8px 16px', color: premium ? '#4ade80' : '#fff',
-                fontWeight:700, fontSize:'12px', cursor: premium ? 'default' : 'pointer', whiteSpace:'nowrap',
+                fontWeight:700, fontSize:'12px', cursor: (premium || purchasing) ? 'default' : 'pointer',
+                whiteSpace:'nowrap', opacity: purchasing ? 0.7 : 1,
               }}>
-                {premium ? '✓ Activo' : 'Comprar'}
+                {premium ? '✓ Activo' : (purchasing ? 'Procesando…' : 'Comprar')}
               </button>
             </div>
+            {!premium && (
+              <div style={{...row, marginTop:'10px'}}>
+                <span style={{color:'rgba(255,255,255,.6)',fontSize:'11px'}}>¿Ya lo compraste en otro móvil?</span>
+                <button onClick={restorePurchases} disabled={purchasing} style={{
+                  background:'transparent', border:'1px solid rgba(255,255,255,.2)', borderRadius:'10px',
+                  padding:'6px 12px', color:'rgba(255,255,255,.85)', fontWeight:600, fontSize:'11px',
+                  cursor: purchasing ? 'default' : 'pointer', whiteSpace:'nowrap',
+                }}>Restaurar compras</button>
+              </div>
+            )}
             <div style={hint}>
-              Esta demo no tiene una pasarela de pago real conectada (Stripe, Google Play Billing, App Store, etc.).
-              El botón guarda tu preferencia en este dispositivo; para cobrar de verdad hace falta integrar
-              un procesador de pagos desde un backend.
+              Compra real a través de Google Play (RevenueCat + Google Play Billing). Solo disponible dentro
+              de la app instalada, no en la versión web/PWA del juego.
             </div>
 
           </div>
@@ -6739,6 +6879,48 @@
       // Contador de alternancia: par → Sudden Swap, impar → Cascada.
       const powerUpAlternateRef = useRef(0);
 
+      // ── Racha del perdedor: cuenta MIS fichas correctas colocadas mientras voy
+      // 3 o más por detrás de algún rival. Cada 2, se dispara un power-up
+      // aleatorio (ver bloque de disparo en handleTile). Se reinicia si dejo de
+      // ir perdiendo por esa distancia, y no tiene límite de repeticiones en toda
+      // la partida — así en tableros grandes pueden seguir saliendo hasta el final.
+      const loserStreakRef = useRef(0);
+      // Ref espejo de myCorrectCount (declarado más abajo) para poder leerlo desde
+      // useWinnerIcon sin problemas de orden de declaración de variables.
+      const myCorrectCountRef = useRef(0);
+
+      // ── Cargas del líder: por cada 2 power-ups ofensivos que recibo (Hielo,
+      // Salto, SpinRound, Sudden Swap, Cascada — Color Switch no cuenta, no es un
+      // ataque), se enciende el siguiente de 6 iconos en un orden fijo:
+      // Hielo → Salto → SpinRound → Sudden Swap → Color Switch → Cascada.
+      // Solo el ÚLTIMO icono encendido es pulsable; los anteriores se quedan
+      // visibles pero ya no se pueden volver a usar. Si se usa el 6º (Cascada),
+      // todo se apaga y el ciclo vuelve a empezar desde cero. Usar cualquiera de
+      // los 5 primeros NO reinicia nada: el progreso sigue donde estaba.
+      const WINNER_ICON_ORDER = ['ice','jump','spinround','sudden','colorswitch','cascade'];
+      const WINNER_ICON_META = {
+        ice:         { emoji:'❄️', color:'#7dd3fc', label:'Hielo' },
+        jump:        { emoji:'🦘', color:'#fbbf24', label:'Salto' },
+        spinround:   { emoji:'🌀', color:'#2dd4bf', label:'SpinRound' },
+        sudden:      { emoji:'⚡', color:'#a855f7', label:'Sudden Swap' },
+        colorswitch: { emoji:'🎨', color:'#ec4899', label:'Color Switch' },
+        cascade:     { emoji:'🌊', color:'#60a5fa', label:'Cascada' },
+      };
+      const attacksReceivedRef = useRef(0);
+      const winnerCycleBaseRef = useRef(0);
+      const [winnerLitCount, setWinnerLitCount] = useState(0);
+      const [winnerTopUsed, setWinnerTopUsed] = useState(false);
+      const winnerTopUsedRef = useRef(false);
+
+      const registerAttackReceived = useCallback(() => {
+        attacksReceivedRef.current += 1;
+        const lit = Math.min(6, Math.floor((attacksReceivedRef.current - winnerCycleBaseRef.current) / 2));
+        setWinnerLitCount(prevLit => {
+          if (lit > prevLit) { winnerTopUsedRef.current = false; setWinnerTopUsed(false); }
+          return lit;
+        });
+      }, []);
+
       const [cascadePrompt, setCascadePrompt] = useState(null); // {target, secondsLeft, cols}
       const cascadePromptActiveRef = useRef(false);
       const cascadePromptTickRef   = useRef(null);
@@ -6833,6 +7015,7 @@
           setJumpArmed(true);
           window.showJumpToast?.(item.from);
           navigator.vibrate?.([30, 20, 30, 20, 60]);
+          registerAttackReceived();
         };
         window.addEventListener('rrJumpReceived', handler);
         return () => window.removeEventListener('rrJumpReceived', handler);
@@ -6895,6 +7078,7 @@
           setSpinRoundArmed(true);
           window.showSpinRoundToast?.(item.from);
           navigator.vibrate?.([30, 20, 30, 20, 60]);
+          registerAttackReceived();
         };
         window.addEventListener('rrSpinRoundReceived', handler);
         return () => window.removeEventListener('rrSpinRoundReceived', handler);
@@ -6949,6 +7133,7 @@
           setIceFrozen(true);
           window.showIceToast?.(item.from);
           navigator.vibrate?.([60, 40, 60]);
+          registerAttackReceived();
           clearTimeout(iceTimeoutRef.current);
           iceTimeoutRef.current = setTimeout(() => {
             iceFrozenRef.current = false;
@@ -6988,6 +7173,40 @@
           });
         }, 1000);
       }, [patternSize]);
+
+      // Usar uno de los 6 iconos de "carga del líder" (ver refs declaradas más
+      // arriba, junto a powerUpAlternateRef). Solo funciona sobre el último
+      // icono encendido; los 5 primeros se mandan al rival que vaya perdiendo,
+      // el 5º (Color Switch) se aplica a mi propio tablero.
+      const useWinnerIcon = useCallback((slot1based) => {
+        if (slot1based !== winnerLitCount || winnerTopUsedRef.current || winnerLitCount === 0) return;
+        const kind = WINNER_ICON_ORDER[slot1based - 1];
+        winnerTopUsedRef.current = true;
+        setWinnerTopUsed(true);
+
+        if (kind === 'colorswitch') {
+          // Autoayuda: se aplica a mi propio tablero, como funciona siempre Color Switch.
+          triggerColorSwitchPrompt();
+        } else {
+          const behindTargets = otherProgressRef.current.filter(p => myCorrectCountRef.current - p.correct >= 3);
+          if (behindTargets.length) {
+            const victim = behindTargets[Math.floor(Math.random() * behindTargets.length)];
+            if (kind === 'ice') triggerIcePrompt(victim.name);
+            else if (kind === 'jump') triggerJumpPrompt(victim.name);
+            else if (kind === 'spinround') triggerSpinRoundPrompt(victim.name);
+            else if (kind === 'sudden') triggerSabotagePrompt(victim.name);
+            else if (kind === 'cascade') triggerCascadePrompt(victim.name);
+          }
+        }
+
+        if (slot1based === 6) {
+          // Ciclo completo: se apaga todo y se reinicia desde el icono 1.
+          winnerCycleBaseRef.current = attacksReceivedRef.current;
+          winnerTopUsedRef.current = false;
+          setWinnerTopUsed(false);
+          setWinnerLitCount(0);
+        }
+      }, [winnerLitCount, triggerColorSwitchPrompt, triggerIcePrompt, triggerJumpPrompt, triggerSpinRoundPrompt, triggerSabotagePrompt, triggerCascadePrompt]);
 
       // Armado en mi propio tablero: cuántas fichas distintas me quedan por
       // recolorear y cuál es la que estoy cambiando de color ahora mismo.
@@ -7325,6 +7544,7 @@
           });
           window.showSuddenSwapToast?.(item.from);
           navigator.vibrate?.([40, 30, 40, 30, 90]);
+          registerAttackReceived();
         };
         window.addEventListener('rrSabotageReceived', handler);
         return () => window.removeEventListener('rrSabotageReceived', handler);
@@ -7339,6 +7559,7 @@
           const item = e.detail;
           if (!item || item.target !== playerName || finishedRef.current || mask) return;
           const rawCols = Array.isArray(item.cols) ? item.cols : [];
+          registerAttackReceived();
           const cols = Array.from({ length: boardSize }, (_, c) => {
             const v = Math.min(4, Math.max(1, Math.round(Number(rawCols[c]) || 1)));
             return v % boardSize || boardSize; // si boardSize<=4, envuelve dentro del propio tablero
@@ -7720,6 +7941,12 @@
         const onValidate = (e) => {
           const pattern = e.detail || [];
           const counts = rrRequiredCounts(pattern);
+          // IMPORTANTE: hay que actualizar también rrPat (el patrón contra el que se
+          // comprueba la victoria, ver checkMatch en handleTile) — si no, el tablero
+          // se regenera bien pero el juego sigue comparando contra el patrón ANTERIOR,
+          // así que los colores objetivo del centro salen mal y nunca se marca como
+          // terminado por mucho que la partida esté completa con el patrón nuevo.
+          setRrPat([...pattern]);
           setTiles(shuffle(buildSolvedForPattern(boardSize, mask, counts), boardSize, 300, mask));
           setMoves(0); setFinished(false);
           setLastMoved(null); finishedRef.current=false; nearWinSentRef.current=false;
@@ -7970,26 +8197,36 @@
 
         // Difundo mi progreso a los demás jugadores de la partida
         setMyCorrectCount(centerCorrectCount);
+        myCorrectCountRef.current = centerCorrectCount;
         if (activePl.length > 1) window.__fbUpdateProgress?.(SESSION_UID, playerName, centerCorrectCount);
 
-        // Power-up de remontada: si voy 1-1 en fichas y coloco mi 2ª ficha correcta
-        // mientras alguien va ganando con más de 4, se me ofrece la opción de mandar
-        // un Sudden Swap (el jugador decide, no es automático).
+        // Power-ups del jugador que va perdiendo: si voy 3 fichas o más por detrás
+        // de algún rival, cada 2 fichas correctas que coloco YO mientras se
+        // mantenga esa distancia se dispara un power-up aleatorio (el jugador
+        // decide si lo manda, no es automático). Sin límite de repeticiones en
+        // toda la partida, así en tableros grandes pueden seguir saliendo hasta
+        // el final.
         if (window.__RR_DEBUG__) {
-          console.debug('[SuddenSwap]', {
-            matchIndex: matchIndexRef.current, activePl: activePl.length,
-            prevCorrect: prevCorrectRef.current, centerCorrectCount,
+          console.debug('[LoserPowerUp]', {
+            activePl: activePl.length, centerCorrectCount,
+            loserStreak: loserStreakRef.current,
             promptActive: sabotagePromptActiveRef.current,
             otherProgress: otherProgressRef.current
           });
         }
-        if (matchIndexRef.current >= 2 && activePl.length > 1 &&
-            prevCorrectRef.current === 1 && centerCorrectCount === 2 &&
+        const behindTargets = activePl.length > 1
+          ? otherProgressRef.current.filter(p => p.correct - centerCorrectCount >= 3)
+          : [];
+        if (!behindTargets.length) {
+          loserStreakRef.current = 0;
+        } else if (centerCorrectCount > prevCorrectRef.current &&
             !sabotagePromptActiveRef.current && !cascadePromptActiveRef.current &&
-            !colorSwitchPromptActiveRef.current && !spinRoundPromptActiveRef.current) {
-          const targets = otherProgressRef.current.filter(p => p.correct > 4);
-          if (targets.length) {
-            const victim = targets[Math.floor(Math.random() * targets.length)];
+            !colorSwitchPromptActiveRef.current && !spinRoundPromptActiveRef.current &&
+            !jumpPromptActiveRef.current && !icePromptActiveRef.current) {
+          loserStreakRef.current += (centerCorrectCount - prevCorrectRef.current);
+          if (loserStreakRef.current >= 2) {
+            loserStreakRef.current = 0;
+            const victim = behindTargets[Math.floor(Math.random() * behindTargets.length)];
             // Rota entre Sudden Swap, Cascada, Salto, Hielo, Color Switch y
             // SpinRound cada vez que se cumple la condición. Cascada, Salto y
             // SpinRound reordenan fichas por columna/fila, así que se omiten en
@@ -8087,6 +8324,7 @@
       }, [rrPat, tiles, finished, CENTER, mask, time, moves, playerName]);
 
       const handleReset = () => {
+        window.__admobShowInterstitial?.();
         if (activePl.length > 1) { setConfirmAction('new'); setShowConfirm(true); }
         else doReset();
       };
@@ -8571,6 +8809,41 @@
                   animation:'colorSwitchPulse 1.3s ease-in-out infinite',
                 }}>🎨 ¡Color Switch! Toca fichas para recolorearlas ({colorSwitchRemaining} restantes)</div>
               )}
+              {winnerLitCount > 0 && (
+                <div style={{
+                  position:'absolute', bottom:'4px', left:'50%', transform:'translateX(-50%)',
+                  display:'flex', gap:'6px', zIndex:43,
+                }}>
+                  {WINNER_ICON_ORDER.map((kind, i) => {
+                    const slot = i + 1;
+                    if (slot > winnerLitCount) return null; // aún invisible
+                    const meta = WINNER_ICON_META[kind];
+                    const isActive = slot === winnerLitCount && !winnerTopUsed;
+                    return (
+                      <button key={kind} onClick={() => isActive && useWinnerIcon(slot)} disabled={!isActive} style={{
+                        position:'relative', width:'32px', height:'32px', padding:0,
+                        background:'transparent', border:'none',
+                        cursor: isActive ? 'pointer' : 'default',
+                        pointerEvents: isActive ? 'auto' : 'none',
+                        opacity: isActive ? 1 : 0.6,
+                        animation: isActive ? 'winnerIconPulse 1.1s ease-in-out infinite' : 'winnerIconAppear .35s ease-out',
+                      }} title={meta.label}>
+                        <svg width="32" height="32" viewBox="0 0 32 32" style={{
+                          position:'absolute', inset:0,
+                          filter: isActive ? `drop-shadow(0 0 6px ${meta.color})` : 'none',
+                        }}>
+                          <circle cx="16" cy="16" r="14" fill="rgba(10,8,24,.88)"
+                            stroke={meta.color} strokeWidth={isActive ? 3 : 2} opacity={isActive ? 1 : 0.75}/>
+                        </svg>
+                        <span style={{
+                          position:'absolute', inset:0, display:'flex', alignItems:'center',
+                          justifyContent:'center', fontSize:'14px', lineHeight:1,
+                        }}>{meta.emoji}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
               {tiles.map((tile,idx)=>{
                 if (tile===undefined) return <div key={`void-${idx}`} style={{width:'var(--tile)',height:'var(--tile)'}}/>;
                 const isCenter = CENTER.includes(idx);
@@ -9010,7 +9283,12 @@
         return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
       }
       function isAdFree() {
-        return localStorage.getItem('mc-ads-removed') === '1';
+        // Comprueba las dos claves por compatibilidad: 'mc-ads-removed' es la que
+        // usa este módulo internamente (removeAds()); 'mc-premium' es la que lee
+        // el interruptor de Ajustes. Se mantienen sincronizadas vía el evento
+        // 'premiumChange' (ver listener más abajo), pero comprobar ambas evita
+        // que quede desincronizado si alguna vez se salta ese paso.
+        return localStorage.getItem('mc-ads-removed') === '1' || localStorage.getItem('mc-premium') === '1';
       }
       function getAdMob() {
         // Expuesto por el plugin @capacitor-community/admob una vez añadido al proyecto nativo.
@@ -9062,7 +9340,107 @@
       window.__adsOnLevelComplete  = onLevelComplete;
       window.__adsRemoveAds        = removeAds;
       window.__adsIsAdFree         = isAdFree;
+
+      // Cuando RevenueCat confirma la compra (o la restaura), dispara este evento
+      // con detail=true — ocultamos el banner al momento, sin esperar a que se
+      // vuelva a abrir la app.
+      window.addEventListener('premiumChange', (e) => {
+        if (e && e.detail) removeAds();
+      });
     })();
+  </script>
+
+  <!-- ══ RevenueCat (Google Play Billing) — compra real de "quitar publicidad" ══
+       Solo actúa dentro de la app nativa empaquetada; en la versión web/PWA no
+       hace nada (Purchases.configure nunca se llama).
+
+       ⚠️ ESTADO ACTUAL: usando la clave de "Test Store" de RevenueCat (sirve
+       para probar que la conexión funciona, pero NO cobra dinero real ni pasa
+       por Google Play). PENDIENTE antes de publicar de verdad:
+       - RC_API_KEY_ANDROID: cambiar por la clave pública de Android del
+         proyecto (normalmente empieza por 'goog_'), en Project settings →
+         API Keys, en app.revenuecat.com — solo aparece cuando conectas el
+         proyecto con la API de Google Play Developer.
+       - RC_ENTITLEMENT_ID: el identificador del Entitlement que creaste en el
+         dashboard de RevenueCat (el que enganchaste al producto).
+       - RC_PRODUCT_ID: debe ser EXACTO al ID del producto creado en Google
+         Play Console (Monetiza → Productos). -->
+  <script>
+  (() => {
+    // ⚠️ Clave de "Test Store" de RevenueCat (empieza por 'test_' y es la misma
+    // para iOS/Android): sirve para comprobar que la app conecta bien con
+    // RevenueCat SIN depender aún de que el producto esté creado en Google Play
+    // Console. No usa Google Play Billing real y no cobra dinero. Sustituir por
+    // la clave pública de Android (normalmente empieza por 'goog_') en cuanto
+    // tengas el producto real dado de alta en Play Console.
+    const RC_API_KEY_ANDROID = 'test_lvQDlVUmIICqxkXjJBlQAerNKwE';
+    const RC_ENTITLEMENT_ID  = 'premium';     // ⚠️ sustituir si usaste otro nombre
+    const RC_PRODUCT_ID      = 'remove_ads';  // ⚠️ debe coincidir con Play Console
+
+    function getPurchases() {
+      return window.Capacitor?.Plugins?.Purchases || null;
+    }
+
+    function applyEntitlementState(active) {
+      localStorage.setItem('mc-premium', active ? '1' : '0');
+      window.__isPremium = active;
+      window.dispatchEvent(new CustomEvent('premiumChange', { detail: active }));
+    }
+
+    async function initPurchases() {
+      if (!window.Capacitor?.isNativePlatform?.()) return;
+      const Purchases = getPurchases();
+      if (!Purchases) return;
+      try {
+        // Logs detallados en Logcat (Android Studio) mientras estemos probando;
+        // ayuda mucho a ver qué está pasando durante la integración inicial.
+        await Purchases.setLogLevel({ level: 'DEBUG' });
+        await Purchases.configure({ apiKey: RC_API_KEY_ANDROID });
+        const { customerInfo } = await Purchases.getCustomerInfo();
+        applyEntitlementState(!!customerInfo.entitlements.active[RC_ENTITLEMENT_ID]);
+        // Si la compra se confirma/renueva en segundo plano (poco probable para un
+        // producto único, pero por si acaso) actualizamos el estado al momento.
+        Purchases.addCustomerInfoUpdateListener((info) => {
+          applyEntitlementState(!!info.entitlements.active[RC_ENTITLEMENT_ID]);
+        });
+      } catch (e) { console.warn('RevenueCat: fallo al inicializar', e); }
+    }
+
+    // Llamado desde el botón "Comprar" de Ajustes.
+    window.__iapPurchaseRemoveAds = async function () {
+      if (!window.Capacitor?.isNativePlatform?.()) return { ok: false, webOnly: true };
+      const Purchases = getPurchases();
+      if (!Purchases) return { ok: false };
+      try {
+        const { products } = await Purchases.getProducts({ productIdentifiers: [RC_PRODUCT_ID] });
+        const product = products && products[0];
+        if (!product) { console.warn('RevenueCat: producto no encontrado:', RC_PRODUCT_ID); return { ok: false }; }
+        const { customerInfo } = await Purchases.purchaseStoreProduct({ product });
+        const active = !!customerInfo.entitlements.active[RC_ENTITLEMENT_ID];
+        applyEntitlementState(active);
+        return { ok: active };
+      } catch (e) {
+        const cancelled = !!(e && e.userCancelled);
+        if (!cancelled) console.warn('RevenueCat: fallo en la compra', e);
+        return { ok: false, cancelled };
+      }
+    };
+
+    // Llamado desde "Restaurar compras" en Ajustes (móvil nuevo / reinstalación).
+    window.__iapRestorePurchases = async function () {
+      if (!window.Capacitor?.isNativePlatform?.()) return { ok: false, webOnly: true };
+      const Purchases = getPurchases();
+      if (!Purchases) return { ok: false };
+      try {
+        const { customerInfo } = await Purchases.restorePurchases();
+        const active = !!customerInfo.entitlements.active[RC_ENTITLEMENT_ID];
+        applyEntitlementState(active);
+        return { ok: active };
+      } catch (e) { console.warn('RevenueCat: fallo al restaurar compras', e); return { ok: false }; }
+    };
+
+    window.addEventListener('load', initPurchases);
+  })();
   </script>
 </body>
 </html>
