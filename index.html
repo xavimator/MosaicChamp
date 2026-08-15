@@ -2714,6 +2714,10 @@
       0%,100% { transform:scale(1);    filter:brightness(1.1); }
       50%     { transform:scale(1.12); filter:brightness(1.5); }
     }
+    @keyframes floatLabelIn {
+      0%   { transform:translateX(-50%) translateY(4px); opacity:0; }
+      100% { transform:translateX(-50%) translateY(0);    opacity:1; }
+    }
 
     /* ══ Prompt "¿Mandar Sudden Swap?": entrada creciente ══ */
     @keyframes rrPromptGrow {
@@ -5077,6 +5081,23 @@
 
       const nameOk = name.trim().length > 0;
       const [rankName, setRankName] = useState('');
+      // Avisos flotantes del lobby (nombre duplicado / sin conexión): se cierran
+      // solos a los 10s o con la X, y flotan sobre la 1ª fila de niveles en vez
+      // de empujar el resto del lobby hacia abajo.
+      const [connWarnDismissed, setConnWarnDismissed] = useState(false);
+      const [nameWarnDismissed, setNameWarnDismissed] = useState(false);
+      useEffect(() => {
+        if (fbOnline !== false) return;
+        setConnWarnDismissed(false);
+        const t = setTimeout(() => setConnWarnDismissed(true), 10000);
+        return () => clearTimeout(t);
+      }, [fbOnline]);
+      useEffect(() => {
+        if (!rankName) return;
+        setNameWarnDismissed(false);
+        const t = setTimeout(() => setNameWarnDismissed(true), 10000);
+        return () => clearTimeout(t);
+      }, [rankName]);
       // Escribir "rubiking" como nombre YA NO da privilegios por si solo (ver abajo,
       // requiere ademas iniciar sesion real contra Firebase Auth con la contraseña).
       const typedRubiking = name.trim().toLowerCase() === 'rubiking';
@@ -5490,65 +5511,14 @@
       return (
         <div className="lobby-wrap">
           {!(seasonAlt && seasonTheme?.hideStars) && <Stars/>}
-          {/* Título + avisos que NO deben mover el resto del lobby (nombre duplicado,
-              sin conexión...): se superponen encima del título en vez de empujar el
-              lobby-card hacia abajo, así el layout se mantiene siempre consistente. */}
-          <div style={{position:'relative', width:'100%', display:'flex', justifyContent:'center'}}>
-            <PrideToast onActivate={() => {
-              const theme = window.__RR_SEASON_THEMES[window.__rrActiveSeason];
-              if (theme) setSeasonAltMode(!window.__seasonAltMode);
-              else setPrideMode(!window.__prideMode);
-              window.playChime?.();
-            }}>
-              <MosaicTitle style={{width:'100%',justifyContent:'center'}} interactive={false}/>
-            </PrideToast>
-
-            {(fbOnline === false || rankName) && (
-              <div style={{
-                position:'absolute', top:0, left:'50%', transform:'translateX(-50%)',
-                width:'100%', maxWidth:'420px', display:'flex', flexDirection:'column',
-                alignItems:'center', gap:'8px', zIndex:30,
-              }}>
-                {fbOnline === false && (
-                  <div style={{
-                    width:'100%',boxSizing:'border-box',
-                    padding:'10px 14px',borderRadius:'12px',
-                    background:'rgba(239,68,68,.12)',border:'1px solid rgba(239,68,68,.35)',
-                    color:'rgba(255,180,180,.9)',fontSize:'12px',fontWeight:600,
-                    display:'flex',alignItems:'center',gap:'10px',lineHeight:1.5,
-                  }}>
-                    <span style={{fontSize:'18px',flexShrink:0}}>⚠️</span>
-                    <span>Sin conexión con la base de datos —
-                      <span style={{fontWeight:400,opacity:.85}}> no se guardarán ni leerán los progresos.</span>
-                    </span>
-                  </div>
-                )}
-                {rankName && (
-                  <div style={{width:'100%',boxSizing:'border-box',background:'rgba(255,180,0,.07)',
-                               border:'1px solid rgba(255,180,0,.2)',borderRadius:'8px',
-                               padding:'8px 10px',fontSize:'11px'}}>
-                    <div style={{color:'rgba(255,200,80,.9)',marginBottom:'6px'}}>
-                      {window.T.nameWarning(name.trim(), rankName)} <b style={{color:'#FFD700'}}>{rankName}</b>
-                    </div>
-                    <div style={{display:'flex',gap:'6px'}}>
-                      <button onClick={()=>{ setName(''); setRankName(''); document.getElementById('lobby-name-input')?.focus(); }}
-                              style={{flex:1,padding:'5px 8px',borderRadius:'6px',border:'1px solid rgba(255,200,80,.4)',
-                                     background:'rgba(255,180,0,.12)',color:'#FFD700',fontSize:'11px',
-                                     fontWeight:700,cursor:'pointer',letterSpacing:'.05em'}}>
-                        {window.T.changeName}
-                      </button>
-                      <button onClick={()=>setRankName('')}
-                              style={{padding:'5px 8px',borderRadius:'6px',border:`1px solid ${darkText?'rgba(41,41,44,.3)':'rgba(255,255,255,.1)'}`,
-                                     background:darkText?'rgba(0,0,0,.06)':'rgba(255,255,255,.05)',color:darkText?'#141416':'rgba(255,255,255,.88)',
-                                     fontSize:'11px',cursor:'pointer'}}>
-                        {window.T.continueAnyway}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <PrideToast onActivate={() => {
+            const theme = window.__RR_SEASON_THEMES[window.__rrActiveSeason];
+            if (theme) setSeasonAltMode(!window.__seasonAltMode);
+            else setPrideMode(!window.__prideMode);
+            window.playChime?.();
+          }}>
+            <MosaicTitle style={{width:'100%',justifyContent:'center'}} interactive={false}/>
+          </PrideToast>
           <div className="lobby-card">
             {/* Name */}
             <div>
@@ -5628,6 +5598,69 @@
             {/* Nivel de dificultad */}
             <div>
               <div className="lobby-label" style={{marginBottom:'8px'}}>{window.T.chooseLevel}</div>
+              <div style={{position:'relative'}}>
+                {/* Avisos flotantes (nombre duplicado / sin conexión): se superponen
+                    sobre la 1ª fila de niveles, con X para cerrar y auto-cierre a
+                    los 10s, sin mover nunca el resto del lobby. */}
+                {((fbOnline === false && !connWarnDismissed) || (rankName && !nameWarnDismissed)) && (
+                  <div style={{
+                    position:'absolute', top:0, left:0, right:0,
+                    display:'flex', flexDirection:'column', alignItems:'stretch', gap:'8px', zIndex:30,
+                  }}>
+                    {fbOnline === false && !connWarnDismissed && (
+                      <div style={{
+                        position:'relative', width:'100%',boxSizing:'border-box',
+                        padding:'10px 30px 10px 14px',borderRadius:'12px',
+                        background:'rgba(239,68,68,.94)',border:'1px solid rgba(239,68,68,.6)',
+                        boxShadow:'0 8px 24px rgba(0,0,0,.5)',
+                        color:'#fff',fontSize:'12px',fontWeight:600,
+                        display:'flex',alignItems:'center',gap:'10px',lineHeight:1.5,
+                      }}>
+                        <span style={{fontSize:'18px',flexShrink:0}}>⚠️</span>
+                        <span>Sin conexión con la base de datos —
+                          <span style={{fontWeight:400,opacity:.9}}> no se guardarán ni leerán los progresos.</span>
+                        </span>
+                        <button onClick={()=>setConnWarnDismissed(true)} aria-label="Cerrar" style={{
+                          position:'absolute', top:'6px', right:'6px', width:'20px', height:'20px',
+                          borderRadius:'50%', border:'none', background:'rgba(255,255,255,.2)',
+                          color:'#fff', fontSize:'12px', fontWeight:800, lineHeight:1, cursor:'pointer',
+                          display:'flex', alignItems:'center', justifyContent:'center',
+                        }}>✕</button>
+                      </div>
+                    )}
+                    {rankName && !nameWarnDismissed && (
+                      <div style={{position:'relative', width:'100%',boxSizing:'border-box',
+                                   background:'rgba(20,16,10,.96)',
+                                   border:'1px solid rgba(255,200,80,.5)',borderRadius:'10px',
+                                   boxShadow:'0 8px 24px rgba(0,0,0,.5)',
+                                   padding:'8px 28px 8px 10px',fontSize:'11px'}}>
+                        <button onClick={()=>setNameWarnDismissed(true)} aria-label="Cerrar" style={{
+                          position:'absolute', top:'6px', right:'6px', width:'20px', height:'20px',
+                          borderRadius:'50%', border:'none', background:'rgba(255,255,255,.12)',
+                          color:'rgba(255,255,255,.85)', fontSize:'12px', fontWeight:800, lineHeight:1, cursor:'pointer',
+                          display:'flex', alignItems:'center', justifyContent:'center',
+                        }}>✕</button>
+                        <div style={{color:'rgba(255,200,80,.9)',marginBottom:'6px'}}>
+                          {window.T.nameWarning(name.trim(), rankName)} <b style={{color:'#FFD700'}}>{rankName}</b>
+                        </div>
+                        <div style={{display:'flex',gap:'6px'}}>
+                          <button onClick={()=>{ setName(''); setRankName(''); document.getElementById('lobby-name-input')?.focus(); }}
+                                  style={{flex:1,padding:'5px 8px',borderRadius:'6px',border:'1px solid rgba(255,200,80,.4)',
+                                         background:'rgba(255,180,0,.12)',color:'#FFD700',fontSize:'11px',
+                                         fontWeight:700,cursor:'pointer',letterSpacing:'.05em'}}>
+                            {window.T.changeName}
+                          </button>
+                          <button onClick={()=>setRankName('')}
+                                  style={{padding:'5px 8px',borderRadius:'6px',border:`1px solid ${darkText?'rgba(41,41,44,.3)':'rgba(255,255,255,.1)'}`,
+                                         background:darkText?'rgba(0,0,0,.06)':'rgba(255,255,255,.05)',color:darkText?'#141416':'rgba(255,255,255,.88)',
+                                         fontSize:'11px',cursor:'pointer'}}>
+                            {window.T.continueAnyway}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'6px'}}>
                 {window.RR_LEVELS.filter(lv=>!lv.hidden || level8Unlocked).map(lv=>{
                   const active = level===lv.level;
@@ -5712,6 +5745,7 @@
                        style={{padding:'8px 4px',borderRadius:'9px',minHeight:'34px',
                                border:'1px solid transparent',background:'transparent'}}/>
                 )}
+              </div>
               </div>
               {level != null && (
               <div style={{marginTop:'7px',fontSize:'11px',color:darkText?'rgba(20,20,22,.94)':'rgba(255,255,255,.88)',textAlign:'center'}}>
@@ -6462,6 +6496,113 @@
     // repite el contenido de la fila `loops` veces (una vuelta completa no cambia
     // el patrón visible, así que es seguro repetir) y añade `shift` fichas finales
     // al final para aterrizar exactamente en el desplazamiento real.
+    // ── Power-ups: orden fijo de las 6 cargas del líder + metadatos visuales.
+    // A nivel de módulo (no dentro de App) para poder compartirlos entre el
+    // componente principal y PowerUpIcon/PowerUpIconSVG de abajo.
+    const WINNER_ICON_ORDER = ['ice','jump','spinround','sudden','colorswitch','cascade'];
+    const WINNER_ICON_META = {
+      ice:         { emoji:'❄️', color:'#7dd3fc', label:'Hielo' },
+      jump:        { emoji:'🦘', color:'#fbbf24', label:'Salto' },
+      spinround:   { emoji:'🌀', color:'#2dd4bf', label:'SpinRound' },
+      sudden:      { emoji:'⚡', color:'#a855f7', label:'Sudden Swap' },
+      colorswitch: { emoji:'🎨', color:'#ec4899', label:'Color Switch' },
+      cascade:     { emoji:'🌊', color:'#60a5fa', label:'Cascada' },
+    };
+
+    // Iconos SVG propios para Salto (flecha arriba), Cascada (tres líneas que
+    // arrancan a la misma altura y caen a profundidades distintas, como gotas)
+    // y Color Switch (mini mosaico de 4 colores, como el editor de patrón).
+    // Hielo, Sudden Swap y SpinRound siguen usando su emoji de siempre.
+    function PowerUpIconSVG({ kind, color }) {
+      if (kind === 'jump') {
+        return (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={color}
+            strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 19V5"/><path d="M6 11l6-6 6 6"/>
+          </svg>
+        );
+      }
+      if (kind === 'cascade') {
+        return (
+          <svg width="16" height="16" viewBox="0 0 32 32">
+            <line x1="11" y1="9" x2="11" y2="19" stroke={color} strokeWidth="2.4" strokeLinecap="round"/>
+            <line x1="16" y1="9" x2="16" y2="24" stroke={color} strokeWidth="2.4" strokeLinecap="round"/>
+            <line x1="21" y1="9" x2="21" y2="16" stroke={color} strokeWidth="2.4" strokeLinecap="round"/>
+          </svg>
+        );
+      }
+      if (kind === 'colorswitch') {
+        return (
+          <svg width="16" height="16" viewBox="0 0 24 24">
+            <rect x="2"  y="2"  width="9" height="9" rx="2" fill="#3b82f6"/>
+            <rect x="13" y="2"  width="9" height="9" rx="2" fill="#4ade80"/>
+            <rect x="2"  y="13" width="9" height="9" rx="2" fill="#ef4444"/>
+            <rect x="13" y="13" width="9" height="9" rx="2" fill="#f97316"/>
+          </svg>
+        );
+      }
+      return null;
+    }
+
+    // Botón de power-up reutilizable: icono SVG redondo, sin nombre visible por
+    // defecto — el nombre aparece flotando encima solo un momento al tocarlo.
+    // `active`=false lo deja visible pero no clicable (fichas ya usadas / aún no
+    // encendidas); `alwaysActive` se usa en el panel de pruebas de Rubiking para
+    // poder tocar cualquiera libremente.
+    function PowerUpIcon({ kind, active, alwaysActive, onUse, size }) {
+      const meta = WINNER_ICON_META[kind];
+      const [showLabel, setShowLabel] = useState(false);
+      const labelTimeoutRef = useRef(null);
+      const px = size || 38;
+      const isClickable = alwaysActive || active;
+      const useSvg = kind === 'jump' || kind === 'cascade' || kind === 'colorswitch';
+
+      useEffect(() => () => clearTimeout(labelTimeoutRef.current), []);
+
+      const handleClick = () => {
+        if (!isClickable) return;
+        setShowLabel(true);
+        clearTimeout(labelTimeoutRef.current);
+        labelTimeoutRef.current = setTimeout(() => setShowLabel(false), 1400);
+        onUse?.();
+      };
+
+      return (
+        <button onClick={handleClick} disabled={!isClickable} style={{
+          position:'relative', width:px, height:px, padding:0,
+          background:'transparent', border:'none',
+          cursor: isClickable ? 'pointer' : 'default',
+          pointerEvents: isClickable ? 'auto' : 'none',
+          opacity: isClickable ? 1 : 0.6,
+          animation: (alwaysActive || active) ? 'winnerIconPulse 1.1s ease-in-out infinite' : 'winnerIconAppear .35s ease-out',
+          flexShrink:0,
+        }}>
+          <svg width={px} height={px} viewBox="0 0 32 32" style={{
+            position:'absolute', inset:0,
+            filter: isClickable ? `drop-shadow(0 0 6px ${meta.color})` : 'none',
+          }}>
+            <circle cx="16" cy="16" r="14" fill="rgba(10,8,24,.88)"
+              stroke={meta.color} strokeWidth={isClickable ? 3 : 2} opacity={isClickable ? 1 : 0.75}/>
+          </svg>
+          <span style={{
+            position:'absolute', inset:0, display:'flex', alignItems:'center',
+            justifyContent:'center', fontSize: useSvg ? undefined : '15px', lineHeight:1,
+          }}>
+            {useSvg ? <PowerUpIconSVG kind={kind} color={meta.color}/> : meta.emoji}
+          </span>
+          {showLabel && (
+            <span style={{
+              position:'absolute', bottom:'100%', left:'50%', transform:'translateX(-50%)',
+              marginBottom:'6px', whiteSpace:'nowrap', padding:'3px 8px', borderRadius:'6px',
+              background:'rgba(10,8,24,.95)', border:`1px solid ${meta.color}`,
+              color:'#fff', fontSize:'10px', fontWeight:700, pointerEvents:'none', zIndex:60,
+              animation:'floatLabelIn .2s ease-out',
+            }}>{meta.label}</span>
+          )}
+        </button>
+      );
+    }
+
     function SpinRoundSlide({ row, boardSize, shift, loops, ghostTiles, snapshotRow, colorMap, geo }) {
       const [play, setPlay] = useState(false);
       useEffect(() => {
@@ -6911,15 +7052,8 @@
       // visibles pero ya no se pueden volver a usar. Si se usa el 6º (Cascada),
       // todo se apaga y el ciclo vuelve a empezar desde cero. Usar cualquiera de
       // los 5 primeros NO reinicia nada: el progreso sigue donde estaba.
-      const WINNER_ICON_ORDER = ['ice','jump','spinround','sudden','colorswitch','cascade'];
-      const WINNER_ICON_META = {
-        ice:         { emoji:'❄️', color:'#7dd3fc', label:'Hielo' },
-        jump:        { emoji:'🦘', color:'#fbbf24', label:'Salto' },
-        spinround:   { emoji:'🌀', color:'#2dd4bf', label:'SpinRound' },
-        sudden:      { emoji:'⚡', color:'#a855f7', label:'Sudden Swap' },
-        colorswitch: { emoji:'🎨', color:'#ec4899', label:'Color Switch' },
-        cascade:     { emoji:'🌊', color:'#60a5fa', label:'Cascada' },
-      };
+      // (WINNER_ICON_ORDER / WINNER_ICON_META viven a nivel de módulo, ver más
+      // arriba junto a PowerUpIcon, para poder compartirlos con ese componente.)
       const attacksReceivedRef = useRef(0);
       const winnerCycleBaseRef = useRef(0);
       const [winnerLitCount, setWinnerLitCount] = useState(0);
@@ -8474,37 +8608,19 @@
           </div>
 
           {/* Iconos de "carga del líder" — solo visibles para Rubiking (QA), para
-              probar cada power-up con el mismo diseño SVG redondo que ve el líder
-              en partida real. Aquí los 6 están siempre encendidos y son clicables
-              (sin la restricción de "solo el último"), para poder probarlos todos
-              libremente. */}
+              probar cada power-up con el mismo componente/diseño que ve el líder
+              en partida real (mismo tamaño 38px que los botones del menú
+              principal). Aquí los 6 están siempre clicables (alwaysActive), sin la
+              restricción de "solo el último", para poder probarlos todos libremente.
+              Sin nombre visible permanente — sale flotando encima al tocarlos. */}
           {isRubikingTester && (
-            <div style={{display:'flex',flexWrap:'wrap',gap:'12px',width:'100%',maxWidth:'380px',marginBottom:'6px',justifyContent:'center'}}>
+            <div style={{display:'flex',flexWrap:'wrap',gap:'14px',width:'100%',maxWidth:'380px',marginBottom:'6px',justifyContent:'center'}}>
               {WINNER_ICON_ORDER.map((kind) => {
-                const meta = WINNER_ICON_META[kind];
                 const testFn = {
                   ice: testIce, jump: testJump, spinround: testSpinRound,
                   sudden: testSuddenSwap, colorswitch: testColorSwitch, cascade: testCascade,
                 }[kind];
-                return (
-                  <button key={kind} onClick={testFn} style={{
-                    display:'flex', flexDirection:'column', alignItems:'center', gap:'4px',
-                    background:'transparent', border:'none', cursor:'pointer', padding:'4px',
-                  }}>
-                    <span style={{ position:'relative', width:'40px', height:'40px' }}>
-                      <svg width="40" height="40" viewBox="0 0 32 32" style={{
-                        position:'absolute', inset:0, filter:`drop-shadow(0 0 6px ${meta.color})`,
-                      }}>
-                        <circle cx="16" cy="16" r="14" fill="rgba(10,8,24,.88)" stroke={meta.color} strokeWidth="3"/>
-                      </svg>
-                      <span style={{
-                        position:'absolute', inset:0, display:'flex', alignItems:'center',
-                        justifyContent:'center', fontSize:'18px', lineHeight:1,
-                      }}>{meta.emoji}</span>
-                    </span>
-                    <span style={{ fontSize:'9px', fontWeight:700, color: meta.color }}>{meta.label}</span>
-                  </button>
-                );
+                return <PowerUpIcon key={kind} kind={kind} alwaysActive size={38} onUse={testFn}/>;
               })}
             </div>
           )}
@@ -8834,29 +8950,10 @@
                   {WINNER_ICON_ORDER.map((kind, i) => {
                     const slot = i + 1;
                     if (slot > winnerLitCount) return null; // aún invisible
-                    const meta = WINNER_ICON_META[kind];
                     const isActive = slot === winnerLitCount && !winnerTopUsed;
                     return (
-                      <button key={kind} onClick={() => isActive && useWinnerIcon(slot)} disabled={!isActive} style={{
-                        position:'relative', width:'32px', height:'32px', padding:0,
-                        background:'transparent', border:'none',
-                        cursor: isActive ? 'pointer' : 'default',
-                        pointerEvents: isActive ? 'auto' : 'none',
-                        opacity: isActive ? 1 : 0.6,
-                        animation: isActive ? 'winnerIconPulse 1.1s ease-in-out infinite' : 'winnerIconAppear .35s ease-out',
-                      }} title={meta.label}>
-                        <svg width="32" height="32" viewBox="0 0 32 32" style={{
-                          position:'absolute', inset:0,
-                          filter: isActive ? `drop-shadow(0 0 6px ${meta.color})` : 'none',
-                        }}>
-                          <circle cx="16" cy="16" r="14" fill="rgba(10,8,24,.88)"
-                            stroke={meta.color} strokeWidth={isActive ? 3 : 2} opacity={isActive ? 1 : 0.75}/>
-                        </svg>
-                        <span style={{
-                          position:'absolute', inset:0, display:'flex', alignItems:'center',
-                          justifyContent:'center', fontSize:'14px', lineHeight:1,
-                        }}>{meta.emoji}</span>
-                      </button>
+                      <PowerUpIcon key={kind} kind={kind} active={isActive} size={38}
+                        onUse={() => useWinnerIcon(slot)}/>
                     );
                   })}
                 </div>
