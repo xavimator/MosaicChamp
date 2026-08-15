@@ -9059,15 +9059,16 @@
               )}
               {winnerLitCount > 0 && (
                 <div style={{
-                  position:'absolute', bottom:'4px', left:'50%', transform:'translateX(-50%)',
-                  display:'flex', gap:'6px', zIndex:43,
+                  position:'fixed', top:'50%', left:'6px', transform:'translateY(-50%)',
+                  display:'flex', flexDirection:'row', flexWrap:'wrap', gap:'6px',
+                  maxWidth:'92px', zIndex:60,
                 }}>
                   {WINNER_ICON_ORDER.map((kind, i) => {
                     const slot = i + 1;
                     if (slot > winnerLitCount) return null; // aún invisible
                     const isActive = slot === winnerLitCount && !winnerTopUsed;
                     return (
-                      <PowerUpIcon key={kind} kind={kind} active={isActive} size={38}
+                      <PowerUpIcon key={kind} kind={kind} active={isActive} size={30}
                         onUse={() => useWinnerIcon(slot)}/>
                     );
                   })}
