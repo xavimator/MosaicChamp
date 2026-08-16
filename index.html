@@ -1555,6 +1555,7 @@
         resetSendCode: 'Enviar código',
         resetSending: 'Enviando…',
         resetCodeSent: (email) => `Hemos enviado un código a ${email}`,
+        resetCheckSpam: 'Si no lo ves, revisa la carpeta de spam o correo no deseado.',
         resetEnterCode: 'Código recibido',
         resetCodePlaceholder: '6 dígitos',
         resetNewPassword: 'Nueva contraseña',
@@ -1681,6 +1682,7 @@
         resetSendCode: 'Enviar codi',
         resetSending: 'Enviant…',
         resetCodeSent: (email) => `Hem enviat un codi a ${email}`,
+        resetCheckSpam: 'Si no el veus, revisa la carpeta de spam o correu brossa.',
         resetEnterCode: 'Codi rebut',
         resetCodePlaceholder: '6 dígits',
         resetNewPassword: 'Nova contrasenya',
@@ -1800,6 +1802,7 @@
         resetSendCode: 'Send code',
         resetSending: 'Sending…',
         resetCodeSent: (email) => `We sent a code to ${email}`,
+        resetCheckSpam: "If you don't see it, check your spam or junk folder.",
         resetEnterCode: 'Code received',
         resetCodePlaceholder: '6 digits',
         resetNewPassword: 'New password',
@@ -1919,6 +1922,7 @@
         resetSendCode: 'Envoyer le code',
         resetSending: 'Envoi…',
         resetCodeSent: (email) => `Un code a été envoyé à ${email}`,
+        resetCheckSpam: "Si tu ne le vois pas, vérifie ton dossier spam ou courrier indésirable.",
         resetEnterCode: 'Code reçu',
         resetCodePlaceholder: '6 chiffres',
         resetNewPassword: 'Nouveau mot de passe',
@@ -2038,6 +2042,7 @@
         resetSendCode: 'Code senden',
         resetSending: 'Sende…',
         resetCodeSent: (email) => `Ein Code wurde an ${email} gesendet`,
+        resetCheckSpam: 'Falls du ihn nicht siehst, überprüfe deinen Spam-Ordner.',
         resetEnterCode: 'Erhaltener Code',
         resetCodePlaceholder: '6 Ziffern',
         resetNewPassword: 'Neues Passwort',
@@ -2157,6 +2162,7 @@
         resetSendCode: 'Enviar código',
         resetSending: 'A enviar…',
         resetCodeSent: (email) => `Enviámos um código para ${email}`,
+        resetCheckSpam: 'Se não o vires, verifica a pasta de spam ou lixo eletrónico.',
         resetEnterCode: 'Código recebido',
         resetCodePlaceholder: '6 dígitos',
         resetNewPassword: 'Nova senha',
@@ -2276,6 +2282,7 @@
         resetSendCode: 'Invia codice',
         resetSending: 'Invio…',
         resetCodeSent: (email) => `Abbiamo inviato un codice a ${email}`,
+        resetCheckSpam: 'Se non lo vedi, controlla la cartella spam o posta indesiderata.',
         resetEnterCode: 'Codice ricevuto',
         resetCodePlaceholder: '6 cifre',
         resetNewPassword: 'Nuova password',
@@ -6044,7 +6051,8 @@
                     )}
                     {resetStep === 'sent' && (
                       <>
-                        <div style={{opacity:.8,marginBottom:'8px'}}>{window.T.resetCodeSent(resetSentTo)}</div>
+                        <div style={{opacity:.8,marginBottom:'3px'}}>{window.T.resetCodeSent(resetSentTo)}</div>
+                        <div style={{opacity:.6,fontSize:'10px',marginBottom:'8px'}}>{window.T.resetCheckSpam}</div>
                         <input value={resetCode} onChange={e=>setResetCode(e.target.value)}
                                placeholder={window.T.resetCodePlaceholder} maxLength={6} inputMode="numeric"
                                style={{width:'100%',boxSizing:'border-box',marginBottom:'6px',padding:'7px 10px',
