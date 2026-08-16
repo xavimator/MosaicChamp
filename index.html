@@ -414,6 +414,11 @@
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 
+  <!-- EmailJS: envía el correo de recuperación de contraseña directamente desde el navegador,
+       sin necesidad de servidor propio. Configura tu cuenta gratuita en https://www.emailjs.com
+       y rellena EMAILJS_PUBLIC_KEY / EMAILJS_SERVICE_ID / EMAILJS_TEMPLATE_ID más abajo. -->
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+
   <!-- Firebase -->
   <script type="module">
     /*
@@ -488,9 +493,14 @@
 
           "aliases": {
             "$key": {
+              // AVISO DE PRIVACIDAD: ".read": true hace que el email quede visible para
+              // cualquiera que consulte la base de datos (igual que ya pasa con passwordHash,
+              // que solo es un hash). Como esta app no usa Firebase Auth para jugadores
+              // normales, no hay forma de restringir la lectura solo al dueño del alias.
+              // Acéptalo solo si tus jugadores no necesitan que su email sea privado.
               ".read": true,
               ".write": true,
-              ".validate": "newData.hasChildren(['name','passwordHash','claimedAt']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('passwordHash').isString() && newData.child('passwordHash').val().length == 64 && newData.child('claimedAt').isNumber()"
+              ".validate": "newData.hasChildren(['name','passwordHash','claimedAt']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('passwordHash').isString() && newData.child('passwordHash').val().length == 64 && newData.child('claimedAt').isNumber() && (!newData.hasChild('email') || (newData.child('email').isString() && newData.child('email').val().length <= 100)) && (!newData.hasChild('resetCodeHash') || (newData.child('resetCodeHash').isString() && newData.child('resetCodeHash').val().length == 64)) && (!newData.hasChild('resetCodeExpiry') || newData.child('resetCodeExpiry').isNumber())"
             }
           },
 
@@ -594,7 +604,7 @@
     ══════════════════════════════════════════════════
     */
     import { initializeApp }   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getDatabase, ref, set, push, get, remove, onValue, onChildAdded, off,
+    import { getDatabase, ref, set, update, push, get, remove, onValue, onChildAdded, off,
              query, orderByChild, startAfter, runTransaction }
                                from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
     import { getMessaging, getToken, onMessage, isSupported as isMessagingSupported }
@@ -612,6 +622,40 @@
       appId:             "1:217247862933:web:232fb770b3974dd6c20b9c",
     });
     const db = getDatabase(app);
+
+    // ── EmailJS (envío del email de recuperación de contraseña) ──
+    // 1. Crea una cuenta gratis en https://www.emailjs.com (plan free: 200 emails/mes).
+    // 2. Añade un "Email Service" (p.ej. Gmail) → copia su Service ID en EMAILJS_SERVICE_ID.
+    // 3. Crea una "Email Template" con variables {{to_email}}, {{alias_name}} y {{reset_code}}
+    //    → copia su Template ID en EMAILJS_TEMPLATE_ID.
+    // 4. En Account → General copia la "Public Key" en EMAILJS_PUBLIC_KEY.
+    // Hasta rellenar estos 3 valores, el envío de emails fallará de forma segura
+    // (la contraseña no se resetea si el correo no se puede enviar).
+    const EMAILJS_PUBLIC_KEY  = 'GF-FMTjjaMGEsudXn';
+    const EMAILJS_SERVICE_ID  = 'service_wq3vl6d';
+    const EMAILJS_TEMPLATE_ID = 'template_dq5r2le';
+    let emailjsReady = false;
+    try {
+      if (window.emailjs && !EMAILJS_PUBLIC_KEY.startsWith('TU_')) {
+        window.emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+        emailjsReady = true;
+      }
+    } catch(e) { console.warn('EmailJS init falló:', e); }
+
+    async function sendResetCodeEmail(toEmail, aliasName, code) {
+      if (!emailjsReady) return { ok:false, reason:'notconfigured' };
+      try {
+        await window.emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+          to_email:   toEmail,
+          alias_name: aliasName,
+          reset_code: code,
+        });
+        return { ok:true };
+      } catch(e) {
+        console.error('EmailJS send error:', e);
+        return { ok:false, reason:'sendfailed' };
+      }
+    }
 
     // ── Autenticación real de Rubiking (Firebase Auth) ──
     // Esto es lo único que de verdad protege los privilegios de administrador: las
@@ -1195,12 +1239,57 @@
         return snap.val().passwordHash === hash;
       } catch(e) { return false; }
     };
-    window.__fbClaimAlias = async (name, password) => {
+    window.__fbClaimAlias = async (name, password, email) => {
       try {
         const passwordHash = await sha256Hex(password);
-        await set(ref(db, `rubitrack/aliases/${safeKey(name)}`), { name, passwordHash, claimedAt: Date.now() });
+        const data = { name, passwordHash, claimedAt: Date.now() };
+        if (email) data.email = email.trim().toLowerCase();
+        await set(ref(db, `rubitrack/aliases/${safeKey(name)}`), data);
         return true;
       } catch(e) { return false; }
+    };
+
+    // ── Recuperación de contraseña por email ──
+    // 1) __fbRequestPasswordReset genera un código de 6 dígitos, lo guarda (con caducidad
+    //    de 15 min) en el propio alias, y lo envía por email vía EmailJS.
+    // 2) __fbConfirmPasswordReset valida el código y, si es correcto y no ha caducado,
+    //    actualiza la contraseña.
+    window.__fbRequestPasswordReset = async (name) => {
+      try {
+        const key = safeKey(name);
+        const snap = await get(ref(db, `rubitrack/aliases/${key}`));
+        if (!snap.exists()) return { ok:false, reason:'notfound' };
+        const data = snap.val();
+        if (!data.email) return { ok:false, reason:'noemail' };
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const resetCodeHash = await sha256Hex(code);
+        await update(ref(db, `rubitrack/aliases/${key}`), {
+          resetCodeHash,
+          resetCodeExpiry: Date.now() + 15 * 60 * 1000,
+        });
+        const sent = await sendResetCodeEmail(data.email, data.name || name, code);
+        if (!sent.ok) return { ok:false, reason: sent.reason || 'sendfailed' };
+        return { ok:true, email: data.email };
+      } catch(e) { return { ok:false, reason:'error' }; }
+    };
+    window.__fbConfirmPasswordReset = async (name, code, newPassword) => {
+      try {
+        const key = safeKey(name);
+        const snap = await get(ref(db, `rubitrack/aliases/${key}`));
+        if (!snap.exists()) return { ok:false, reason:'notfound' };
+        const data = snap.val();
+        if (!data.resetCodeHash || !data.resetCodeExpiry) return { ok:false, reason:'noreset' };
+        if (Date.now() > data.resetCodeExpiry) return { ok:false, reason:'expired' };
+        const codeHash = await sha256Hex((code || '').trim());
+        if (codeHash !== data.resetCodeHash) return { ok:false, reason:'invalid' };
+        const passwordHash = await sha256Hex(newPassword);
+        await update(ref(db, `rubitrack/aliases/${key}`), {
+          passwordHash,
+          resetCodeHash: null,
+          resetCodeExpiry: null,
+        });
+        return { ok:true };
+      } catch(e) { return { ok:false, reason:'error' }; }
     };
     // Borra los datos (puntuación/progreso) de una sesión efímera (sin contraseña) al dejar de jugar
     window.__fbDeleteEphemeralData = async (name) => {
@@ -1456,6 +1545,27 @@
         hidePassword: 'Ocultar contrase\u00f1a',
         aliasProtected: 'Alias protegido por contrase\u00f1a',
         wrongPassword: 'Contrase\u00f1a incorrecta',
+        emailLabel: 'Email de registro',
+        emailPlaceholder: 'tu@email.com',
+        emailRequired: 'Introduce un email para poder recuperar tu contraseña',
+        emailInvalid: 'Ese email no parece válido',
+        forgotPassword: '¿Olvidaste tu contraseña?',
+        resetTitle: 'Recuperar contraseña',
+        resetIntro: 'Escribe tu alias y te enviaremos un código al email con el que lo registraste.',
+        resetSendCode: 'Enviar código',
+        resetSending: 'Enviando…',
+        resetCodeSent: (email) => `Hemos enviado un código a ${email}`,
+        resetEnterCode: 'Código recibido',
+        resetCodePlaceholder: '6 dígitos',
+        resetNewPassword: 'Nueva contraseña',
+        resetConfirmButton: 'Cambiar contraseña',
+        resetSuccess: 'Contraseña actualizada. Ya puedes iniciar sesión.',
+        resetCodeInvalid: 'Código incorrecto',
+        resetCodeExpired: 'El código ha caducado, solicita uno nuevo',
+        resetNoEmail: 'Este alias no tiene email registrado, no se puede recuperar la contraseña',
+        resetAliasNotFound: 'No existe ningún alias con ese nombre',
+        resetBack: 'Volver',
+        resetCancel: 'Cancelar',
         namePlaceholder: 'Cómo te llamas…',
         chooseLevel: 'Nivel de dificultad',
         lockedLevel: (n) => `Completa el nivel ${n} para desbloquear`,
@@ -1561,6 +1671,27 @@
         hidePassword: 'Amagar contrasenya',
         aliasProtected: 'Alies protegit per contrasenya',
         wrongPassword: 'Contrasenya incorrecta',
+        emailLabel: 'Email de registre',
+        emailPlaceholder: 'el.teu@email.com',
+        emailRequired: 'Introdueix un email per poder recuperar la contrasenya',
+        emailInvalid: 'Aquest email no sembla vàlid',
+        forgotPassword: 'Has oblidat la contrasenya?',
+        resetTitle: 'Recuperar contrasenya',
+        resetIntro: 'Escriu el teu àlies i t\'enviarem un codi a l\'email amb què el vas registrar.',
+        resetSendCode: 'Enviar codi',
+        resetSending: 'Enviant…',
+        resetCodeSent: (email) => `Hem enviat un codi a ${email}`,
+        resetEnterCode: 'Codi rebut',
+        resetCodePlaceholder: '6 dígits',
+        resetNewPassword: 'Nova contrasenya',
+        resetConfirmButton: 'Canviar contrasenya',
+        resetSuccess: 'Contrasenya actualitzada. Ja pots iniciar sessió.',
+        resetCodeInvalid: 'Codi incorrecte',
+        resetCodeExpired: 'El codi ha caducat, sol·licita\'n un de nou',
+        resetNoEmail: 'Aquest àlies no té email registrat, no es pot recuperar la contrasenya',
+        resetAliasNotFound: 'No existeix cap àlies amb aquest nom',
+        resetBack: 'Tornar',
+        resetCancel: 'Cancel·lar',
         namePlaceholder: 'Com et dius…',
         chooseLevel: 'Nivell de dificultat',
         lockedLevel: (n) => `Completa el nivell ${n} per desbloquejar`,
@@ -1659,6 +1790,27 @@
         hidePassword: 'Hide password',
         aliasProtected: 'Alias protected by password',
         wrongPassword: 'Wrong password',
+        emailLabel: 'Registration email',
+        emailPlaceholder: 'you@email.com',
+        emailRequired: 'Enter an email so you can recover your password',
+        emailInvalid: "That email doesn't look valid",
+        forgotPassword: 'Forgot your password?',
+        resetTitle: 'Reset password',
+        resetIntro: "Enter your alias and we'll send a code to the email you registered with.",
+        resetSendCode: 'Send code',
+        resetSending: 'Sending…',
+        resetCodeSent: (email) => `We sent a code to ${email}`,
+        resetEnterCode: 'Code received',
+        resetCodePlaceholder: '6 digits',
+        resetNewPassword: 'New password',
+        resetConfirmButton: 'Change password',
+        resetSuccess: 'Password updated. You can log in now.',
+        resetCodeInvalid: 'Wrong code',
+        resetCodeExpired: 'The code has expired, request a new one',
+        resetNoEmail: "This alias has no email on file, password can't be recovered",
+        resetAliasNotFound: 'No alias found with that name',
+        resetBack: 'Back',
+        resetCancel: 'Cancel',
         namePlaceholder: 'What\'s your name…',
         chooseLevel: 'Difficulty level',
         lockedLevel: (n) => `Complete level ${n} to unlock`,
@@ -1757,6 +1909,27 @@
         hidePassword: 'Masquer le mot de passe',
         aliasProtected: 'Pseudo prot\u00e9g\u00e9 par mot de passe',
         wrongPassword: 'Mot de passe incorrect',
+        emailLabel: "Email d'inscription",
+        emailPlaceholder: 'toi@email.com',
+        emailRequired: 'Indique un email pour pouvoir récupérer ton mot de passe',
+        emailInvalid: 'Cet email ne semble pas valide',
+        forgotPassword: 'Mot de passe oublié\u00a0?',
+        resetTitle: 'Réinitialiser le mot de passe',
+        resetIntro: "Écris ton pseudo, on enverra un code à l'email avec lequel tu l'as enregistré.",
+        resetSendCode: 'Envoyer le code',
+        resetSending: 'Envoi…',
+        resetCodeSent: (email) => `Un code a été envoyé à ${email}`,
+        resetEnterCode: 'Code reçu',
+        resetCodePlaceholder: '6 chiffres',
+        resetNewPassword: 'Nouveau mot de passe',
+        resetConfirmButton: 'Changer le mot de passe',
+        resetSuccess: 'Mot de passe mis à jour. Tu peux te connecter.',
+        resetCodeInvalid: 'Code incorrect',
+        resetCodeExpired: 'Le code a expiré, demande-en un nouveau',
+        resetNoEmail: "Ce pseudo n'a pas d'email enregistré, mot de passe non récupérable",
+        resetAliasNotFound: 'Aucun pseudo avec ce nom',
+        resetBack: 'Retour',
+        resetCancel: 'Annuler',
         namePlaceholder: 'Comment tu t\'appelles…',
         chooseLevel: 'Niveau de difficulté',
         lockedLevel: (n) => `Termine le niveau ${n} pour débloquer`,
@@ -1855,6 +2028,27 @@
         hidePassword: 'Passwort verbergen',
         aliasProtected: 'Alias durch Passwort gesch\u00fctzt',
         wrongPassword: 'Falsches Passwort',
+        emailLabel: 'Registrierungs-E-Mail',
+        emailPlaceholder: 'du@email.com',
+        emailRequired: 'Gib eine E-Mail an, um dein Passwort wiederherstellen zu können',
+        emailInvalid: 'Diese E-Mail sieht ungültig aus',
+        forgotPassword: 'Passwort vergessen?',
+        resetTitle: 'Passwort zurücksetzen',
+        resetIntro: 'Gib deinen Alias ein, wir senden einen Code an die registrierte E-Mail.',
+        resetSendCode: 'Code senden',
+        resetSending: 'Sende…',
+        resetCodeSent: (email) => `Ein Code wurde an ${email} gesendet`,
+        resetEnterCode: 'Erhaltener Code',
+        resetCodePlaceholder: '6 Ziffern',
+        resetNewPassword: 'Neues Passwort',
+        resetConfirmButton: 'Passwort ändern',
+        resetSuccess: 'Passwort aktualisiert. Du kannst dich jetzt anmelden.',
+        resetCodeInvalid: 'Falscher Code',
+        resetCodeExpired: 'Der Code ist abgelaufen, fordere einen neuen an',
+        resetNoEmail: 'Für diesen Alias ist keine E-Mail hinterlegt, Passwort kann nicht wiederhergestellt werden',
+        resetAliasNotFound: 'Kein Alias mit diesem Namen gefunden',
+        resetBack: 'Zurück',
+        resetCancel: 'Abbrechen',
         namePlaceholder: 'Wie heißt du…',
         chooseLevel: 'Schwierigkeitsgrad',
         lockedLevel: (n) => `Schließe Level ${n} ab, um freizuschalten`,
@@ -1953,6 +2147,27 @@
         hidePassword: 'Ocultar senha',
         aliasProtected: 'Alias protegido por senha',
         wrongPassword: 'Senha incorreta',
+        emailLabel: 'Email de registo',
+        emailPlaceholder: 'tu@email.com',
+        emailRequired: 'Indica um email para poderes recuperar a tua senha',
+        emailInvalid: 'Esse email não parece válido',
+        forgotPassword: 'Esqueceste-te da senha?',
+        resetTitle: 'Recuperar senha',
+        resetIntro: 'Escreve o teu alias e enviaremos um código para o email com que o registaste.',
+        resetSendCode: 'Enviar código',
+        resetSending: 'A enviar…',
+        resetCodeSent: (email) => `Enviámos um código para ${email}`,
+        resetEnterCode: 'Código recebido',
+        resetCodePlaceholder: '6 dígitos',
+        resetNewPassword: 'Nova senha',
+        resetConfirmButton: 'Alterar senha',
+        resetSuccess: 'Senha atualizada. Já podes iniciar sessão.',
+        resetCodeInvalid: 'Código incorreto',
+        resetCodeExpired: 'O código expirou, pede um novo',
+        resetNoEmail: 'Este alias não tem email registado, não é possível recuperar a senha',
+        resetAliasNotFound: 'Não existe nenhum alias com esse nome',
+        resetBack: 'Voltar',
+        resetCancel: 'Cancelar',
         namePlaceholder: 'Como te chamas…',
         chooseLevel: 'Nível de dificuldade',
         lockedLevel: (n) => `Completa o nível ${n} para desbloquear`,
@@ -2051,6 +2266,27 @@
         hidePassword: 'Nascondi password',
         aliasProtected: 'Alias protetto da password',
         wrongPassword: 'Password errata',
+        emailLabel: 'Email di registrazione',
+        emailPlaceholder: 'tu@email.com',
+        emailRequired: "Inserisci un'email per poter recuperare la password",
+        emailInvalid: 'Questa email non sembra valida',
+        forgotPassword: 'Password dimenticata?',
+        resetTitle: 'Recupera password',
+        resetIntro: "Scrivi il tuo alias, ti invieremo un codice all'email con cui l'hai registrato.",
+        resetSendCode: 'Invia codice',
+        resetSending: 'Invio…',
+        resetCodeSent: (email) => `Abbiamo inviato un codice a ${email}`,
+        resetEnterCode: 'Codice ricevuto',
+        resetCodePlaceholder: '6 cifre',
+        resetNewPassword: 'Nuova password',
+        resetConfirmButton: 'Cambia password',
+        resetSuccess: 'Password aggiornata. Ora puoi accedere.',
+        resetCodeInvalid: 'Codice errato',
+        resetCodeExpired: 'Il codice è scaduto, richiedine uno nuovo',
+        resetNoEmail: "Questo alias non ha un'email registrata, impossibile recuperare la password",
+        resetAliasNotFound: 'Nessun alias trovato con questo nome',
+        resetBack: 'Indietro',
+        resetCancel: 'Annulla',
         namePlaceholder: 'Come ti chiami…',
         chooseLevel: 'Livello di difficoltà',
         lockedLevel: (n) => `Completa il livello ${n} per sbloccare`,
@@ -5302,6 +5538,62 @@
       const [passSession,   setPassSession]   = useState(false);
       // True mientras se verifica la contraseña contra Firebase (evita doble clic)
       const [pwChecking,    setPwChecking]    = useState(false);
+      // Email de registro (se pide junto con la contraseña la primera vez que se
+      // reclama un alias, para poder enviar el código de recuperación si se olvida).
+      const [regEmail,      setRegEmail]      = useState('');
+      const [regEmailError, setRegEmailError] = useState('');
+      // Recuperación de contraseña: 'request' (pedir código) → 'sent' (introducir código
+      // + nueva contraseña) → null (cerrado). resetMsg guarda el mensaje de error/éxito.
+      const [resetStep,     setResetStep]     = useState(null);
+      const [resetLoading,  setResetLoading]  = useState(false);
+      const [resetMsg,      setResetMsg]      = useState('');
+      const [resetSentTo,   setResetSentTo]   = useState('');
+      const [resetCode,     setResetCode]     = useState('');
+      const [resetNewPw,    setResetNewPw]    = useState('');
+
+      const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+      const startPasswordReset = useCallback(() => {
+        setResetStep('request'); setResetMsg(''); setResetCode(''); setResetNewPw(''); setResetSentTo('');
+      }, []);
+
+      const requestResetCode = useCallback(async () => {
+        if (resetLoading) return;
+        setResetLoading(true); setResetMsg('');
+        const res = await window.__fbRequestPasswordReset?.(name.trim()) ?? { ok:false };
+        setResetLoading(false);
+        if (res.ok) {
+          setResetSentTo(res.email);
+          setResetStep('sent');
+        } else if (res.reason === 'notfound') {
+          setResetMsg(window.T.resetAliasNotFound);
+        } else if (res.reason === 'noemail') {
+          setResetMsg(window.T.resetNoEmail);
+        } else {
+          setResetMsg(window.T.errFirebase);
+        }
+      }, [name, resetLoading]);
+
+      const confirmResetCode = useCallback(async () => {
+        if (resetLoading || !resetCode.trim() || !resetNewPw.trim()) return;
+        setResetLoading(true); setResetMsg('');
+        const res = await window.__fbConfirmPasswordReset?.(name.trim(), resetCode.trim(), resetNewPw.trim()) ?? { ok:false };
+        setResetLoading(false);
+        if (res.ok) {
+          setResetMsg(window.T.resetSuccess);
+          setPassword(resetNewPw.trim());
+          setTimeout(() => {
+            setResetStep(null); setResetCode(''); setResetNewPw(''); setResetMsg('');
+            confirmPassword();
+          }, 1200);
+        } else if (res.reason === 'expired') {
+          setResetMsg(window.T.resetCodeExpired);
+        } else if (res.reason === 'invalid') {
+          setResetMsg(window.T.resetCodeInvalid);
+        } else {
+          setResetMsg(window.T.errFirebase);
+        }
+      }, [name, resetCode, resetNewPw, resetLoading]);
 
       // Al montar: restaurar sesión si existe y no han pasado 30s desde que salió.
       // La sesión solo se guarda tras verificar la contraseña correctamente (ver
@@ -5385,7 +5677,11 @@
       const confirmSaveData = useCallback(async () => {
         const n = name.trim();
         if (password.trim()) {
-          await window.__fbClaimAlias?.(n, password.trim());
+          const em = regEmail.trim();
+          if (!em) { setRegEmailError(window.T.emailRequired); return; }
+          if (!EMAIL_RE.test(em)) { setRegEmailError(window.T.emailInvalid); return; }
+          setRegEmailError('');
+          await window.__fbClaimAlias?.(n, password.trim(), em);
           sessionStorage.setItem('rr-pass-session', JSON.stringify({ savedName: n, savedPass: password.trim(), leaveTime: null }));
           setAliasClaimed(true);
           setPassSession(true);
@@ -5394,7 +5690,7 @@
         await checkLevel8(done);
         setShowSavePrompt(false);
         setSaveResultMsg('saved');
-      }, [name, password, loadProgress, checkLevel8]);
+      }, [name, password, regEmail, loadProgress, checkLevel8]);
 
       // Botón "No guardar": continúa como sesión efímera, sin registrar el alias.
       const declineSaveData = useCallback(() => {
@@ -5461,7 +5757,10 @@
           return { ephemeral: false, done };
         }
         if (password.trim()) {
-          await window.__fbClaimAlias?.(name.trim(), password.trim());
+          const em = regEmail.trim();
+          if (!em) { setPasswordError(window.T.emailRequired); return null; }
+          if (!EMAIL_RE.test(em)) { setPasswordError(window.T.emailInvalid); return null; }
+          await window.__fbClaimAlias?.(name.trim(), password.trim(), em);
         }
         // Siempre cargar el progreso existente en Firebase, independientemente
         // de si el alias está reclamado o es una sesión efímera
@@ -5708,6 +6007,71 @@
                 {passwordError && (
                   <div style={{marginTop:'5px',fontSize:'10.5px',color:'#f87171'}}>{passwordError}</div>
                 )}
+                {/* Enlace "¿Olvidaste tu contraseña?": visible para cualquier alias
+                    reclamado mientras no haya sesión activa (típicamente tras un error). */}
+                {aliasClaimed && !passSession && !resetStep && (
+                  <div style={{marginTop:'5px'}}>
+                    <button type="button" onClick={startPasswordReset}
+                            style={{background:'transparent',border:'none',padding:0,cursor:'pointer',
+                                    fontSize:'10.5px',color:'rgba(156,90,255,.9)',textDecoration:'underline'}}>
+                      {window.T.forgotPassword}
+                    </button>
+                  </div>
+                )}
+                {/* Panel de recuperación de contraseña: paso 1 pide el código por email,
+                    paso 2 pide el código recibido y la nueva contraseña. */}
+                {resetStep && (
+                  <div style={{marginTop:'7px',position:'relative',width:'100%',boxSizing:'border-box',
+                               background:'rgba(20,16,10,.96)',border:'1px solid rgba(156,90,255,.45)',
+                               borderRadius:'10px',boxShadow:'0 8px 24px rgba(0,0,0,.5)',
+                               padding:'10px 12px',fontSize:'11.5px',color:'#fff'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'6px'}}>
+                      <div style={{fontWeight:700}}>{window.T.resetTitle}</div>
+                      <button type="button" onClick={()=>setResetStep(null)}
+                              style={{background:'transparent',border:'none',color:'rgba(255,255,255,.6)',
+                                      cursor:'pointer',fontSize:'14px',lineHeight:1,padding:0}}>✕</button>
+                    </div>
+                    {resetStep === 'request' && (
+                      <>
+                        <div style={{opacity:.8,marginBottom:'8px'}}>{window.T.resetIntro}</div>
+                        <button onClick={requestResetCode} disabled={resetLoading}
+                                style={{width:'100%',padding:'7px 8px',borderRadius:'6px',border:'1px solid rgba(156,90,255,.5)',
+                                       background:'rgba(156,90,255,.22)',color:'#fff',fontSize:'11.5px',fontWeight:700,
+                                       cursor: resetLoading ? 'wait' : 'pointer',opacity: resetLoading ? .6 : 1}}>
+                          {resetLoading ? window.T.resetSending : window.T.resetSendCode}
+                        </button>
+                      </>
+                    )}
+                    {resetStep === 'sent' && (
+                      <>
+                        <div style={{opacity:.8,marginBottom:'8px'}}>{window.T.resetCodeSent(resetSentTo)}</div>
+                        <input value={resetCode} onChange={e=>setResetCode(e.target.value)}
+                               placeholder={window.T.resetCodePlaceholder} maxLength={6} inputMode="numeric"
+                               style={{width:'100%',boxSizing:'border-box',marginBottom:'6px',padding:'7px 10px',
+                                       borderRadius:'6px',border:'1px solid rgba(255,255,255,.15)',
+                                       background:'rgba(255,255,255,.06)',color:'#fff',fontSize:'12px'}}/>
+                        <input type="password" value={resetNewPw} onChange={e=>setResetNewPw(e.target.value)}
+                               placeholder={window.T.resetNewPassword} maxLength={17}
+                               style={{width:'100%',boxSizing:'border-box',marginBottom:'8px',padding:'7px 10px',
+                                       borderRadius:'6px',border:'1px solid rgba(255,255,255,.15)',
+                                       background:'rgba(255,255,255,.06)',color:'#fff',fontSize:'12px'}}/>
+                        <button onClick={confirmResetCode} disabled={resetLoading || !resetCode.trim() || !resetNewPw.trim()}
+                                style={{width:'100%',padding:'7px 8px',borderRadius:'6px',border:'1px solid rgba(156,90,255,.5)',
+                                       background:'rgba(156,90,255,.22)',color:'#fff',fontSize:'11.5px',fontWeight:700,
+                                       cursor: resetLoading ? 'wait' : 'pointer',
+                                       opacity: (resetLoading || !resetCode.trim() || !resetNewPw.trim()) ? .5 : 1}}>
+                          {window.T.resetConfirmButton}
+                        </button>
+                      </>
+                    )}
+                    {resetMsg && (
+                      <div style={{marginTop:'7px',fontSize:'10.5px',
+                                   color: resetMsg===window.T.resetSuccess ? 'rgba(100,220,100,.9)' : '#f87171'}}>
+                        {resetMsg}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {/* Alias libre: preguntar si se registra con la contraseña escrita, o
                     mostrar el resultado elegido ("Registrado!" / "No se han guardado
                     los datos") en el mismo sitio. */}
@@ -5717,20 +6081,35 @@
                                borderRadius:'10px',boxShadow:'0 8px 24px rgba(0,0,0,.5)',
                                padding:'9px 12px',fontSize:'11.5px',color:'#fff'}}>
                     {showSavePrompt ? (
-                      <div style={{display:'flex',gap:'6px'}}>
-                        <button onClick={confirmSaveData}
-                                style={{flex:1,padding:'6px 8px',borderRadius:'6px',border:'1px solid rgba(156,90,255,.5)',
-                                       background:'rgba(156,90,255,.22)',color:'#fff',fontSize:'11.5px',
-                                       fontWeight:700,cursor:'pointer'}}>
-                          {window.T.saveDataBtn}
-                        </button>
-                        <button onClick={declineSaveData}
-                                style={{flex:1,padding:'6px 8px',borderRadius:'6px',border:`1px solid ${darkText?'rgba(41,41,44,.3)':'rgba(255,255,255,.15)'}`,
-                                       background:darkText?'rgba(0,0,0,.06)':'rgba(255,255,255,.06)',color:'#fff',
-                                       fontSize:'11.5px',cursor:'pointer'}}>
-                          {window.T.noSaveBtn}
-                        </button>
-                      </div>
+                      <>
+                        {password.trim() && (
+                          <div style={{marginBottom:'7px'}}>
+                            <input type="email" value={regEmail}
+                                   onChange={e=>{setRegEmail(e.target.value); setRegEmailError('');}}
+                                   placeholder={window.T.emailLabel}
+                                   style={{width:'100%',boxSizing:'border-box',padding:'7px 10px',borderRadius:'6px',
+                                           border:`1px solid ${regEmailError?'rgba(248,113,113,.5)':'rgba(255,255,255,.15)'}`,
+                                           background:'rgba(255,255,255,.06)',color:'#fff',fontSize:'12px'}}/>
+                            {regEmailError && (
+                              <div style={{marginTop:'4px',fontSize:'10.5px',color:'#f87171'}}>{regEmailError}</div>
+                            )}
+                          </div>
+                        )}
+                        <div style={{display:'flex',gap:'6px'}}>
+                          <button onClick={confirmSaveData}
+                                  style={{flex:1,padding:'6px 8px',borderRadius:'6px',border:'1px solid rgba(156,90,255,.5)',
+                                         background:'rgba(156,90,255,.22)',color:'#fff',fontSize:'11.5px',
+                                         fontWeight:700,cursor:'pointer'}}>
+                            {window.T.saveDataBtn}
+                          </button>
+                          <button onClick={declineSaveData}
+                                  style={{flex:1,padding:'6px 8px',borderRadius:'6px',border:`1px solid ${darkText?'rgba(41,41,44,.3)':'rgba(255,255,255,.15)'}`,
+                                         background:darkText?'rgba(0,0,0,.06)':'rgba(255,255,255,.06)',color:'#fff',
+                                         fontSize:'11.5px',cursor:'pointer'}}>
+                            {window.T.noSaveBtn}
+                          </button>
+                        </div>
+                      </>
                     ) : (
                       <div style={{color: saveResultMsg==='saved' ? 'rgba(100,220,100,.9)' : 'rgba(255,255,255,.7)',fontWeight:600}}>
                         {saveResultMsg==='saved' ? window.T.registered : window.T.notSaved}
