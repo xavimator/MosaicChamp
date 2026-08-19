@@ -2946,11 +2946,12 @@
       0%,100% { opacity:.55; transform:scale(1); }
       50%     { opacity:1;   transform:scale(1.4); }
     }
-    /* Loud Secrets — brillo diagonal en bucle sobre las fichas metalizadas */
-    @keyframes metalSweep {
-      0%   { background-position: 0% 0%; }
-      50%  { background-position: 100% 100%; }
-      100% { background-position: 0% 0%; }
+    /* Loud Secrets — halo de brillo que gira alrededor del borde de la ficha
+       metalizada, siempre en la misma dirección (solo hacia adelante, sin
+       vaivén), para que se vea como un reflejo que recorre el contorno. */
+    @keyframes metalRingSpin {
+      0%   { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
     @keyframes tutHintIn  { from { opacity:0; transform:translateX(-8px) scale(.85); } to { opacity:1; transform:none; } }
     @keyframes tutHintOut { from { opacity:1; } to { opacity:0; transform:translateX(8px) scale(.85); } }
@@ -5103,6 +5104,11 @@
       particleStyle: 'stars', // estrellitas brillantes de 5 puntas, con parpadeo tipo sparkle
       tileTexture: 'metal', // fichas con degradado metalizado + brillo diagonal animado
       titleColor: '#F5DE9A', // título "MOSAIC CHAMP" en dorado sólido (no degradado arcoíris)
+      // Marco de "partida terminada": color pastel aleatorio elegido entre los 6
+      // colores de la paleta (los mismos 6 tonos que los regalos del fondo), muy aclarado.
+      pastelOverlay: true,
+      pastelOverlayMix: 0.72, // mezcla con blanco alta -> pastel muy clarito
+      pastelOverlayAlpha: 0.88,
       hintOn:  <>Toca para desactivar LOUD SECRETS</>,
       hintOff: <>Toca para LOUD SECRETS</>,
     };
@@ -5235,6 +5241,21 @@
       const pg = Math.round(g + (255 - g) * mixWithWhite);
       const pb = Math.round(b + (255 - b) * mixWithWhite);
       return `rgba(${pr},${pg},${pb},${alpha})`;
+    }
+
+    // Degradado "metalizado" (Loud Secrets) para una ficha, con bandas diagonales
+    // claro/oscuro simulando un reflejo curvo. Con `light=true` (usado durante las
+    // animaciones de power-up: Salto, SpinRound y Cascada) las bandas se aclaran
+    // mezclándolas con blanco, para que el efecto se note pero sin quedar tan oscuro
+    // como el de las fichas normales del tablero.
+    function rrMetallicGradient(c, light = false) {
+      if (!light) {
+        return `linear-gradient(115deg,${c.shine} 0%,${c.bg} 20%,${c.shadow} 42%,${c.shine} 58%,${c.shadow} 76%,${c.bg} 100%)`;
+      }
+      const shine  = rrPastelize(c.shine, .30, 1);
+      const bg     = rrPastelize(c.bg,    .35, 1);
+      const shadow = rrPastelize(c.shadow,.45, 1);
+      return `linear-gradient(115deg,${shine} 0%,${bg} 20%,${shadow} 42%,${shine} 58%,${shadow} 76%,${bg} 100%)`;
     }
 
     // Día de Muertos — genera un rayo eléctrico distinto cada vez: un trazo principal
@@ -7165,7 +7186,7 @@
     // distancia (1-4 filas), con la ficha que entra primero por arriba brillando en
     // azul; el resto de fichas se mueve sin iluminarse. Usa un render simplificado
     // (sin texturas de temporada) porque es una animación breve.
-    function CascadeSlide({ cols, boardSize, ghostTilesByCol, snapshotTiles, colorMap, geo }) {
+    function CascadeSlide({ cols, boardSize, ghostTilesByCol, snapshotTiles, colorMap, geo, metallic }) {
       const [play, setPlay] = useState(false);
       useEffect(() => {
         let raf1 = requestAnimationFrame(() => {
@@ -7193,7 +7214,7 @@
         return (
           <div key={key} style={{
             position:'absolute', width:cellPx, height:cellPx, borderRadius:'8px',
-            background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`,
+            background: metallic ? rrMetallicGradient(c, true) : `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`,
             boxShadow: glowing
               ? `0 4px 0 ${c.shadow}, 0 0 0 3px rgba(56,189,248,.75), 0 0 22px 6px rgba(56,189,248,.85)`
               : `0 4px 0 ${c.shadow}`,
@@ -7235,7 +7256,7 @@
     // ── Salto: overlay animado de una sola columna subiendo entre 1 y 4 casillas,
     // con la ficha que entra al final por abajo brillando en ámbar. Misma técnica
     // de "fantasma" que la Cascada pero en una sola tira vertical y hacia arriba.
-    function JumpSlide({ col, boardSize, rows, ghostTiles, snapshotCol, colorMap, geo }) {
+    function JumpSlide({ col, boardSize, rows, ghostTiles, snapshotCol, colorMap, geo, metallic }) {
       const [play, setPlay] = useState(false);
       useEffect(() => {
         let raf1 = requestAnimationFrame(() => {
@@ -7263,7 +7284,7 @@
         return (
           <div key={key} style={{
             position:'absolute', width:cellPx, height:cellPx, borderRadius:'8px',
-            background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`,
+            background: metallic ? rrMetallicGradient(c, true) : `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`,
             boxShadow: glowing
               ? `0 4px 0 ${c.shadow}, 0 0 0 3px rgba(251,191,36,.75), 0 0 22px 6px rgba(251,191,36,.85)`
               : `0 4px 0 ${c.shadow}`,
@@ -7411,7 +7432,7 @@
       );
     }
 
-    function SpinRoundSlide({ row, boardSize, shift, loops, ghostTiles, snapshotRow, colorMap, geo }) {
+    function SpinRoundSlide({ row, boardSize, shift, loops, ghostTiles, snapshotRow, colorMap, geo, metallic }) {
       const [play, setPlay] = useState(false);
       useEffect(() => {
         let raf1 = requestAnimationFrame(() => {
@@ -7440,7 +7461,7 @@
         return (
           <div key={key} style={{
             position:'absolute', width:cellPx, height:cellPx, borderRadius:'8px',
-            background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`,
+            background: metallic ? rrMetallicGradient(c, true) : `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`,
             boxShadow: glowing
               ? `0 4px 0 ${c.shadow}, 0 0 0 3px rgba(45,212,191,.75), 0 0 22px 6px rgba(45,212,191,.85)`
               : `0 4px 0 ${c.shadow}`,
@@ -7756,6 +7777,7 @@
       const activeSeason = useActiveSeason();
       const seasonTheme = window.__RR_SEASON_THEMES[activeSeason] || null;
       const darkText = seasonAlt && seasonTheme?.darkText;
+      const metallicMode = seasonAlt && seasonTheme?.tileTexture === 'metal';
       const [pridePreview, setPridePreview] = useState(false);
       const [showSettings, setShowSettings] = useState(false);
       const [finishOverlayColor, setFinishOverlayColor] = useState(null);
@@ -7775,7 +7797,9 @@
         if (seasonAlt && seasonTheme && seasonTheme.pastelOverlay && seasonTheme.colorMap) {
           const options = Object.values(seasonTheme.colorMap);
           const pick = options[Math.floor(Math.random() * options.length)];
-          setFinishOverlayColor(pick ? rrPastelize(pick.bg) : null);
+          const mix   = seasonTheme.pastelOverlayMix   ?? 0.42;
+          const alpha = seasonTheme.pastelOverlayAlpha ?? 0.91;
+          setFinishOverlayColor(pick ? rrPastelize(pick.bg, mix, alpha) : null);
         } else {
           setFinishOverlayColor(null);
         }
@@ -9804,12 +9828,14 @@
               {cascadeAnim && (
                 <CascadeSlide cols={cascadeAnim.cols} boardSize={boardSize}
                   ghostTilesByCol={cascadeAnim.ghostTilesByCol} snapshotTiles={cascadeAnim.snapshot}
-                  colorMap={getColorMap(effectivePride, colorblind, seasonAlt)} geo={cascadeAnim.geo}/>
+                  colorMap={getColorMap(effectivePride, colorblind, seasonAlt)} geo={cascadeAnim.geo}
+                  metallic={metallicMode}/>
               )}
               {jumpAnim && (
                 <JumpSlide col={jumpAnim.col} boardSize={boardSize} rows={jumpAnim.rows}
                   ghostTiles={jumpAnim.ghostTiles} snapshotCol={jumpAnim.snapshotCol}
-                  colorMap={getColorMap(effectivePride, colorblind, seasonAlt)} geo={jumpAnim.geo}/>
+                  colorMap={getColorMap(effectivePride, colorblind, seasonAlt)} geo={jumpAnim.geo}
+                  metallic={metallicMode}/>
               )}
               {jumpArmed && !jumpAnim && (
                 <div style={{
@@ -9825,7 +9851,8 @@
               {spinRoundAnim && (
                 <SpinRoundSlide row={spinRoundAnim.row} boardSize={boardSize} shift={spinRoundAnim.shift}
                   loops={spinRoundAnim.loops} ghostTiles={spinRoundAnim.ghostTiles} snapshotRow={spinRoundAnim.snapshotRow}
-                  colorMap={getColorMap(effectivePride, colorblind, seasonAlt)} geo={spinRoundAnim.geo}/>
+                  colorMap={getColorMap(effectivePride, colorblind, seasonAlt)} geo={spinRoundAnim.geo}
+                  metallic={metallicMode}/>
               )}
               {spinRoundArmed && !spinRoundAnim && (
                 <div style={{
@@ -10000,16 +10027,22 @@
                     <>
                     <div style={{position:'absolute',top:0,left:0,right:0,height:'45%',borderRadius:'8px 8px 50% 50%',background:'linear-gradient(to bottom,rgba(255,255,255,.2),transparent)',pointerEvents:'none'}}/>
                     {metallicMode && (
-                      // Barrido de brillo diagonal en bucle, tipo cromo pulido. El delay
-                      // varía por ficha (según su colorId+num) para que no todas destellen
-                      // a la vez y se vea más natural.
+                      // Halo de brillo que gira alrededor del contorno de la ficha (en vez
+                      // de un barrido sobre la cara), siempre en la misma dirección. La
+                      // duración es más larga que antes para que el destello pase con menos
+                      // frecuencia, y el retardo de cada ficha sale de un hash aleatorio de
+                      // su color+número, así todas las fichas del tablero quedan
+                      // desincronizadas entre sí en vez de brillar todas a la vez.
                       <div style={{
-                        position:'absolute', inset:'-40%', pointerEvents:'none',
-                        background:'linear-gradient(115deg, transparent 30%, rgba(255,255,255,.55) 46%, rgba(255,255,255,.9) 50%, rgba(255,255,255,.55) 54%, transparent 70%)',
-                        backgroundSize:'220% 220%',
-                        animation:'metalSweep 3.4s ease-in-out infinite',
-                        animationDelay:`${(stableRotationFor(`${tile.colorId}-${tile.num}`,34)/10).toFixed(1)}s`,
-                        mixBlendMode:'overlay',
+                        position:'absolute', inset:'0', borderRadius:'8px', pointerEvents:'none',
+                        padding:'3px',
+                        background:'conic-gradient(from 0deg, transparent 0%, transparent 72%, rgba(255,255,255,.4) 84%, rgba(255,255,255,1) 89%, rgba(255,255,255,.4) 94%, transparent 100%)',
+                        WebkitMask:'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                        WebkitMaskComposite:'xor',
+                        maskComposite:'exclude',
+                        animation:'metalRingSpin 8.5s linear infinite',
+                        animationDelay:`-${(stableRotationFor(`ring-${tile.colorId}-${tile.num}`,85)/10).toFixed(1)}s`,
+                        opacity:.85,
                       }}/>
                     )}
                     </>
