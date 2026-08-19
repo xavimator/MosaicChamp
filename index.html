@@ -2938,13 +2938,19 @@
        a su tamaño real, en vez de rasterizar el SVG pequeño y estirar ese bitmap
        (que es lo que producía el aspecto grueso/pixelado). */
     @keyframes dmRingOut {
-      0%   { r:0;   opacity:0; }
+      0%   { r:0px;   opacity:0; }
       8%   { opacity:.95; }
-      100% { r:620; opacity:0; }
+      100% { r:620px; opacity:0; }
     }
     @keyframes dmRingCore {
       0%,100% { opacity:.55; transform:scale(1); }
       50%     { opacity:1;   transform:scale(1.4); }
+    }
+    /* Loud Secrets — brillo diagonal en bucle sobre las fichas metalizadas */
+    @keyframes metalSweep {
+      0%   { background-position: 0% 0%; }
+      50%  { background-position: 100% 100%; }
+      100% { background-position: 0% 0%; }
     }
     @keyframes tutHintIn  { from { opacity:0; transform:translateX(-8px) scale(.85); } to { opacity:1; transform:none; } }
     @keyframes tutHintOut { from { opacity:1; } to { opacity:0; transform:translateX(8px) scale(.85); } }
@@ -5095,6 +5101,7 @@
       bgGradient: LOUD_SECRETS_BG,
       hideStars: true,
       particleStyle: 'stars', // estrellitas brillantes de 5 puntas, con parpadeo tipo sparkle
+      tileTexture: 'metal', // fichas con degradado metalizado + brillo diagonal animado
       titleColor: '#F5DE9A', // título "MOSAIC CHAMP" en dorado sólido (no degradado arcoíris)
       hintOn:  <>Toca para desactivar LOUD SECRETS</>,
       hintOff: <>Toca para LOUD SECRETS</>,
@@ -9890,6 +9897,7 @@
                 // "Dibujado a mano": textura de trazos cruzados tipo crayón (Vuelta al Colegio).
                 // El ángulo varía un poco por ficha para que no se vea como un patrón repetido.
                 const crayonMode = seasonAlt && seasonTheme?.tileTexture === 'crayon';
+                const metallicMode = seasonAlt && seasonTheme?.tileTexture === 'metal';
                 const scribbleMode = seasonAlt && seasonTheme?.tileShape === 'scribble';
                 const mapleMode = seasonAlt && seasonTheme?.tileShape === 'maple-leaf';
                 const tileCharcoalUrl = crayonMode ? schoolCharcoalFor(`${tile.colorId}-${tile.num}`) : null;
@@ -9906,6 +9914,11 @@
                     background: (scribbleMode || mapleMode) ? 'transparent' : (crayonMode
                       ? `url(${tileCharcoalUrl}),`+
                         `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`
+                      : metallicMode
+                      // Aspecto metalizado (Loud Secrets): varias bandas claro/oscuro en
+                      // diagonal simulan el reflejo curvo de un metal pulido, en vez del
+                      // degradado plano de 3 tonos normal.
+                      ? `linear-gradient(115deg,${c.shine} 0%,${c.bg} 20%,${c.shadow} 42%,${c.shine} 58%,${c.shadow} 76%,${c.bg} 100%)`
                       : `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`),
                     backgroundSize: crayonMode ? '100% 100%, 100% 100%' : undefined,
                     backgroundBlendMode: scribbleMode ? undefined : (crayonMode ? 'multiply, normal' : undefined),
@@ -9984,7 +9997,22 @@
                         )}
                       </div>
                     ) : (
+                    <>
                     <div style={{position:'absolute',top:0,left:0,right:0,height:'45%',borderRadius:'8px 8px 50% 50%',background:'linear-gradient(to bottom,rgba(255,255,255,.2),transparent)',pointerEvents:'none'}}/>
+                    {metallicMode && (
+                      // Barrido de brillo diagonal en bucle, tipo cromo pulido. El delay
+                      // varía por ficha (según su colorId+num) para que no todas destellen
+                      // a la vez y se vea más natural.
+                      <div style={{
+                        position:'absolute', inset:'-40%', pointerEvents:'none',
+                        background:'linear-gradient(115deg, transparent 30%, rgba(255,255,255,.55) 46%, rgba(255,255,255,.9) 50%, rgba(255,255,255,.55) 54%, transparent 70%)',
+                        backgroundSize:'220% 220%',
+                        animation:'metalSweep 3.4s ease-in-out infinite',
+                        animationDelay:`${(stableRotationFor(`${tile.colorId}-${tile.num}`,34)/10).toFixed(1)}s`,
+                        mixBlendMode:'overlay',
+                      }}/>
+                    )}
+                    </>
                     )}
                     {sabotageFlashIdx.includes(idx) && (
                       <div style={{
