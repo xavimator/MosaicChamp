@@ -2949,9 +2949,16 @@
     /* Loud Secrets — halo de brillo que gira alrededor del borde de la ficha
        metalizada, siempre en la misma dirección (solo hacia adelante, sin
        vaivén), para que se vea como un reflejo que recorre el contorno. */
+    /* Loud Secrets — halo de brillo que gira alrededor del borde de la ficha
+       metalizada, siempre en la misma dirección (solo hacia adelante, sin
+       vaivén). Ya no gira todo el rato: da una vuelta rápida (70% más rápido
+       que antes) y luego permanece oculto la mayor parte del ciclo, así
+       aparece solo un ~20% de lo frecuente que aparecía antes. */
     @keyframes metalRingSpin {
-      0%   { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      0%      { opacity:1; transform: rotate(0deg); }
+      11.76%  { opacity:1; transform: rotate(360deg); }
+      11.9%   { opacity:0; }
+      100%    { opacity:0; transform: rotate(360deg); }
     }
     @keyframes tutHintIn  { from { opacity:0; transform:translateX(-8px) scale(.85); } to { opacity:1; transform:none; } }
     @keyframes tutHintOut { from { opacity:1; } to { opacity:0; transform:translateX(8px) scale(.85); } }
@@ -5248,14 +5255,18 @@
     // animaciones de power-up: Salto, SpinRound y Cascada) las bandas se aclaran
     // mezclándolas con blanco, para que el efecto se note pero sin quedar tan oscuro
     // como el de las fichas normales del tablero.
+    // El ángulo del reflejo varía según el color de la ficha (id), para que cada
+    // color "refleje" la luz desplazado hacia un lado distinto, en vez de que
+    // todos los colores metalizados muestren exactamente el mismo patrón.
     function rrMetallicGradient(c, light = false) {
+      const angle = 115 + (stableRotationFor(`metallic-angle-${c && c.id || ''}`, 60) - 30); // 85..145deg
       if (!light) {
-        return `linear-gradient(115deg,${c.shine} 0%,${c.bg} 20%,${c.shadow} 42%,${c.shine} 58%,${c.shadow} 76%,${c.bg} 100%)`;
+        return `linear-gradient(${angle}deg,${c.shine} 0%,${c.bg} 20%,${c.shadow} 42%,${c.shine} 58%,${c.shadow} 76%,${c.bg} 100%)`;
       }
       const shine  = rrPastelize(c.shine, .30, 1);
       const bg     = rrPastelize(c.bg,    .35, 1);
       const shadow = rrPastelize(c.shadow,.45, 1);
-      return `linear-gradient(115deg,${shine} 0%,${bg} 20%,${shadow} 42%,${shine} 58%,${shadow} 76%,${bg} 100%)`;
+      return `linear-gradient(${angle}deg,${shine} 0%,${bg} 20%,${shadow} 42%,${shine} 58%,${shadow} 76%,${bg} 100%)`;
     }
 
     // Día de Muertos — genera un rayo eléctrico distinto cada vez: un trazo principal
@@ -9944,8 +9955,9 @@
                       : metallicMode
                       // Aspecto metalizado (Loud Secrets): varias bandas claro/oscuro en
                       // diagonal simulan el reflejo curvo de un metal pulido, en vez del
-                      // degradado plano de 3 tonos normal.
-                      ? `linear-gradient(115deg,${c.shine} 0%,${c.bg} 20%,${c.shadow} 42%,${c.shine} 58%,${c.shadow} 76%,${c.bg} 100%)`
+                      // degradado plano de 3 tonos normal. El ángulo se desplaza según el
+                      // color de la ficha (ver rrMetallicGradient).
+                      ? rrMetallicGradient(c, false)
                       : `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`),
                     backgroundSize: crayonMode ? '100% 100%, 100% 100%' : undefined,
                     backgroundBlendMode: scribbleMode ? undefined : (crayonMode ? 'multiply, normal' : undefined),
@@ -10028,11 +10040,12 @@
                     <div style={{position:'absolute',top:0,left:0,right:0,height:'45%',borderRadius:'8px 8px 50% 50%',background:'linear-gradient(to bottom,rgba(255,255,255,.2),transparent)',pointerEvents:'none'}}/>
                     {metallicMode && (
                       // Halo de brillo que gira alrededor del contorno de la ficha (en vez
-                      // de un barrido sobre la cara), siempre en la misma dirección. La
-                      // duración es más larga que antes para que el destello pase con menos
-                      // frecuencia, y el retardo de cada ficha sale de un hash aleatorio de
-                      // su color+número, así todas las fichas del tablero quedan
-                      // desincronizadas entre sí en vez de brillar todas a la vez.
+                      // de un barrido sobre la cara), siempre en la misma dirección. Ya no
+                      // gira todo el rato: da una vuelta rápida (70% más rápido que antes,
+                      // 5s en vez de 8.5s) y se oculta el resto del ciclo (42.5s en total),
+                      // por lo que aparece solo ~20% de lo frecuente que aparecía antes. El
+                      // retardo de cada ficha sale de un hash de su color+número, así todas
+                      // las fichas del tablero quedan desincronizadas entre sí.
                       <div style={{
                         position:'absolute', inset:'0', borderRadius:'8px', pointerEvents:'none',
                         padding:'3px',
@@ -10040,8 +10053,8 @@
                         WebkitMask:'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
                         WebkitMaskComposite:'xor',
                         maskComposite:'exclude',
-                        animation:'metalRingSpin 8.5s linear infinite',
-                        animationDelay:`-${(stableRotationFor(`ring-${tile.colorId}-${tile.num}`,85)/10).toFixed(1)}s`,
+                        animation:'metalRingSpin 42.5s linear infinite',
+                        animationDelay:`-${(stableRotationFor(`ring-${tile.colorId}-${tile.num}`,425)/10).toFixed(1)}s`,
                         opacity:.85,
                       }}/>
                     )}
