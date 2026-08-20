@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v165'; // ← v165: Loud secrets new colors
+const CACHE_NAME = 'mosaicchamp-v166'; // ← v166: Loud secrets new colors
 
 // Recursos que se precachean en la instalación
 // NOTA: rutas relativas (sin "/" inicial) para funcionar tanto si la app
