@@ -5773,9 +5773,11 @@
           {[0,1,2,3,4,5].map(i => (
             <svg key={i} width="0" height="0" style={{position:'absolute',overflow:'visible'}}>
               {/* Trazo más claro y grueso (más brillante) + doble drop-shadow: uno
-                  ceñido e intenso y otro más ancho y difuso, para dar glow a cada anillo. */}
+                  ceñido e intenso y otro mucho más ancho y difuso (glow 10x más
+                  ancho y brillante que la versión anterior), para que cada anillo
+                  se note claramente más allá de su propio trazo. */}
               <circle cx="0" cy="0" r="0" fill="none" stroke="#bfe4ff" strokeWidth="2"
-                      style={{filter:'drop-shadow(0 0 4px rgba(207,233,255,.95)) drop-shadow(0 0 16px rgba(142,203,255,.75))',
+                      style={{filter:'drop-shadow(0 0 40px rgba(207,233,255,1)) drop-shadow(0 0 160px rgba(142,203,255,.9))',
                               animation:'dmRingOut 5.4s cubic-bezier(.15,.6,.4,1) infinite',
                               animationDelay:`${i*0.9}s`}}/>
             </svg>
