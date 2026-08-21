@@ -2933,14 +2933,13 @@
       100% { opacity:0; }
     }
     /* Día de Muertos — fondo de círculos concéntricos azul claro (tras el 3er rayo).
-       Anima el radio del <circle> directamente (propiedad geométrica SVG animable por
-       CSS), no un transform:scale — así el navegador redibuja el vector en cada frame
-       a su tamaño real, en vez de rasterizar el SVG pequeño y estirar ese bitmap
-       (que es lo que producía el aspecto grueso/pixelado). */
+       Anima width/height del <div> directamente (no transform:scale), para que el
+       grosor del borde y el desenfoque del box-shadow (el glow) se mantengan
+       constantes en vez de estirarse/deformarse junto con el círculo. */
     @keyframes dmRingOut {
-      0%   { r:0px;   opacity:0; }
+      0%   { width:0px;    height:0px;    opacity:0; }
       8%   { opacity:1; }
-      100% { r:620px; opacity:0; }
+      100% { width:1240px; height:1240px; opacity:0; }
     }
     @keyframes dmRingCore {
       0%,100% { opacity:.75; transform:scale(1); }
@@ -5752,10 +5751,12 @@
     // Día de Muertos — fondo de círculos concéntricos azul claro que se expanden desde
     // el centro hacia fuera (efecto "vienen hacia el jugador"). Sustituye al fondo de
     // flores tras el 3er rayo y hasta el final de la partida.
-    // Usa SVG (en vez de un div con border escalado) para que el trazo del anillo se
-    // mantenga fino y nítido durante toda la expansión: un border de CSS escalado 30x
-    // por transform se rasteriza y pixela; un <circle> con stroke es vectorial y con
-    // vectorEffect="non-scaling-stroke" el grosor de línea no varía con el scale.
+    // Cada anillo es un <div> con borde + box-shadow (no SVG): un <svg width="0"
+    // height="0"> con un filter:drop-shadow() en su interior puede recortar el glow
+    // a esa caja de 0×0 en varios navegadores/webviews aunque tenga overflow:visible
+    // en CSS, que es por lo que el glow no se apreciaba. Con box-shadow el navegador
+    // no tiene ese problema de recorte. Se anima width/height (no transform:scale)
+    // para que el grosor del borde y el desenfoque del glow no se deformen al crecer.
     function DiaMuertosRings() {
       return (
         <div style={{position:'absolute',inset:0,pointerEvents:'none',overflow:'hidden',
@@ -5771,16 +5772,16 @@
                        background:'radial-gradient(circle,#ffffff 0%,#cfe9ff 35%,#8ecbff 65%,rgba(142,203,255,0) 82%)',
                        filter:'blur(1px)',animation:'dmRingCore 5.4s ease-in-out infinite'}}/>
           {[0,1,2,3,4,5].map(i => (
-            <svg key={i} width="0" height="0" style={{position:'absolute',overflow:'visible'}}>
-              {/* Trazo más claro y grueso (más brillante) + doble drop-shadow: uno
-                  ceñido e intenso y otro mucho más ancho y difuso (glow 10x más
-                  ancho y brillante que la versión anterior), para que cada anillo
-                  se note claramente más allá de su propio trazo. */}
-              <circle cx="0" cy="0" r="0" fill="none" stroke="#bfe4ff" strokeWidth="2"
-                      style={{filter:'drop-shadow(0 0 40px rgba(207,233,255,1)) drop-shadow(0 0 160px rgba(142,203,255,.9))',
-                              animation:'dmRingOut 5.4s cubic-bezier(.15,.6,.4,1) infinite',
-                              animationDelay:`${i*0.9}s`}}/>
-            </svg>
+            // Borde claro y grueso (más brillante) + doble box-shadow: uno ceñido e
+            // intenso y otro mucho más ancho y difuso (glow de 80px), para que cada
+            // anillo se note claramente más allá de su propio trazo.
+            <div key={i} style={{
+              position:'absolute', borderRadius:'50%', boxSizing:'border-box',
+              border:'2px solid #bfe4ff',
+              boxShadow:'0 0 20px 6px rgba(207,233,255,1), 0 0 80px 24px rgba(142,203,255,.9)',
+              animation:'dmRingOut 5.4s cubic-bezier(.15,.6,.4,1) infinite',
+              animationDelay:`${i*0.9}s`,
+            }}/>
           ))}
         </div>
       );
@@ -9644,6 +9645,21 @@
                 }[kind];
                 return <PowerUpIcon key={kind} kind={kind} alwaysActive size={24} onUse={testFn}/>;
               })}
+              {/* QA (solo Rubiking): fuerza el fondo de círculos concéntricos de Día
+                  de Muertos sin tener que esperar a que caigan 3 rayos, para poder
+                  revisar el glow de los anillos al momento. Alterna encendido/apagado. */}
+              {activeSeason === 'dia_muertos' && (
+                <button
+                  onClick={() => { setDmRingsBg(v => !v); setDmFlash(false); }}
+                  style={{
+                    height:'24px', padding:'0 8px', borderRadius:'12px',
+                    border:'1px solid rgba(191,228,255,.6)',
+                    background: dmRingsBg ? 'rgba(142,203,255,.35)' : 'rgba(255,255,255,.08)',
+                    color:'#bfe4ff', fontSize:'11px', fontWeight:700, cursor:'pointer',
+                    display:'flex', alignItems:'center', gap:'4px', whiteSpace:'nowrap',
+                  }}
+                >⭘ Rings {dmRingsBg ? 'ON' : 'OFF'}</button>
+              )}
             </div>
           )}
 
