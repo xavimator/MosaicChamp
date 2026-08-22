@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v171'; // ← v171: dia muertos reglow
+const CACHE_NAME = 'mosaicchamp-v172'; // ← v172: Festividades 1st try
 
 // Recursos que se precachean en la instalación
 // NOTA: rutas relativas (sin "/" inicial) para funcionar tanto si la app
