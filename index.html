@@ -2432,6 +2432,59 @@
         -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
     html, body { height:100%; background:#0a0818; overflow:hidden; overscroll-behavior:none; }
     :root { --rr-icon-color:#c89fff; }
+    /* ── Temporada de Año Nuevo ── */
+    body.rr-season-new_year { --rr-icon-color:#f6d372; --rr-finished-overlay:rgba(10,8,4,.91); }
+    body.rr-season-new_year .lobby-wrap {
+      background:
+        radial-gradient(ellipse 120% 80% at 50% 15%, rgba(70,52,20,.35) 0%, transparent 55%),
+        radial-gradient(ellipse 140% 100% at 50% 100%, rgba(15,20,40,.9) 0%, #05060c 60%),
+        linear-gradient(180deg, #0a0e1c 0%, #05060c 70%);
+    }
+    body.rr-season-new_year #rr-toggle,
+    body.rr-season-new_year #rr-panel {
+      background:#241a06; border-color:rgba(212,175,55,.5);
+    }
+    body.rr-season-new_year #rr-toggle:hover { background:#3a2a0c; border-color:rgba(212,175,55,.8); }
+    body.rr-season-new_year .lobby-card { background:rgba(10,8,4,.45); border-color:rgba(212,175,55,.35); }
+    body.rr-season-new_year .lobby-btn.primary { background:linear-gradient(135deg,#D4AF37,#8a6a1f); }
+
+    /* Fondo animado de Año Nuevo: reloj de tiempo transcurrido + año + fuegos artificiales */
+    .rr-ny-bg { position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:0; }
+    .rr-ny-canvas { position:absolute; inset:0; width:100%; height:100%; display:block; }
+    .rr-ny-content {
+      position:absolute; inset:0; display:flex; flex-direction:column;
+      align-items:center; justify-content:center; text-align:center; z-index:2;
+      padding-bottom:8vh;
+    }
+    .rr-ny-year {
+      font-family:'Trebuchet MS','Segoe UI',sans-serif; font-weight:700;
+      font-size:clamp(.7rem,1.6vw,1.05rem); letter-spacing:.5em; text-indent:.5em;
+      text-transform:uppercase; color:#f6d372; opacity:.85; margin-bottom:clamp(.7rem,2.5vw,1.5rem);
+      text-shadow:0 0 18px rgba(212,175,55,.4); transition:opacity .9s ease;
+    }
+    .rr-ny-year.rr-ny-fade { opacity:0; }
+    .rr-ny-clock { display:flex; align-items:baseline; gap:clamp(.25rem,1vw,.55rem); line-height:1; }
+    .rr-ny-digits {
+      font-weight:300; font-size:clamp(2.3rem,9vw,5rem); letter-spacing:.03em;
+      font-variant-numeric:tabular-nums;
+      background:linear-gradient(180deg,#fdf3d6 0%,#f6d372 45%,#c9a441 100%);
+      -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+      filter:drop-shadow(0 0 20px rgba(246,211,114,.4));
+    }
+    .rr-ny-colon {
+      font-weight:200; font-size:clamp(1.7rem,6vw,3.6rem); color:#d4af37; opacity:.75;
+      animation:rrNyBlink 2s steps(1) infinite; transform:translateY(-.06em);
+    }
+    @keyframes rrNyBlink { 0%,49%{opacity:.75;} 50%,100%{opacity:.25;} }
+    .rr-ny-seconds {
+      align-self:flex-end; font-size:clamp(.65rem,2vw,.95rem); color:rgba(255,255,255,.55);
+      font-variant-numeric:tabular-nums; margin-left:.3em; margin-bottom:.3em; opacity:.7;
+    }
+    .rr-ny-caption {
+      margin-top:clamp(.5rem,2vw,.9rem); font-size:clamp(.48rem,1vw,.62rem);
+      letter-spacing:.35em; text-indent:.35em; text-transform:uppercase; color:rgba(255,255,255,.45);
+    }
+
     /* ── Temporada de Verano y Vacaciones ── */
     body.rr-season-verano { --rr-icon-color:#0e6b64; --rr-finished-overlay:rgba(61,143,204,.91); }
     body.rr-season-verano .lobby-wrap {
@@ -5889,6 +5942,269 @@
       </div>;
     }
 
+    // Año Nuevo — fondo animado del lobby: reloj de tiempo transcurrido (arranca en
+    // 00:00 al cargar la página y cuenta minutos/horas sin parar), el año en curso
+    // (se actualiza solo si la partida sigue abierta al cambiar de año) y una tanda
+    // de fuegos artificiales de ~3 minutos al entrar, dorados con acentos de color.
+    function NewYearBackground() {
+      const starsRef = React.useRef(null);
+      const fwRef     = React.useRef(null);
+      const hhRef     = React.useRef(null);
+      const mmRef     = React.useRef(null);
+      const ssRef     = React.useRef(null);
+      const yearRef   = React.useRef(null);
+
+      React.useEffect(() => {
+        const starsCanvas = starsRef.current;
+        const fwCanvas    = fwRef.current;
+        if (!starsCanvas || !fwCanvas) return;
+        const sctx = starsCanvas.getContext('2d');
+        const fctx = fwCanvas.getContext('2d');
+        let stars = [];
+        let rafStars = null, rafFw = null;
+        let cancelled = false;
+
+        function resize() {
+          const w = starsCanvas.parentElement.clientWidth;
+          const h = starsCanvas.parentElement.clientHeight;
+          [starsCanvas, fwCanvas].forEach(c => { c.width = w; c.height = h; });
+          const count = Math.max(20, Math.floor((w * h) / 12000));
+          stars = Array.from({ length: count }, () => ({
+            x: Math.random() * w, y: Math.random() * h * 0.75,
+            r: Math.random() * 1.1 + 0.2,
+            phase: Math.random() * Math.PI * 2, speed: Math.random() * 0.02 + 0.005,
+          }));
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        function drawStars(t) {
+          if (cancelled) return;
+          sctx.clearRect(0, 0, starsCanvas.width, starsCanvas.height);
+          for (const s of stars) {
+            const tw = 0.5 + 0.5 * Math.sin(t * s.speed + s.phase);
+            sctx.globalAlpha = 0.12 + tw * 0.45;
+            sctx.fillStyle = '#f6e8c4';
+            sctx.beginPath(); sctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); sctx.fill();
+          }
+          sctx.globalAlpha = 1;
+          rafStars = requestAnimationFrame(drawStars);
+        }
+
+        // Paleta dominada por dorado/amarillo, con acentos variados
+        const PALETTE = [
+          { color: '246,211,114', weight: 34 }, { color: '212,175,55', weight: 22 },
+          { color: '255,223,150', weight: 14 }, { color: '255,157,77', weight: 10 },
+          { color: '255,111,145', weight: 7 }, { color: '95,214,196', weight: 6 },
+          { color: '125,184,255', weight: 5 }, { color: '200,150,255', weight: 2 },
+        ];
+        const pool = PALETTE.flatMap(p => Array(p.weight).fill(p.color));
+        const randomColor = () => pool[Math.floor(Math.random() * pool.length)];
+
+        class Particle {
+          constructor(x, y, color, opts = {}) {
+            this.x = x; this.y = y;
+            const angle = opts.angle ?? Math.random() * Math.PI * 2;
+            const speed = opts.speed ?? (Math.random() * 4.5 + 1.5);
+            this.vx = Math.cos(angle) * speed; this.vy = Math.sin(angle) * speed;
+            this.color = color; this.life = 1;
+            this.decay = opts.decay ?? (Math.random() * 0.012 + 0.010);
+            this.gravity = opts.gravity ?? 0.045; this.drag = opts.drag ?? 0.988;
+            this.size = opts.size ?? (Math.random() * 2 + 1.3);
+            this.trail = []; this.trailLen = opts.trailLen ?? 4;
+          }
+          update() {
+            this.trail.push({ x: this.x, y: this.y });
+            if (this.trail.length > this.trailLen) this.trail.shift();
+            this.vx *= this.drag; this.vy *= this.drag; this.vy += this.gravity;
+            this.x += this.vx; this.y += this.vy; this.life -= this.decay;
+          }
+          draw(ctx) {
+            const alpha = Math.max(this.life, 0);
+            if (this.trail.length > 1) {
+              ctx.beginPath(); ctx.moveTo(this.trail[0].x, this.trail[0].y);
+              for (let i = 1; i < this.trail.length; i++) ctx.lineTo(this.trail[i].x, this.trail[i].y);
+              ctx.lineTo(this.x, this.y);
+              ctx.strokeStyle = `rgba(${this.color},${alpha * 0.5})`;
+              ctx.lineWidth = this.size * 0.7; ctx.stroke();
+            }
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(${this.color},${alpha})`; ctx.fill();
+          }
+        }
+
+        class Rocket {
+          constructor(x, targetY, color) {
+            this.x = x; this.y = fwCanvas.height + 10; this.targetY = targetY; this.color = color;
+            this.vy = -(Math.random() * 3.2 + 7.5); this.vx = (Math.random() - 0.5) * 1.2;
+            this.trail = []; this.exploded = false;
+          }
+          update() {
+            this.trail.push({ x: this.x, y: this.y });
+            if (this.trail.length > 6) this.trail.shift();
+            this.vy += 0.05; this.x += this.vx; this.y += this.vy;
+            if (this.vy >= -1 || this.y <= this.targetY) this.exploded = true;
+          }
+          draw(ctx) {
+            ctx.beginPath();
+            if (this.trail.length > 1) {
+              ctx.moveTo(this.trail[0].x, this.trail[0].y);
+              for (let i = 1; i < this.trail.length; i++) ctx.lineTo(this.trail[i].x, this.trail[i].y);
+            }
+            ctx.lineTo(this.x, this.y);
+            ctx.strokeStyle = `rgba(${this.color},0.85)`; ctx.lineWidth = 2; ctx.stroke();
+            ctx.beginPath(); ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,245,220,0.95)'; ctx.fill();
+          }
+        }
+
+        let rockets = [], particles = [];
+
+        function burst(x, y, colorOverride) {
+          const mainColor = colorOverride || randomColor();
+          const type = Math.random();
+          const count = 55 + Math.floor(Math.random() * 45);
+          if (type < 0.7) {
+            for (let i = 0; i < count; i++) {
+              const angle = (Math.PI * 2 * i) / count + Math.random() * 0.15;
+              const c = Math.random() < 0.75 ? mainColor : randomColor();
+              particles.push(new Particle(x, y, c, { angle, speed: Math.random() * 3.8 + 2.2, trailLen: 5 }));
+            }
+          } else {
+            const rings = 2;
+            for (let r = 0; r < rings; r++) {
+              const ringCount = Math.floor(count / rings);
+              for (let i = 0; i < ringCount; i++) {
+                const angle = (Math.PI * 2 * i) / ringCount;
+                const c = Math.random() < 0.8 ? mainColor : randomColor();
+                particles.push(new Particle(x, y, c, { angle, speed: (r + 1) * 2.6 + Math.random() * 1.2, trailLen: 6, decay: 0.009 }));
+              }
+            }
+          }
+          for (let i = 0; i < 18; i++) {
+            particles.push(new Particle(x, y, '246,211,114', {
+              angle: Math.random() * Math.PI * 2, speed: Math.random() * 1.8 + 0.5,
+              decay: 0.02, size: 0.9, trailLen: 2,
+            }));
+          }
+        }
+
+        const SHOW_DURATION = 3 * 60 * 1000; // 3 minutos
+        let showActive = true;
+        const showStart = performance.now();
+
+        function scheduleLaunch() {
+          if (cancelled || !showActive) return;
+          const elapsed = performance.now() - showStart;
+          if (elapsed > SHOW_DURATION) { showActive = false; return; }
+          const x = fwCanvas.width * 0.12 + Math.random() * fwCanvas.width * 0.76;
+          const targetY = fwCanvas.height * 0.15 + Math.random() * fwCanvas.height * 0.35;
+          rockets.push(new Rocket(x, targetY, randomColor()));
+          const introBoost = elapsed < 6000;
+          const next = introBoost ? (Math.random() * 220 + 120) : (Math.random() * 650 + 280);
+          setTimeout(scheduleLaunch, next);
+        }
+
+        function openingBurst() {
+          for (let i = 0; i < 5; i++) {
+            setTimeout(() => {
+              if (cancelled) return;
+              const x = fwCanvas.width * (0.2 + i * 0.15);
+              const y = fwCanvas.height * (0.2 + Math.random() * 0.25);
+              burst(x, y);
+            }, i * 140);
+          }
+        }
+
+        function animateFireworks() {
+          if (cancelled) return;
+          fctx.clearRect(0, 0, fwCanvas.width, fwCanvas.height);
+          rockets = rockets.filter(r => {
+            r.update(); r.draw(fctx);
+            if (r.exploded) { burst(r.x, r.y, r.color); return false; }
+            return true;
+          });
+          particles = particles.filter(p => {
+            p.update();
+            if (p.life <= 0) return false;
+            p.draw(fctx); return true;
+          });
+          rafFw = requestAnimationFrame(animateFireworks);
+        }
+
+        // Reloj de tiempo transcurrido (desde que se muestra este fondo)
+        const startTime = Date.now();
+        const pad = n => String(n).padStart(2, '0');
+        function updateClock() {
+          if (cancelled) return;
+          const elapsed = Date.now() - startTime;
+          const totalSeconds = Math.floor(elapsed / 1000);
+          const hours = Math.floor(totalSeconds / 3600);
+          const minutes = Math.floor((totalSeconds % 3600) / 60);
+          const seconds = totalSeconds % 60;
+          if (hhRef.current) hhRef.current.textContent = pad(hours);
+          if (mmRef.current) mmRef.current.textContent = pad(minutes);
+          if (ssRef.current) ssRef.current.textContent = pad(seconds);
+        }
+
+        // Año en curso, actualizado automáticamente si cambia mientras la pantalla sigue abierta
+        let displayedYear = null;
+        function updateYear() {
+          if (cancelled || !yearRef.current) return;
+          const currentYear = new Date().getFullYear();
+          if (currentYear !== displayedYear) {
+            if (displayedYear === null) {
+              displayedYear = currentYear;
+              yearRef.current.textContent = 'Feliz ' + displayedYear;
+            } else {
+              yearRef.current.classList.add('rr-ny-fade');
+              setTimeout(() => {
+                if (cancelled || !yearRef.current) return;
+                displayedYear = currentYear;
+                yearRef.current.textContent = 'Feliz ' + displayedYear;
+                yearRef.current.classList.remove('rr-ny-fade');
+              }, 900);
+            }
+          }
+        }
+
+        updateYear(); updateClock();
+        const clockInterval = setInterval(updateClock, 1000);
+        const yearInterval  = setInterval(updateYear, 60 * 1000);
+
+        rafStars = requestAnimationFrame(drawStars);
+        rafFw    = requestAnimationFrame(animateFireworks);
+        openingBurst();
+        const launchTimeout = setTimeout(scheduleLaunch, 300);
+
+        return () => {
+          cancelled = true;
+          window.removeEventListener('resize', resize);
+          if (rafStars) cancelAnimationFrame(rafStars);
+          if (rafFw) cancelAnimationFrame(rafFw);
+          clearInterval(clockInterval); clearInterval(yearInterval);
+          clearTimeout(launchTimeout);
+        };
+      }, []);
+
+      return (
+        <div className="rr-ny-bg">
+          <canvas ref={starsRef} className="rr-ny-canvas"/>
+          <canvas ref={fwRef} className="rr-ny-canvas"/>
+          <div className="rr-ny-content">
+            <div ref={yearRef} className="rr-ny-year"></div>
+            <div className="rr-ny-clock">
+              <span ref={hhRef} className="rr-ny-digits">00</span>
+              <span className="rr-ny-colon">:</span>
+              <span ref={mmRef} className="rr-ny-digits">00</span>
+              <span ref={ssRef} className="rr-ny-seconds">00</span>
+            </div>
+            <div className="rr-ny-caption">Tiempo transcurrido</div>
+          </div>
+        </div>
+      );
+    }
+
     // Día de Muertos — fondo de círculos concéntricos azul claro que se expanden desde
     // el centro hacia fuera (efecto "vienen hacia el jugador"). Sustituye al fondo de
     // flores tras el 3er rayo y hasta el final de la partida.
@@ -6520,7 +6836,9 @@
 
       return (
         <div className="lobby-wrap">
-          {!(seasonAlt && seasonTheme?.hideStars) && <Stars/>}
+          {activeSeason === 'new_year'
+            ? <NewYearBackground/>
+            : !(seasonAlt && seasonTheme?.hideStars) && <Stars/>}
           <PrideToast onActivate={() => {
             const theme = window.__RR_SEASON_THEMES[window.__rrActiveSeason];
             if (theme) setSeasonAltMode(!window.__seasonAltMode);
@@ -10280,10 +10598,11 @@
                       // color de la ficha (ver rrMetallicGradient).
                       ? rrMetallicGradient(c, false)
                       : festPlastic
-                      // "Plástico" (Festividades, fichas no metálicas): un brillo ovalado
-                      // suave arriba-izquierda sobre el degradado normal de la ficha,
-                      // simulando un reflejo especular tipo Phong sin ser metal pulido.
-                      ? `radial-gradient(ellipse 55% 40% at 28% 22%, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 62%),` +
+                      // "Plástico" (Festividades, fichas no metálicas): un brillo pequeño y
+                      // más cerrado anclado justo en la esquina superior-izquierda, que
+                      // perfila la curva del borde redondeado en vez de un óvalo grande
+                      // y centrado — reflejo especular tipo Phong, sutil.
+                      ? `radial-gradient(circle 26% at 10% 10%, rgba(255,255,255,.75) 0%, rgba(255,255,255,.32) 45%, rgba(255,255,255,0) 78%),` +
                         `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`
                       : `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`),
                     backgroundSize: crayonMode ? '100% 100%, 100% 100%' : undefined,
