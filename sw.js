@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v180'; // ← v180: new year clock placement 3
+const CACHE_NAME = 'mosaicchamp-v181'; // ← v181: new year NY fireworks restor
 
 
 // Recursos que se precachean en la instalación
