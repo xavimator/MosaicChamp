@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v177'; // ← v177: new year colors & bg
+const CACHE_NAME = 'mosaicchamp-v178'; // ← v178: new year clock placement
 
 // Recursos que se precachean en la instalación
 // NOTA: rutas relativas (sin "/" inicial) para funcionar tanto si la app
