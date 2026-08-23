@@ -5058,6 +5058,39 @@
     ];
     const summerColorMap = {}; SUMMER_COLORS.forEach(c => { summerColorMap[c.id] = c; });
 
+    // Año Nuevo: paleta vibrante con brillo (glow) propio — turquesa, dorado,
+    // rojo, naranja, magenta y verde lima. A diferencia de las demás temporadas,
+    // esta paleta se activa automáticamente mientras la temporada esté vigente
+    // (no requiere el gesto de mantener pulsado el título) — ver getColorMap().
+    const NEWYEAR_COLORS = [
+      { id:"white",  bg:"#20C9C9", shine:"#6EDCDC", shadow:"#126F6F" }, // turquesa
+      { id:"yellow", bg:"#F5C542", shine:"#F9D984", shadow:"#876C24" }, // dorado
+      { id:"red",    bg:"#E53935", shine:"#EE7E7C", shadow:"#7E1F1D" }, // rojo
+      { id:"orange", bg:"#FF8C42", shine:"#FFB484", shadow:"#8C4D24" }, // naranja
+      { id:"green",  bg:"#E83E8C", shine:"#F082B4", shadow:"#80224D" }, // magenta
+      { id:"blue",   bg:"#8BCF5B", shine:"#B4E094", shadow:"#4C7232" }, // verde lima
+    ];
+    const NEWYEAR_RR_COLORS = [
+      { bg:'#20C9C9', border:'#126F6F', puzzleId:'white'  },
+      { bg:'#E83E8C', border:'#80224D', puzzleId:'green'  },
+      { bg:'#F5C542', border:'#876C24', puzzleId:'yellow' },
+      { bg:'#8BCF5B', border:'#4C7232', puzzleId:'blue'   },
+      { bg:'#E53935', border:'#7E1F1D', puzzleId:'red'    },
+      { bg:'#FF8C42', border:'#8C4D24', puzzleId:'orange' },
+    ];
+    const newYearColorMap = {}; NEWYEAR_COLORS.forEach(c => { newYearColorMap[c.id] = c; });
+
+    window.__RR_SEASON_THEMES.new_year = {
+      colorMap: newYearColorMap,
+      rrColors: NEWYEAR_RR_COLORS,
+      gradient: 'linear-gradient(90deg,#20C9C9,#F5C542,#E53935,#FF8C42,#E83E8C,#8BCF5B)',
+      bgGradient: 'radial-gradient(ellipse 120% 80% at 50% 15%, rgba(70,52,20,.35) 0%, transparent 55%),' +
+        'radial-gradient(ellipse 140% 100% at 50% 100%, rgba(15,20,40,.9) 0%, #05060c 60%),' +
+        'linear-gradient(180deg, #0a0e1c 0%, #05060c 70%)',
+      hideStars: true, // se sustituyen por el fondo de fuegos artificiales (NewYearBackground)
+      glow: true,
+    };
+
     window.__RR_SEASON_THEMES.verano = {
       colorMap: summerColorMap,
       rrColors: SUMMER_RR_COLORS,
@@ -5595,7 +5628,9 @@
     function getColorMap(pride, colorblind, seasonAlt) {
       const theme = rrCurrentSeasonTheme();
       let base;
-      if (seasonAlt && theme) base = theme.colorMap;
+      // Año Nuevo: la paleta con glow se aplica sola mientras la temporada esté
+      // activa, sin necesitar el gesto de "modo alternativo" que usan las demás.
+      if (theme && (seasonAlt || window.__rrActiveSeason === 'new_year')) base = theme.colorMap;
       else base = pride ? prideColorMap : colorMap;
       return colorblind ? applyColorblindToMap(base) : base;
     }
@@ -10032,11 +10067,15 @@
           height:'100vh', height:'100dvh',
           background: (seasonAlt && activeSeason === 'dia_muertos' && dmRingsBg)
             ? '#060412'
+            : activeSeason === 'new_year'
+            ? seasonTheme.bgGradient
             : (seasonAlt && seasonTheme && seasonTheme.bgGradient) || 'radial-gradient(ellipse at 30% 20%,#1a1035 0%,#0a0818 60%,#000508 100%)',
           display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-start',
           fontFamily:"'Trebuchet MS','Segoe UI',sans-serif",paddingTop:'6px',paddingBottom:'8px',paddingLeft:'14px',paddingRight:'14px',position:'relative',overflow:'hidden',
         }}>
-          {!(seasonAlt && seasonTheme?.hideStars) && <Stars/>}
+          {activeSeason === 'new_year'
+            ? <NewYearBackground/>
+            : !(seasonAlt && seasonTheme?.hideStars) && <Stars/>}
           {seasonAlt && activeSeason === 'festividades' && festSnowActive && <FestividadesSnow/>}
           {seasonAlt && activeSeason === 'dia_muertos' && dmRingsBg && <DiaMuertosRings/>}
           {seasonAlt && activeSeason === 'dia_muertos' && dmFlash && (
@@ -10558,6 +10597,9 @@
                   </div>;
                 }
                 const c=getColorMap(effectivePride, colorblind, seasonAlt)[tile.colorId], isAdj=canMove(idx,ei,boardSize,mask);
+                // Año Nuevo: además de la paleta propia, cada ficha lleva un halo de
+                // su propio color (glow), activo mientras la temporada esté vigente.
+                const newYearGlow = activeSeason === 'new_year';
                 const col = idx % boardSize;
                 const row = Math.floor(idx / boardSize);
                 const coord = String.fromCharCode(65+col) + (row+1);
@@ -10614,7 +10656,7 @@
                       : idx===hintMove
                       ? `0 4px 0 ${c.shadow},0 0 0 3px rgba(0,220,255,.9),0 0 18px rgba(0,220,255,.7),inset 0 1px 0 rgba(255,255,255,.25)`
                       : (scribbleMode || mapleMode) ? 'none'
-                      : `0 4px 0 ${c.shadow},0 6px 16px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.25)`,
+                      : `0 4px 0 ${c.shadow},0 6px 16px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.25)${newYearGlow ? `,0 0 12px 2px ${c.bg},0 0 26px 7px ${c.bg}99` : ''}`,
                     transition:'transform .1s,filter .1s,box-shadow .2s',
                     transform:isAdj?'scale(1.02) translateZ(0)':'translateZ(0)',
                     filter:isAdj?'brightness(1.1)':'brightness(1)',
