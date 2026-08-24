@@ -5995,6 +5995,10 @@
       </div>;
     }
 
+    // ⚠️ TEMPORAL — panel de ajuste de posición del año/reloj de Año Nuevo en la
+    // partida. Para desactivarlo cuando ya no se necesite, poner esto en `false`.
+    window.__RR_NY_PLACEMENT_DEBUG = true;
+
     // Año Nuevo — fondo animado (lobby y partida): reloj de tiempo transcurrido
     // (arranca en 00:00 al mostrarse y cuenta minutos/horas sin parar), el año en
     // curso (se actualiza solo si la pantalla sigue abierta al cambiar de año) y
@@ -6003,6 +6007,10 @@
     // ocupar espacio en el flujo, en el hueco entre los botones de arriba y el
     // logo del juego, siempre detrás de la interfaz.
     function NewYearBackground({ variant = 'lobby' } = {}) {
+      // Ajustes en vivo del bloque año/reloj en la partida (solo mientras el panel
+      // de depuración esté activo). Valores iniciales = los actuales por defecto.
+      const [nyTop, setNyTop] = React.useState(-24);       // px, desde el punto original
+      const [nyScale, setNyScale] = React.useState(100);   // %, escala del bloque completo
       const starsRef = React.useRef(null);
       const fwRef     = React.useRef(null);
       const hhRef     = React.useRef(null);
@@ -6252,7 +6260,10 @@
             </div>,
             document.getElementById('rr-ny-bg-root')
           )}
-          <div className={variant === 'game' ? 'rr-ny-content-game' : 'rr-ny-content'}>
+          <div
+            className={variant === 'game' ? 'rr-ny-content-game' : 'rr-ny-content'}
+            style={variant === 'game' ? { top: nyTop + 'px', transform: `scale(${nyScale / 100})`, transformOrigin: 'top center' } : undefined}
+          >
             <div ref={yearRef} className="rr-ny-year"></div>
             <div className="rr-ny-clock">
               <span ref={hhRef} className="rr-ny-digits">00</span>
@@ -6261,6 +6272,37 @@
               <span ref={ssRef} className="rr-ny-seconds">00</span>
             </div>
           </div>
+          {variant === 'game' && window.__RR_NY_PLACEMENT_DEBUG && (
+            <div style={{
+              position:'fixed', left:'50%', bottom:'max(10px, env(safe-area-inset-bottom))',
+              transform:'translateX(-50%)', zIndex:99999, pointerEvents:'auto',
+              background:'rgba(10,8,4,.92)', border:'1px solid rgba(212,175,55,.5)',
+              borderRadius:12, padding:'10px 14px', width:'min(88vw,320px)',
+              fontFamily:"'Trebuchet MS','Segoe UI',sans-serif", color:'#f6d372',
+              boxShadow:'0 4px 20px rgba(0,0,0,.5)',
+            }}>
+              <div style={{fontSize:11, letterSpacing:'.08em', opacity:.75, marginBottom:6, textAlign:'center'}}>
+                ⚙️ AJUSTE AÑO/RELOJ (temporal) — top:{nyTop}px · escala:{nyScale}%
+              </div>
+              <label style={{display:'flex', alignItems:'center', gap:8, fontSize:12, marginBottom:6}}>
+                <span style={{width:52}}>Arriba</span>
+                <input type="range" min={-300} max={300} value={nyTop}
+                  onChange={e => setNyTop(Number(e.target.value))} style={{flex:1}}/>
+              </label>
+              <label style={{display:'flex', alignItems:'center', gap:8, fontSize:12}}>
+                <span style={{width:52}}>Tamaño</span>
+                <input type="range" min={40} max={200} value={nyScale}
+                  onChange={e => setNyScale(Number(e.target.value))} style={{flex:1}}/>
+              </label>
+              <div style={{textAlign:'center', marginTop:8}}>
+                <button onClick={() => { setNyTop(-24); setNyScale(100); }}
+                  style={{fontSize:11, color:'#f6d372', background:'rgba(212,175,55,.15)',
+                    border:'1px solid rgba(212,175,55,.5)', borderRadius:8, padding:'4px 10px', cursor:'pointer'}}>
+                  Reset
+                </button>
+              </div>
+            </div>
+          )}
         </>
       );
     }
