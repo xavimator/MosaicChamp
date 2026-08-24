@@ -6281,7 +6281,173 @@
       );
     }
 
-    // Día de Muertos — fondo de círculos concéntricos azul claro que se expanden desde
+    // Año Nuevo — ráfaga de fuegos artificiales EN PRIMER PLANO cuando el jugador
+    // termina su patrón: a diferencia del fondo ambiente (detrás de todo), esta
+    // ráfaga se pinta por delante del tablero y de toda la interfaz de la partida
+    // (fixed + z-index alto), como una gran traca final de ~4s, y luego se disipa.
+    function NewYearFinishFireworks({ active }) {
+      const canvasRef = React.useRef(null);
+      const wasActiveRef = React.useRef(false);
+
+      React.useEffect(() => {
+        if (!active || wasActiveRef.current) return; // solo se dispara una vez por "finished"
+        wasActiveRef.current = true;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        let cancelled = false, raf = null;
+
+        function resize() {
+          canvas.width = window.innerWidth;
+          canvas.height = window.innerHeight;
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        const PALETTE = [
+          { color: '246,211,114', weight: 30 }, { color: '212,175,55', weight: 18 },
+          { color: '255,223,150', weight: 12 }, { color: '255,157,77', weight: 10 },
+          { color: '255,111,145', weight: 10 }, { color: '95,214,196', weight: 8 },
+          { color: '125,184,255', weight: 7 }, { color: '200,150,255', weight: 5 },
+        ];
+        const pool = PALETTE.flatMap(p => Array(p.weight).fill(p.color));
+        const randomColor = () => pool[Math.floor(Math.random() * pool.length)];
+
+        class Particle {
+          constructor(x, y, color, opts = {}) {
+            this.x = x; this.y = y;
+            const angle = opts.angle ?? Math.random() * Math.PI * 2;
+            const speed = opts.speed ?? (Math.random() * 4.5 + 1.5);
+            this.vx = Math.cos(angle) * speed; this.vy = Math.sin(angle) * speed;
+            this.color = color; this.life = 1;
+            this.decay = opts.decay ?? (Math.random() * 0.012 + 0.010);
+            this.gravity = opts.gravity ?? 0.045; this.drag = opts.drag ?? 0.988;
+            this.size = opts.size ?? (Math.random() * 2.2 + 1.4);
+            this.trail = []; this.trailLen = opts.trailLen ?? 4;
+          }
+          update() {
+            this.trail.push({ x: this.x, y: this.y });
+            if (this.trail.length > this.trailLen) this.trail.shift();
+            this.vx *= this.drag; this.vy *= this.drag; this.vy += this.gravity;
+            this.x += this.vx; this.y += this.vy; this.life -= this.decay;
+          }
+          draw(c) {
+            const alpha = Math.max(this.life, 0);
+            if (this.trail.length > 1) {
+              c.beginPath(); c.moveTo(this.trail[0].x, this.trail[0].y);
+              for (let i = 1; i < this.trail.length; i++) c.lineTo(this.trail[i].x, this.trail[i].y);
+              c.lineTo(this.x, this.y);
+              c.strokeStyle = `rgba(${this.color},${alpha * 0.5})`;
+              c.lineWidth = this.size * 0.7; c.stroke();
+            }
+            c.beginPath(); c.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+            c.fillStyle = `rgba(${this.color},${alpha})`; c.fill();
+          }
+        }
+
+        class Rocket {
+          constructor(x, targetY, color) {
+            this.x = x; this.y = canvas.height + 10; this.targetY = targetY; this.color = color;
+            this.vy = -(Math.random() * 3.4 + 8); this.vx = (Math.random() - 0.5) * 1.2;
+            this.trail = []; this.exploded = false;
+          }
+          update() {
+            this.trail.push({ x: this.x, y: this.y });
+            if (this.trail.length > 6) this.trail.shift();
+            this.vy += 0.05; this.x += this.vx; this.y += this.vy;
+            if (this.vy >= -1 || this.y <= this.targetY) this.exploded = true;
+          }
+          draw(c) {
+            c.beginPath();
+            if (this.trail.length > 1) {
+              c.moveTo(this.trail[0].x, this.trail[0].y);
+              for (let i = 1; i < this.trail.length; i++) c.lineTo(this.trail[i].x, this.trail[i].y);
+            }
+            c.lineTo(this.x, this.y);
+            c.strokeStyle = 'rgba(255,245,220,0.9)'; c.lineWidth = 2.2; c.stroke();
+            c.beginPath(); c.arc(this.x, this.y, 2.2, 0, Math.PI * 2);
+            c.fillStyle = 'rgba(255,245,220,0.95)'; c.fill();
+          }
+        }
+
+        let rockets = [], particles = [];
+
+        function burst(x, y, colorOverride) {
+          const mainColor = colorOverride || randomColor();
+          const count = 60 + Math.floor(Math.random() * 40);
+          for (let i = 0; i < count; i++) {
+            const angle = (Math.PI * 2 * i) / count + Math.random() * 0.15;
+            const c = Math.random() < 0.75 ? mainColor : randomColor();
+            particles.push(new Particle(x, y, c, { angle, speed: Math.random() * 4.2 + 2.4, trailLen: 5 }));
+          }
+          for (let i = 0; i < 20; i++) {
+            particles.push(new Particle(x, y, '246,211,114', {
+              angle: Math.random() * Math.PI * 2, speed: Math.random() * 1.8 + 0.5,
+              decay: 0.02, size: 1, trailLen: 2,
+            }));
+          }
+        }
+
+        function launchOne() {
+          const x = canvas.width * 0.15 + Math.random() * canvas.width * 0.7;
+          const targetY = canvas.height * 0.15 + Math.random() * canvas.height * 0.3;
+          rockets.push(new Rocket(x, targetY, randomColor()));
+        }
+
+        // Traca final: varias ráfagas simultáneas al momento + lluvia de cohetes ~4s
+        for (let i = 0; i < 6; i++) {
+          setTimeout(() => { if (!cancelled) burst(canvas.width * (0.15 + i * 0.14), canvas.height * (0.18 + Math.random() * 0.25)); }, i * 110);
+        }
+        const FINALE_MS = 4000;
+        const finaleStart = performance.now();
+        let launchTimeout = null;
+        function scheduleLaunch() {
+          if (cancelled) return;
+          if (performance.now() - finaleStart > FINALE_MS) return;
+          launchOne();
+          launchTimeout = setTimeout(scheduleLaunch, Math.random() * 160 + 90);
+        }
+        launchTimeout = setTimeout(scheduleLaunch, 200);
+
+        function animate() {
+          if (cancelled) return;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          rockets = rockets.filter(r => {
+            r.update(); r.draw(ctx);
+            if (r.exploded) { burst(r.x, r.y, r.color); return false; }
+            return true;
+          });
+          particles = particles.filter(p => {
+            p.update();
+            if (p.life <= 0) return false;
+            p.draw(ctx); return true;
+          });
+          raf = requestAnimationFrame(animate);
+        }
+        raf = requestAnimationFrame(animate);
+
+        return () => {
+          cancelled = true;
+          window.removeEventListener('resize', resize);
+          if (raf) cancelAnimationFrame(raf);
+          clearTimeout(launchTimeout);
+        };
+      }, [active]);
+
+      React.useEffect(() => {
+        if (!active) wasActiveRef.current = false; // permite disparar de nuevo la próxima vez que termine
+      }, [active]);
+
+      if (!active) return null;
+      return (
+        <canvas ref={canvasRef} style={{
+          position:'fixed', inset:0, width:'100vw', height:'100vh',
+          zIndex:9700, pointerEvents:'none',
+        }}/>
+      );
+    }
+
+
     // el centro hacia fuera (efecto "vienen hacia el jugador"). Sustituye al fondo de
     // flores tras el 3er rayo y hasta el final de la partida.
     // Cada anillo es un <div> con borde + box-shadow (no SVG): un <svg width="0"
@@ -10828,6 +10994,7 @@
                 );
               })}
               {finished && <div className="finished-frame" style={finishOverlayColor ? {'--rr-finished-overlay':finishOverlayColor} : undefined}><div className="finished-text">{window.T.finished}</div>{usedHints && <div className="finished-text" style={{fontSize:'clamp(16px,4vw,26px)',animationDelay:'.2s'}}>…with a little help</div>}</div>}
+              {seasonAlt && activeSeason === 'new_year' && <NewYearFinishFireworks active={finished}/>}
             </div>{/* end grid */}
             </div>{/* end flex row (row labels + grid) */}
           </div>{/* end board wrapper */}
