@@ -6007,6 +6007,10 @@
       </div>;
     }
 
+    // ⚠️ TEMPORAL — panel de ajuste de posición/tamaño del año/reloj de Año Nuevo
+    // en el LOBBY. Para desactivarlo cuando ya no se necesite, poner esto en `false`.
+    window.__RR_NY_LOBBY_PLACEMENT_DEBUG = true;
+
     // Año Nuevo — fondo animado (lobby y partida): reloj de tiempo transcurrido
     // (arranca en 00:00 al mostrarse y cuenta minutos/horas sin parar), el año en
     // curso (se actualiza solo si la pantalla sigue abierta al cambiar de año) y
@@ -6016,6 +6020,10 @@
     // logo del juego, siempre detrás de la interfaz (posición/tamaño fijados en
     // .rr-ny-content-game y en el transform del contenedor).
     function NewYearBackground({ variant = 'lobby' } = {}) {
+      // Ajustes en vivo del bloque año/reloj en el LOBBY (solo mientras el panel
+      // de depuración esté activo). Valores iniciales = los actuales por defecto.
+      const [nyLobbyTop, setNyLobbyTop] = React.useState(18);     // px
+      const [nyLobbyScale, setNyLobbyScale] = React.useState(100); // %
       const starsRef = React.useRef(null);
       const fwRef     = React.useRef(null);
       const hhRef     = React.useRef(null);
@@ -6267,7 +6275,11 @@
           )}
           <div
             className={variant === 'game' ? 'rr-ny-content-game' : 'rr-ny-content'}
-            style={variant === 'game' ? { transform: 'translateX(calc(-50% - 88px)) scale(0.9)', transformOrigin: 'top center' } : undefined}
+            style={
+              variant === 'game'
+                ? { transform: 'translateX(calc(-50% - 88px)) scale(0.9)', transformOrigin: 'top center' }
+                : { top: nyLobbyTop + 'px', transform: `scale(${nyLobbyScale / 100})`, transformOrigin: 'top center' }
+            }
           >
             <div ref={yearRef} className="rr-ny-year"></div>
             <div className="rr-ny-clock">
@@ -6277,6 +6289,37 @@
               <span ref={ssRef} className="rr-ny-seconds">00</span>
             </div>
           </div>
+          {variant === 'lobby' && window.__RR_NY_LOBBY_PLACEMENT_DEBUG && (
+            <div style={{
+              position:'fixed', left:'50%', bottom:'max(10px, env(safe-area-inset-bottom))',
+              transform:'translateX(-50%)', zIndex:99999, pointerEvents:'auto',
+              background:'rgba(10,8,4,.92)', border:'1px solid rgba(212,175,55,.5)',
+              borderRadius:12, padding:'10px 14px', width:'min(88vw,320px)',
+              fontFamily:"'Trebuchet MS','Segoe UI',sans-serif", color:'#f6d372',
+              boxShadow:'0 4px 20px rgba(0,0,0,.5)',
+            }}>
+              <div style={{fontSize:11, letterSpacing:'.08em', opacity:.75, marginBottom:6, textAlign:'center'}}>
+                ⚙️ AJUSTE AÑO/RELOJ LOBBY (temporal) — top:{nyLobbyTop}px · escala:{nyLobbyScale}%
+              </div>
+              <label style={{display:'flex', alignItems:'center', gap:8, fontSize:12, marginBottom:6}}>
+                <span style={{width:52}}>Altura</span>
+                <input type="range" min={-100} max={300} value={nyLobbyTop}
+                  onChange={e => setNyLobbyTop(Number(e.target.value))} style={{flex:1}}/>
+              </label>
+              <label style={{display:'flex', alignItems:'center', gap:8, fontSize:12}}>
+                <span style={{width:52}}>Tamaño</span>
+                <input type="range" min={40} max={250} value={nyLobbyScale}
+                  onChange={e => setNyLobbyScale(Number(e.target.value))} style={{flex:1}}/>
+              </label>
+              <div style={{textAlign:'center', marginTop:8}}>
+                <button onClick={() => { setNyLobbyTop(18); setNyLobbyScale(100); }}
+                  style={{fontSize:11, color:'#f6d372', background:'rgba(212,175,55,.15)',
+                    border:'1px solid rgba(212,175,55,.5)', borderRadius:8, padding:'4px 10px', cursor:'pointer'}}>
+                  Reset
+                </button>
+              </div>
+            </div>
+          )}
         </>
       );
     }
