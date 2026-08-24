@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v185'; // ← v185: NY touch season 
+const CACHE_NAME = 'mosaicchamp-v186'; // ← v186: NY lobby year ctrls
 
 
 // Recursos que se precachean en la instalación
