@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v191'; // ← v191: temporada Carnavalentín (San Valentín) — fichas corazón, pétalos, corazón-máscara volador
+const CACHE_NAME = 'mosaicchamp-v193'; // ← v193: máscara veneciana real sobre el corazón volador (San Valentín)
 
 
 // Recursos que se precachean en la instalación

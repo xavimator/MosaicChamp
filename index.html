@@ -2643,7 +2643,9 @@
        San Valentín). */
     body.rr-season-carnavalentin { --rr-icon-color:#F7E7CE; --rr-finished-overlay:rgba(27,6,16,.93); }
     body.rr-season-carnavalentin .lobby-wrap {
-      background: linear-gradient(180deg, #3B2118 0%, #5C0E1C 55%, #9B1B30 100%);
+      /* Degradado con los colores reales de las fichas de San Valentín,
+         excluyendo el chocolate (#3B2118) a petición expresa. */
+      background: linear-gradient(180deg, #9B1B30 0%, #D1006F 30%, #F7E7CE 58%, #F0C64A 80%, #F5E8D2 100%);
     }
     body.rr-season-carnavalentin #rr-toggle,
     body.rr-season-carnavalentin #rr-panel {
@@ -5335,19 +5337,24 @@
     // define más adelante (por ahora usa un provisional a definir).
     const VALENTIN_COLORS = [
       { id:"white",  bg:"#F7E7CE", shine:"#FFFBF2", shadow:"#D9C4A0" }, // Champagne
-      { id:"blue",   bg:"#3B2118", shine:"#6B4636", shadow:"#1F0F0A" }, // Deep Chocolate
-      { id:"yellow", bg:"#FFF2A6", shine:"#FFFBD9", shadow:"#E0CE6E" }, // Cream Yellow
       { id:"green",  bg:"#F5E8D2", shine:"#FFFBF2", shadow:"#D6C2A0" }, // Alba
-      { id:"orange", bg:"#D1006F", shine:"#F14FA0", shadow:"#8A0049" }, // Fuchsia
+      { id:"yellow", bg:"#F0C64A", shine:"#FFE9A0", shadow:"#B8862A" }, // Cream Yellow (dorado)
+      { id:"blue",   bg:"#3B2118", shine:"#6B4636", shadow:"#1F0F0A" }, // Deep Chocolate
       { id:"red",    bg:"#9B1B30", shine:"#D14D63", shadow:"#5C0E1C" }, // Cherry Lacquer
+      { id:"orange", bg:"#D1006F", shine:"#F14FA0", shadow:"#8A0049" }, // Fuchsia
     ];
+    // IMPORTANTE: el orden de este array debe coincidir posición a posición con
+    // RR_IDS = ['white','green','yellow','blue','red','orange']. RR_COLORS[v] se
+    // usa por POSICIÓN (no por id) para pintar la vista previa de un patrón — si el
+    // orden no coincide, la vista previa muestra un color distinto al que realmente
+    // hace falta en cada ficha y el patrón nunca puede completarse correctamente.
     const VALENTIN_RR_COLORS = [
       { bg:'#F7E7CE', border:'#D9C4A0', puzzleId:'white'  },
-      { bg:'#3B2118', border:'#1F0F0A', puzzleId:'blue'   },
-      { bg:'#FFF2A6', border:'#E0CE6E', puzzleId:'yellow' },
       { bg:'#F5E8D2', border:'#D6C2A0', puzzleId:'green'  },
-      { bg:'#D1006F', border:'#8A0049', puzzleId:'orange' },
+      { bg:'#F0C64A', border:'#B8862A', puzzleId:'yellow' },
+      { bg:'#3B2118', border:'#1F0F0A', puzzleId:'blue'   },
       { bg:'#9B1B30', border:'#5C0E1C', puzzleId:'red'    },
+      { bg:'#D1006F', border:'#8A0049', puzzleId:'orange' },
     ];
     const valentinColorMap = {}; VALENTIN_COLORS.forEach(c => { valentinColorMap[c.id] = c; });
 
@@ -5379,7 +5386,7 @@
         // TODO: sustituir por la paleta real de Carnaval cuando se defina.
         carnaval: { colorMap: carnavalColorMapTodo, rrColors: CARNAVAL_RR_COLORS_TODO },
       },
-      gradient: 'linear-gradient(90deg,#9B1B30,#D1006F,#3B2118,#FFF2A6,#F5E8D2,#F7E7CE)',
+      gradient: 'linear-gradient(90deg,#9B1B30,#D1006F,#F7E7CE,#F0C64A,#F5E8D2)', // sin el chocolate
       hideStars: true,
       tileShape: 'heart', // fichas recortadas con silueta de corazón + brillo tipo phong
       particleStyle: 'petals', // al terminar, caen pétalos de rosa lentamente en vez de confeti clásico
@@ -5717,12 +5724,53 @@
       // Mecánica San Valentín -> Carnaval: un corazón con máscara de carnaval
       // encima vuela algo más rápido que el pétalo, cruzando la pantalla DOS
       // veces en ángulos distintos. Al tocarlo, cambia de estilo.
+      // Corazón (sin contorno, color #9B1B30 sólido) usado como base del "corazón
+      // con máscara" que vuela en modo San Valentín. Se guarda como HTML crudo
+      // (en vez de nodos SVG uno a uno) porque la máscara veneciana que va encima
+      // trae sus propios <defs> con degradados — más simple y fiel al diseño
+      // original componerlo con innerHTML.
+      const CARNIVAL_HEART_SVG =
+        `<svg viewBox="0 0 200 180" width="100%" height="100%" style="position:absolute;inset:0;">` +
+          `<path d="M100,147 C100,147 33,101 33,55 C33,34 50,17 73,17 C87,17 96,26 100,40 C104,26 113,17 127,17 C150,17 167,34 167,55 C167,101 100,147 100,147 Z" fill="#9B1B30"/>` +
+          `<path d="M68,26 C82,26 92,34 97,45 C90,38 80,34 68,34 C58,34 49,40 43,48 C47,35 56,26 68,26 Z" fill="#ffffff" opacity="0.6"/>` +
+        `</svg>`;
+      // Máscara veneciana de carnaval que aparece encima del corazón. IDs de
+      // degradado/filtro sufijados con `uid` para que varias instancias en pantalla
+      // a la vez no compartan (ni pisen) los mismos <defs>.
+      function carnivalMaskSVG(uid) {
+        return `<svg viewBox="0 0 800 500" style="position:absolute;left:6%;top:14%;width:88%;height:56%;">` +
+          `<defs>` +
+            `<linearGradient id="gb-${uid}" x1="0%" y1="0%" x2="100%" y2="100%">` +
+              `<stop offset="0%" stop-color="#2a0005"/><stop offset="30%" stop-color="#540b14"/>` +
+              `<stop offset="50%" stop-color="#990011"/><stop offset="70%" stop-color="#1a0003"/>` +
+              `<stop offset="100%" stop-color="#000000"/>` +
+            `</linearGradient>` +
+            `<linearGradient id="go-${uid}" x1="0%" y1="100%" x2="0%" y2="0%">` +
+              `<stop offset="0%" stop-color="#0d0002"/><stop offset="50%" stop-color="#66000a"/>` +
+              `<stop offset="100%" stop-color="#cc0014"/>` +
+            `</linearGradient>` +
+            `<filter id="sh-${uid}" x="-10%" y="-10%" width="120%" height="120%">` +
+              `<feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.6"/>` +
+            `</filter>` +
+          `</defs>` +
+          `<g>` +
+            `<path fill="url(#gb-${uid})" filter="url(#sh-${uid})" d="M 400,380 C 330,380 230,390 170,330 C 120,280 110,180 140,120 C 160,80  240,110 310,140 C 350,155 380,140 400,120 C 420,140 450,155 490,140 C 560,110 640,80  660,120 C 690,180 680,280 630,330 C 570,390 470,380 400,380 Z"/>` +
+            `<path fill="#0d0103" d="M 400,135 C 360,165 290,140 210,120 C 170,110 150,125 155,140 C 165,160 210,165 260,155 C 320,145 370,180 400,200 C 430,180 480,145 540,155 C 590,165 635,160 645,140 C 650,125 630,110 590,120 C 510,140 440,165 400,135 Z"/>` +
+            `<path fill="#121212" d="M 230,220 C 200,200 170,220 180,250 C 195,290 260,280 290,240 C 270,230 250,230 230,220 Z"/>` +
+            `<path fill="#121212" d="M 570,220 C 600,200 630,220 620,250 C 605,290 540,280 510,240 C 530,230 550,230 570,220 Z"/>` +
+            `<path fill="url(#go-${uid})" d="M 180,300 C 220,350 310,340 340,300 C 290,310 230,300 180,300 Z"/>` +
+            `<path fill="url(#go-${uid})" d="M 620,300 C 580,350 490,340 460,300 C 510,310 570,300 620,300 Z"/>` +
+            `<path fill="url(#go-${uid})" d="M 400,190 L 380,280 L 400,340 L 420,280 Z"/>` +
+            `<path fill="#ff3344" opacity="0.4" d="M 230,215 C 205,200 180,215 185,240 C 200,215 240,210 275,235 C 255,220 242,218 230,215 Z"/>` +
+            `<path fill="#ff3344" opacity="0.4" d="M 570,215 C 595,200 620,215 615,240 C 600,215 560,210 525,235 C 545,220 558,218 570,215 Z"/>` +
+          `</g>` +
+        `</svg>`;
+      }
       function spawnFlyingHeart() {
         if (!active() || window.__rrCarnavalentinMode !== 'valentin') return;
         const el = ensureLayer();
         const vw = window.innerWidth, vh = window.innerHeight;
-        const size = 46 + Math.random() * 18;
-        const svgNS = 'http://www.w3.org/2000/svg';
+        const size = 58 + Math.random() * 20; // algo más grande: hay que distinguir bien la máscara encima
         for (let pass = 0; pass < 2; pass++) {
           setTimeout(() => {
             if (!active() || window.__rrCarnavalentinMode !== 'valentin') return;
@@ -5732,28 +5780,12 @@
             const dur = 3.2 + Math.random() * 1.2;
             const wrap = document.createElement('div');
             wrap.style.cssText = `position:absolute;top:${y0}px;` +
-              `${fromLeft ? 'left:-70px' : 'right:-70px'};width:${size}px;height:${size}px;` +
-              `pointer-events:auto;cursor:pointer;` +
+              `${fromLeft ? 'left:-80px' : 'right:-80px'};width:${size}px;height:${size * 0.9}px;` +
+              `pointer-events:auto;cursor:pointer;filter:drop-shadow(0 3px 5px rgba(0,0,0,.5));` +
               `animation:${fromLeft ? 'rrHeartFlyRight' : 'rrHeartFlyLeft'} ${dur}s linear forwards;` +
-              `--rr-heart-vw:${vw + 140}px; --rr-heart-angle:${angle}deg;`;
-            const svg = document.createElementNS(svgNS, 'svg');
-            svg.setAttribute('width', size); svg.setAttribute('height', size);
-            svg.setAttribute('viewBox', '0 0 100 100');
-            const heartPath = document.createElementNS(svgNS, 'path');
-            heartPath.setAttribute('d', ROSE_HEART_D);
-            heartPath.setAttribute('fill', '#D1006F');
-            heartPath.setAttribute('stroke', '#5C0E1C');
-            heartPath.setAttribute('stroke-width', '3');
-            svg.appendChild(heartPath);
-            // Máscara de carnaval (antifaz) superpuesta sobre el corazón — color
-            // provisional dorado/morado, a la espera del estilo Carnaval definitivo.
-            const mask = document.createElementNS(svgNS, 'path');
-            mask.setAttribute('d', 'M18,40 C30,28 45,28 50,36 C55,28 70,28 82,40 C78,52 64,54 50,46 C36,54 22,52 18,40 Z');
-            mask.setAttribute('fill', '#D4AF37');
-            mask.setAttribute('stroke', '#3E1361');
-            mask.setAttribute('stroke-width', '2.5');
-            svg.appendChild(mask);
-            wrap.appendChild(svg);
+              `--rr-heart-vw:${vw + 160}px; --rr-heart-angle:${angle}deg;`;
+            const uid = `${Date.now()}-${Math.floor(Math.random() * 1e6)}-${pass}`;
+            wrap.innerHTML = CARNIVAL_HEART_SVG + carnivalMaskSVG(uid);
             wrap.addEventListener('click', () => { rrSetCarnavalentinMode('carnaval'); wrap.remove(); });
             el.appendChild(wrap);
             setTimeout(() => wrap.remove(), (dur + 0.2) * 1000);
@@ -11262,10 +11294,11 @@
                       <>
                         {/* Igual que con la hoja de arce: la sombra va en un div EXTERIOR
                             separado del que lleva el mask, para que el drop-shadow siga
-                            el contorno real del corazón y no el cuadrado original. */}
+                            el contorno real del corazón y no el cuadrado original.
+                            scale(.98): corazón 2% más pequeño que el tile, a petición. */}
                         <div style={{
                           position:'absolute', inset:'-4%',
-                          transform:`rotate(${heartRotDeg}deg)`,
+                          transform:`rotate(${heartRotDeg}deg) scale(0.98)`,
                           filter:`drop-shadow(0 3px 4px rgba(0,0,0,.4))`,
                           pointerEvents:'none',
                         }}>
@@ -11277,13 +11310,14 @@
                             WebkitMaskPosition:'center', maskPosition:'center',
                             background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 55%,${c.shadow} 100%)`,
                           }}>
-                            {/* Brillo especular tipo Phong: una mancha ovalada de luz arriba-
-                                izquierda, propia del estilo "corazón de caramelo/laca" pedido
-                                para San Valentín — se recorta también con la silueta del corazón
-                                al vivir dentro del mismo div enmascarado. */}
+                            {/* Brillo especular tipo Phong, look "plástico glaseado": una mancha
+                                ovalada amplia arriba-izquierda más un punto caliente pequeño y
+                                muy blanco encima, para un reflejo brillante de plástico/caramelo. */}
                             <div style={{
                               position:'absolute', inset:0,
-                              background:`radial-gradient(circle 34% at 32% 26%, rgba(255,255,255,.9) 0%, rgba(255,255,255,.4) 45%, rgba(255,255,255,0) 78%)`,
+                              background:
+                                `radial-gradient(circle 16% at 30% 22%, rgba(255,255,255,1) 0%, rgba(255,255,255,.95) 40%, rgba(255,255,255,0) 75%),` +
+                                `radial-gradient(circle 42% at 34% 28%, rgba(255,255,255,.85) 0%, rgba(255,255,255,.35) 50%, rgba(255,255,255,0) 80%)`,
                               pointerEvents:'none',
                             }}/>
                           </div>
