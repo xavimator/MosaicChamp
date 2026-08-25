@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v189'; // ← v189: NY lobby top 3px + 135% size, sliders quitados
+const CACHE_NAME = 'mosaicchamp-v190'; // ← v190: NY lobby top 3px + 135% size, sliders false
 
 
 // Recursos que se precachean en la instalación
