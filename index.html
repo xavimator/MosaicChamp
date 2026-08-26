@@ -8662,7 +8662,44 @@
     // distancia (1-4 filas), con la ficha que entra primero por arriba brillando en
     // azul; el resto de fichas se mueve sin iluminarse. Usa un render simplificado
     // (sin texturas de temporada) porque es una animación breve.
-    function CascadeSlide({ cols, boardSize, ghostTilesByCol, snapshotTiles, colorMap, geo, metallic, metallicColors }) {
+    // Ficha "fantasma" con silueta de temporada (corazón en Valentín, diamante en
+    // Carnaval, hoja de arce en Otoño) para las animaciones de power-up (Cascada /
+    // Salto / SpinRound), que hasta ahora siempre pintaban un cuadrado liso sin
+    // importar la temporada activa. glowColor tiñe el resplandor de la ficha que
+    // "entra" al final de la animación (distinto color por power-up).
+    function powerupShapedTile(c, shape, glowing, glowColor) {
+      const maskUrl = shape === 'heart' ? HEART_MASK_URL
+        : shape === 'diamond' ? DIAMOND_MASK_URL
+        : shape === 'maple-leaf' ? MAPLE_LEAF_MASK_URL
+        : null;
+      if (!maskUrl) return null;
+      return (
+        <div style={{
+          position:'absolute', inset:'-4%',
+          filter: glowing
+            ? `drop-shadow(0 3px 4px rgba(0,0,0,.4)) drop-shadow(0 0 8px ${glowColor})`
+            : `drop-shadow(0 3px 4px rgba(0,0,0,.4))`,
+        }}>
+          <div style={{
+            position:'absolute', inset:0,
+            WebkitMaskImage:`url('${maskUrl}')`, maskImage:`url('${maskUrl}')`,
+            WebkitMaskSize:'100% 100%', maskSize:'100% 100%',
+            WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
+            WebkitMaskPosition:'center', maskPosition:'center',
+            background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 55%,${c.shadow} 100%)`,
+          }}>
+            <div style={{
+              position:'absolute', inset:0,
+              background:
+                `radial-gradient(circle 16% at 30% 22%, rgba(255,255,255,1) 0%, rgba(255,255,255,.95) 40%, rgba(255,255,255,0) 75%),` +
+                `radial-gradient(circle 42% at 34% 28%, rgba(255,255,255,.85) 0%, rgba(255,255,255,.35) 50%, rgba(255,255,255,0) 80%)`,
+            }}/>
+          </div>
+        </div>
+      );
+    }
+
+    function CascadeSlide({ cols, boardSize, ghostTilesByCol, snapshotTiles, colorMap, geo, metallic, metallicColors, tileShapeFor }) {
       const [play, setPlay] = useState(false);
       useEffect(() => {
         let raf1 = requestAnimationFrame(() => {
@@ -8687,6 +8724,14 @@
           }}/>;
         }
         const c = colorMap[tile.colorId] || { bg:'#888', shine:'#aaa', shadow:'#444' };
+        const shape = tileShapeFor ? tileShapeFor(tile.colorId) : null;
+        if (shape) {
+          return (
+            <div key={key} style={{ position:'absolute', width:cellPx, height:cellPx }}>
+              {powerupShapedTile(c, shape, glowing, 'rgba(56,189,248,.9)')}
+            </div>
+          );
+        }
         return (
           <div key={key} style={{
             position:'absolute', width:cellPx, height:cellPx, borderRadius:'8px',
@@ -8732,7 +8777,7 @@
     // ── Salto: overlay animado de una sola columna subiendo entre 1 y 4 casillas,
     // con la ficha que entra al final por abajo brillando en ámbar. Misma técnica
     // de "fantasma" que la Cascada pero en una sola tira vertical y hacia arriba.
-    function JumpSlide({ col, boardSize, rows, ghostTiles, snapshotCol, colorMap, geo, metallic, metallicColors }) {
+    function JumpSlide({ col, boardSize, rows, ghostTiles, snapshotCol, colorMap, geo, metallic, metallicColors, tileShapeFor }) {
       const [play, setPlay] = useState(false);
       useEffect(() => {
         let raf1 = requestAnimationFrame(() => {
@@ -8757,6 +8802,14 @@
           }}/>;
         }
         const c = colorMap[tile.colorId] || { bg:'#888', shine:'#aaa', shadow:'#444' };
+        const shape = tileShapeFor ? tileShapeFor(tile.colorId) : null;
+        if (shape) {
+          return (
+            <div key={key} style={{ position:'absolute', width:cellPx, height:cellPx }}>
+              {powerupShapedTile(c, shape, glowing, 'rgba(251,191,36,.9)')}
+            </div>
+          );
+        }
         return (
           <div key={key} style={{
             position:'absolute', width:cellPx, height:cellPx, borderRadius:'8px',
@@ -8908,7 +8961,7 @@
       );
     }
 
-    function SpinRoundSlide({ row, boardSize, shift, loops, ghostTiles, snapshotRow, colorMap, geo, metallic, metallicColors }) {
+    function SpinRoundSlide({ row, boardSize, shift, loops, ghostTiles, snapshotRow, colorMap, geo, metallic, metallicColors, tileShapeFor }) {
       const [play, setPlay] = useState(false);
       useEffect(() => {
         let raf1 = requestAnimationFrame(() => {
@@ -8934,6 +8987,14 @@
           }}/>;
         }
         const c = colorMap[tile.colorId] || { bg:'#888', shine:'#aaa', shadow:'#444' };
+        const shape = tileShapeFor ? tileShapeFor(tile.colorId) : null;
+        if (shape) {
+          return (
+            <div key={key} style={{ position:'absolute', width:cellPx, height:cellPx }}>
+              {powerupShapedTile(c, shape, glowing, 'rgba(45,212,191,.9)')}
+            </div>
+          );
+        }
         return (
           <div key={key} style={{
             position:'absolute', width:cellPx, height:cellPx, borderRadius:'8px',
@@ -11356,13 +11417,15 @@
                 <CascadeSlide cols={cascadeAnim.cols} boardSize={boardSize}
                   ghostTilesByCol={cascadeAnim.ghostTilesByCol} snapshotTiles={cascadeAnim.snapshot}
                   colorMap={getColorMap(effectivePride, colorblind, seasonAlt)} geo={cascadeAnim.geo}
-                  metallic={metallicMode} metallicColors={metallicColors}/>
+                  metallic={metallicMode} metallicColors={metallicColors}
+                  tileShapeFor={(colorId) => getTileShape(seasonAlt, colorId)}/>
               )}
               {jumpAnim && (
                 <JumpSlide col={jumpAnim.col} boardSize={boardSize} rows={jumpAnim.rows}
                   ghostTiles={jumpAnim.ghostTiles} snapshotCol={jumpAnim.snapshotCol}
                   colorMap={getColorMap(effectivePride, colorblind, seasonAlt)} geo={jumpAnim.geo}
-                  metallic={metallicMode} metallicColors={metallicColors}/>
+                  metallic={metallicMode} metallicColors={metallicColors}
+                  tileShapeFor={(colorId) => getTileShape(seasonAlt, colorId)}/>
               )}
               {jumpArmed && !jumpAnim && (
                 <div style={{
@@ -11379,7 +11442,8 @@
                 <SpinRoundSlide row={spinRoundAnim.row} boardSize={boardSize} shift={spinRoundAnim.shift}
                   loops={spinRoundAnim.loops} ghostTiles={spinRoundAnim.ghostTiles} snapshotRow={spinRoundAnim.snapshotRow}
                   colorMap={getColorMap(effectivePride, colorblind, seasonAlt)} geo={spinRoundAnim.geo}
-                  metallic={metallicMode} metallicColors={metallicColors}/>
+                  metallic={metallicMode} metallicColors={metallicColors}
+                  tileShapeFor={(colorId) => getTileShape(seasonAlt, colorId)}/>
               )}
               {spinRoundArmed && !spinRoundAnim && (
                 <div style={{

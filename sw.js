@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v201'; // ← v201: Carnaval — fondo anochecer con estrellas arriba, marco final degradado (sin Alba)
+const CACHE_NAME = 'mosaicchamp-v202'; // ← v202: power-ups (cascada/salto/spinround) conservan la forma de ficha en Otoño, Valentín y Carnaval
 
 
 // Recursos que se precachean en la instalación
