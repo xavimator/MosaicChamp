@@ -2641,11 +2641,11 @@
        "carnaval" (paleta alternativa) se define más adelante; por ahora estas
        reglas cubren el lobby en su estado inicial (siempre arranca en modo
        San Valentín). */
-    body.rr-season-carnavalentin { --rr-icon-color:#F7E7CE; --rr-finished-overlay:rgba(27,6,16,.93); }
+    body.rr-season-carnavalentin { --rr-icon-color:#F5E8D2; --rr-finished-overlay:rgba(27,6,16,.93); }
     body.rr-season-carnavalentin .lobby-wrap {
       /* Degradado con los colores reales de las fichas de San Valentín,
          excluyendo el chocolate (#3B2118) a petición expresa. */
-      background: linear-gradient(180deg, #9B1B30 0%, #D1006F 30%, #F7E7CE 58%, #F0C64A 80%, #F5E8D2 100%);
+      background: linear-gradient(180deg, #9B1B30 0%, #D1006F 30%, #F5E8D2 58%, #F0C64A 80%, #F7C6DA 100%);
     }
     body.rr-season-carnavalentin #rr-toggle,
     body.rr-season-carnavalentin #rr-panel {
@@ -3987,7 +3987,7 @@
         // que en el fondo ambiental de la temporada, pero disparados suavemente
         // desde el widget y cayendo lentamente (misma física que las hojas de
         // Otoño: balanceo tipo péndulo, sin disparo fuerte).
-        const PETAL_COLORS_END = ['#9B1B30', '#D1006F', '#F7E7CE'];
+        const PETAL_COLORS_END = ['#9B1B30', '#D1006F', '#F5E8D2', '#F7C6DA'];
         const svgNS = 'http://www.w3.org/2000/svg';
         const petalCount = Math.round(N * 0.7);
         for (let i = 0; i < petalCount; i++) {
@@ -5344,8 +5344,8 @@
     // arranca siempre en la paleta de San Valentín. La paleta de Carnaval se
     // define más adelante (por ahora usa un provisional a definir).
     const VALENTIN_COLORS = [
-      { id:"white",  bg:"#F7E7CE", shine:"#FFFBF2", shadow:"#D9C4A0" }, // Champagne
-      { id:"green",  bg:"#F5E8D2", shine:"#FFFBF2", shadow:"#D6C2A0" }, // Alba
+      { id:"white",  bg:"#F5E8D2", shine:"#FFFBF2", shadow:"#D6C2A0" }, // Alba
+      { id:"green",  bg:"#F7C6DA", shine:"#FFEAF3", shadow:"#D998B4" }, // Rosa claro
       { id:"yellow", bg:"#F0C64A", shine:"#FFE9A0", shadow:"#B8862A" }, // Cream Yellow (dorado)
       { id:"blue",   bg:"#3B2118", shine:"#6B4636", shadow:"#1F0F0A" }, // Deep Chocolate
       { id:"red",    bg:"#9B1B30", shine:"#D14D63", shadow:"#5C0E1C" }, // Cherry Lacquer
@@ -5357,8 +5357,8 @@
     // orden no coincide, la vista previa muestra un color distinto al que realmente
     // hace falta en cada ficha y el patrón nunca puede completarse correctamente.
     const VALENTIN_RR_COLORS = [
-      { bg:'#F7E7CE', border:'#D9C4A0', puzzleId:'white'  },
-      { bg:'#F5E8D2', border:'#D6C2A0', puzzleId:'green'  },
+      { bg:'#F5E8D2', border:'#D6C2A0', puzzleId:'white'  },
+      { bg:'#F7C6DA', border:'#D998B4', puzzleId:'green'  },
       { bg:'#F0C64A', border:'#B8862A', puzzleId:'yellow' },
       { bg:'#3B2118', border:'#1F0F0A', puzzleId:'blue'   },
       { bg:'#9B1B30', border:'#5C0E1C', puzzleId:'red'    },
@@ -5394,11 +5394,14 @@
         // TODO: sustituir por la paleta real de Carnaval cuando se defina.
         carnaval: { colorMap: carnavalColorMapTodo, rrColors: CARNAVAL_RR_COLORS_TODO },
       },
-      gradient: 'linear-gradient(90deg,#9B1B30,#D1006F,#F7E7CE,#F0C64A,#F5E8D2)', // sin el chocolate
+      gradient: 'linear-gradient(90deg,#9B1B30,#D1006F,#F5E8D2,#F0C64A,#F7C6DA)', // sin el chocolate
+      // Fondo real de la PARTIDA (no solo del lobby) — antes faltaba esta propiedad,
+      // por eso no se veía el degradado una vez empezada la partida, solo en el lobby.
+      bgGradient: 'linear-gradient(180deg, #9B1B30 0%, #D1006F 30%, #F5E8D2 58%, #F0C64A 80%, #F7C6DA 100%)',
       hideStars: true,
       tileShape: 'heart', // fichas recortadas con silueta de corazón + brillo tipo phong
       particleStyle: 'petals', // al terminar, caen pétalos de rosa lentamente en vez de confeti clásico
-      titleColor: '#F7E7CE',
+      titleColor: '#F5E8D2',
       hintOn:  <>Toca para desactivar CARNAVALENTÍN</>,
       hintOff: <>Toca para CARNAVALENTÍN</>,
     };
@@ -5718,7 +5721,7 @@
           `--rr-petal-vh:${vh + 60}px; --rr-petal-sway:${sway}px; --rr-petal-rot:${rot}deg;`;
         const path = document.createElementNS(svgNS, 'path');
         path.setAttribute('d', ROSE_PETAL_D);
-        const colors = ['#9B1B30', '#D1006F', '#F7E7CE'];
+        const colors = ['#9B1B30', '#D1006F', '#F5E8D2', '#F7C6DA'];
         path.setAttribute('fill', colors[Math.floor(Math.random() * colors.length)]);
         svg.appendChild(path);
         el.appendChild(svg);
