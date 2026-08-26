@@ -3005,6 +3005,18 @@
       display:flex; align-items:center; justify-content:center; flex-direction:column;
       pointer-events:none; z-index:20; animation:frameIn .3s ease;
     }
+    /* Carnavalentín (Carnaval): el marco de fin de partida es un degradado real
+       (box-shadow no admite degradados) — se logra con un div hermano cuyo
+       "padding" define el grosor del marco y una máscara que recorta solo el
+       anillo exterior, dejando ver el degradado de fondo únicamente ahí. */
+    .finished-frame-gradient {
+      position:absolute; inset:0; border-radius:16px;
+      padding: calc(12px + var(--tile) + 5px);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events:none; z-index:19; animation:frameIn .3s ease;
+    }
     .finished-text {
       font-family:'Pacifico',cursive; font-size:clamp(28px,7vw,44px);
       background:linear-gradient(135deg,#FFF6A8,#FFC169,#FF9B85);
@@ -5427,9 +5439,10 @@
           colorMap: carnavalColorMap, rrColors: CARNAVAL_RR_COLORS,
           tileShape: 'diamond', // las 5 fichas de color pasan a diamante...
           tileShapeExceptions: { white: 'heart' }, // ...excepto la Alba, que conserva el corazón
-          // Fondo oscuro tipo "noche de carnaval" para que resalten las banderillas
-          // de colores y el confeti que caen encima (ver módulo de ambientación).
-          bgGradient: 'linear-gradient(180deg, #2b2624 0%, #3E3735 45%, #241f1e 100%)',
+          // Anochecer de carnaval: cielo nocturno arriba (con estrellas, ver Stars
+          // topOnly) que baja pasando por tonos de atardecer hasta el suelo oscuro,
+          // para que resalten las banderillas de colores y el confeti que caen encima.
+          bgGradient: 'linear-gradient(180deg, #0d0a1f 0%, #2a1a3d 16%, #5c2f52 34%, #a8465a 50%, #d97a52 64%, #3E3735 85%, #1a1512 100%)',
         },
       },
       gradient: 'linear-gradient(90deg,#9B1B30,#D1006F,#F5E8D2,#F0C64A,#F7C6DA)', // sin el chocolate
@@ -5721,6 +5734,15 @@
       window.dispatchEvent(new CustomEvent('carnavalentinModeChange', { detail: mode }));
     }
     window.rrSetCarnavalentinMode = rrSetCarnavalentinMode;
+    // FIX: cambiar de sub-modo (San Valentín <-> Carnaval) actualiza el colorMap de
+    // las fichas del tablero (vía React, ver useCarnavalentinMode), pero window.RR_COLORS
+    // y el icono/rejilla de referencia del patrón (#rr-preview / #rr-grid) NO se
+    // refrescaban solos — se quedaban pintados con los colores del sub-modo anterior,
+    // haciendo el patrón irresoluble. Con esto se repintan en cuanto cambia el sub-modo.
+    window.addEventListener('carnavalentinModeChange', () => {
+      refreshRRColors();
+      if (window.rrPattern && window.rrPattern.length) window.rrApplyPattern?.(window.rrPattern);
+    });
 
     (function () {
       let petalTimer = null, heartTimer = null, confettiTimer = null, layer = null, spiralRAF = null;
@@ -5841,10 +5863,12 @@
         const vw = window.innerWidth, vh = window.innerHeight;
         const cx = vw * (0.28 + Math.random() * 0.44);
         const cy = vh * (0.30 + Math.random() * 0.40);
-        const startSize = 108 + Math.random() * 26;
-        const dur = 2200 + Math.random() * 500; // ms
+        // Más grande al inicio y más lento (antes costaba tocarlo a tiempo: pequeño
+        // y rápido se leía como "no reacciona"). Radio del espiral agrandado a juego.
+        const startSize = 160 + Math.random() * 34;
+        const dur = 3800 + Math.random() * 900; // ms — antes 2200-2700, ahora más lento
         const spins = 2.2 + Math.random() * 0.8;
-        const maxRadius = 70 + Math.random() * 40;
+        const maxRadius = 95 + Math.random() * 50;
         const wrap = document.createElement('div');
         wrap.style.cssText = `position:absolute;left:0;top:0;width:${startSize}px;height:${startSize * 0.9}px;` +
           `margin:${-startSize/2}px 0 0 ${-startSize/2}px;pointer-events:auto;cursor:pointer;` +
@@ -6567,12 +6591,13 @@
 
 
     /* ─── Stars ─── */
-    function Stars() {
+    function Stars({ topOnly = false } = {}) {
       return <div style={{position:'absolute',inset:0,pointerEvents:'none',overflow:'hidden'}}>
         {Array.from({length:40}).map((_,i)=>(
           <div key={i} className="star" style={{
             width:i%5===0?'3px':'2px',height:i%5===0?'3px':'2px',
-            top:`${Math.sin(i*7.3)*50+50}%`,left:`${Math.cos(i*5.1)*50+50}%`,
+            top: topOnly ? `${Math.abs(Math.sin(i*7.3))*22+2}%` : `${Math.sin(i*7.3)*50+50}%`,
+            left:`${Math.cos(i*5.1)*50+50}%`,
             animation:`pulse ${2+(i%3)}s ease-in-out infinite`,animationDelay:`${(i*.3)%3}s`,
           }}/>
         ))}
@@ -10896,7 +10921,9 @@
         }}>
           {(seasonAlt && activeSeason === 'new_year')
             ? <NewYearBackground variant="game"/>
-            : !(seasonAlt && seasonTheme?.hideStars) && <Stars/>}
+            : (seasonAlt && activeSeason === 'carnavalentin' && carnavalentinMode === 'carnaval')
+              ? <Stars topOnly/> // anochecer de Carnaval: estrellas solo en la parte superior
+              : !(seasonAlt && seasonTheme?.hideStars) && <Stars/>}
           {seasonAlt && activeSeason === 'festividades' && festSnowActive && <FestividadesSnow/>}
           {seasonAlt && activeSeason === 'dia_muertos' && dmRingsBg && <DiaMuertosRings/>}
           {seasonAlt && activeSeason === 'dia_muertos' && dmFlash && (
@@ -11556,10 +11583,10 @@
                         {/* Igual que con la hoja de arce: la sombra va en un div EXTERIOR
                             separado del que lleva el mask, para que el drop-shadow siga
                             el contorno real del corazón y no el cuadrado original.
-                            scale(.98): corazón 2% más pequeño que el tile, a petición. */}
+                            scale(.96): corazón 4% más pequeño que el tile, a petición. */}
                         <div style={{
                           position:'absolute', inset:'-4%',
-                          transform:`rotate(${heartRotDeg}deg) scale(0.98)`,
+                          transform:`rotate(${heartRotDeg}deg) scale(0.96)`,
                           filter:`drop-shadow(0 3px 4px rgba(0,0,0,.4))`,
                           pointerEvents:'none',
                         }}>
@@ -11571,14 +11598,16 @@
                             WebkitMaskPosition:'center', maskPosition:'center',
                             background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 55%,${c.shadow} 100%)`,
                           }}>
-                            {/* Brillo especular tipo Phong, look "plástico glaseado": una mancha
-                                ovalada amplia arriba-izquierda más un punto caliente pequeño y
-                                muy blanco encima, para un reflejo brillante de plástico/caramelo. */}
+                            {/* Brillo especular tipo Phong MÁS DESTACADO en los corazones de
+                                Valentín: punto caliente blanco puro más grande y nítido, mancha
+                                ovalada amplia más intensa, y un tercer reflejo secundario tenue
+                                abajo-derecha para reforzar el efecto "plástico glaseado". */}
                             <div style={{
                               position:'absolute', inset:0,
                               background:
-                                `radial-gradient(circle 16% at 30% 22%, rgba(255,255,255,1) 0%, rgba(255,255,255,.95) 40%, rgba(255,255,255,0) 75%),` +
-                                `radial-gradient(circle 42% at 34% 28%, rgba(255,255,255,.85) 0%, rgba(255,255,255,.35) 50%, rgba(255,255,255,0) 80%)`,
+                                `radial-gradient(circle 20% at 30% 22%, rgba(255,255,255,1) 0%, rgba(255,255,255,1) 35%, rgba(255,255,255,0) 72%),` +
+                                `radial-gradient(circle 50% at 34% 26%, rgba(255,255,255,.92) 0%, rgba(255,255,255,.45) 48%, rgba(255,255,255,0) 82%),` +
+                                `radial-gradient(circle 22% at 68% 72%, rgba(255,255,255,.35) 0%, rgba(255,255,255,0) 75%)`,
                               pointerEvents:'none',
                             }}/>
                           </div>
@@ -11681,7 +11710,23 @@
                   </button>
                 );
               })}
-              {finished && <div className="finished-frame" style={finishOverlayColor ? {'--rr-finished-overlay':finishOverlayColor} : undefined}><div className="finished-text">{window.T.finished}</div>{usedHints && <div className="finished-text" style={{fontSize:'clamp(16px,4vw,26px)',animationDelay:'.2s'}}>…with a little help</div>}</div>}
+              {finished && (
+                <>
+                  {(activeSeason === 'carnavalentin' && carnavalentinMode === 'carnaval') && (
+                    <div className="finished-frame-gradient" style={{
+                      background: 'linear-gradient(135deg,#93EFB0,#FBEF60,#6AA9E4,#EB654C,#3E3735)', // sin Alba, a petición
+                    }}/>
+                  )}
+                  <div className="finished-frame" style={
+                    (activeSeason === 'carnavalentin' && carnavalentinMode === 'carnaval')
+                      ? {'--rr-finished-overlay':'transparent'} // el degradado ya lo pinta finished-frame-gradient
+                      : (finishOverlayColor ? {'--rr-finished-overlay':finishOverlayColor} : undefined)
+                  }>
+                    <div className="finished-text">{window.T.finished}</div>
+                    {usedHints && <div className="finished-text" style={{fontSize:'clamp(16px,4vw,26px)',animationDelay:'.2s'}}>…with a little help</div>}
+                  </div>
+                </>
+              )}
               {seasonAlt && activeSeason === 'new_year' && <NewYearFinishFireworks active={finished}/>}
             </div>{/* end grid */}
             </div>{/* end flex row (row labels + grid) */}

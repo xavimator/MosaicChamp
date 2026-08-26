@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v200'; // ← v200: fix patrón no cambia en Carnaval (refresh RR_COLORS+preview), corazones -4%, mask heart más grande/lento, brillo destacado
+const CACHE_NAME = 'mosaicchamp-v201'; // ← v201: Carnaval — fondo anochecer con estrellas arriba, marco final degradado (sin Alba)
 
 
 // Recursos que se precachean en la instalación
