@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v197'; // ← v197: fix fondo degradado en partida (faltaba bgGradient), white=Alba, green=rosa claro
+const CACHE_NAME = 'mosaicchamp-v199'; // ← v199: modo Carnaval completo — paleta+diamantes, fondo oscuro, banderillas (4 filas) + confeti en puñados
 
 
 // Recursos que se precachean en la instalación

@@ -2641,7 +2641,7 @@
        "carnaval" (paleta alternativa) se define más adelante; por ahora estas
        reglas cubren el lobby en su estado inicial (siempre arranca en modo
        San Valentín). */
-    body.rr-season-carnavalentin { --rr-icon-color:#F5E8D2; --rr-finished-overlay:rgba(27,6,16,.93); }
+    body.rr-season-carnavalentin { --rr-icon-color:#F5E8D2; --rr-finished-overlay:rgba(247,198,218,.93); }
     body.rr-season-carnavalentin .lobby-wrap {
       /* Degradado con los colores reales de las fichas de San Valentín,
          excluyendo el chocolate (#3B2118) a petición expresa. */
@@ -2715,6 +2715,12 @@
       18%  { transform:translate(-50%,-50%) scale(1); }
       82%  { opacity:1; transform:translate(-50%,-50%) scale(1); }
       100% { opacity:0; transform:translate(-50%,-50%) scale(.85); }
+    }
+    /* ── Carnavalentín (Carnaval): confeti pequeño en puñados desde un lado ── */
+    @keyframes rrConfettiFall {
+      0%   { transform:translate(0,0) rotate(0deg); opacity:1; }
+      85%  { opacity:1; }
+      100% { transform:translate(var(--rr-conf-dx),var(--rr-conf-vh)) rotate(var(--rr-conf-rot)); opacity:.85; }
     }
     @keyframes pulse      { 0%,100%{opacity:.2} 50%{opacity:.8} }
     @keyframes shimmer    { 0%{background-position:200% center} 100%{background-position:-200% center} }
@@ -5366,12 +5372,28 @@
     ];
     const valentinColorMap = {}; VALENTIN_COLORS.forEach(c => { valentinColorMap[c.id] = c; });
 
-    // Paleta de Carnaval (provisional — pendiente de definición final por el usuario).
-    // Se reutiliza de momento la paleta de San Valentín como placeholder para que
-    // el cambio de modo no rompa el render; sustituir cuando se defina el estilo.
-    const CARNAVAL_COLORS_TODO = VALENTIN_COLORS;
-    const CARNAVAL_RR_COLORS_TODO = VALENTIN_RR_COLORS;
-    const carnavalColorMapTodo = valentinColorMap;
+    // Paleta de Carnaval. La ficha Alba (id "white") se conserva igual que en San
+    // Valentín — es la única que mantiene la silueta de corazón (ver tileShape /
+    // tileShapeExceptions más abajo); las otras 5 pasan a forma de diamante.
+    const CARNAVAL_COLORS = [
+      { id:"white",  bg:"#F5E8D2", shine:"#FFFBF2", shadow:"#D6C2A0" }, // Alba (conserva el corazón)
+      { id:"green",  bg:"#93EFB0", shine:"#D2FBE0", shadow:"#4FBE72" },
+      { id:"yellow", bg:"#FBEF60", shine:"#FFFBC0", shadow:"#C7BA30" },
+      { id:"blue",   bg:"#6AA9E4", shine:"#B8DBFB", shadow:"#3D74A8" },
+      { id:"red",    bg:"#EB654C", shine:"#F5A08C", shadow:"#A83D28" },
+      { id:"orange", bg:"#3E3735", shine:"#6B615D", shadow:"#1C1816" },
+    ];
+    // Mismo orden posicional blue/green/yellow/blue/red/orange -> ver nota en
+    // VALENTIN_RR_COLORS sobre por qué el orden aquí es obligatorio.
+    const CARNAVAL_RR_COLORS = [
+      { bg:'#F5E8D2', border:'#D6C2A0', puzzleId:'white'  },
+      { bg:'#93EFB0', border:'#4FBE72', puzzleId:'green'  },
+      { bg:'#FBEF60', border:'#C7BA30', puzzleId:'yellow' },
+      { bg:'#6AA9E4', border:'#3D74A8', puzzleId:'blue'   },
+      { bg:'#EB654C', border:'#A83D28', puzzleId:'red'    },
+      { bg:'#3E3735', border:'#1C1816', puzzleId:'orange' },
+    ];
+    const carnavalColorMap = {}; CARNAVAL_COLORS.forEach(c => { carnavalColorMap[c.id] = c; });
 
     // Silueta de corazón (vector propio) usada como máscara CSS para recortar
     // la ficha en modo "heart". Igual que con la hoja de arce, al ser SVG
@@ -5385,18 +5407,35 @@
     // ambiental (pétalos cayendo) como en el confeti de fin de partida.
     const ROSE_PETAL_D = 'M50,6 C30,10 16,28 16,48 C16,70 32,88 50,96 C68,88 84,70 84,48 C84,28 70,10 50,6 Z';
 
+    // Silueta de diamante (rombo) — máscara CSS para las 5 fichas de Carnaval
+    // que no son Alba. Mismo mecanismo que HEART_MASK_URL.
+    const DIAMOND_MASK_URL = "data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%20100%20100%27%3E%3Cpolygon%20fill%3D%27%23000%27%20points%3D%2750%2C2%2098%2C50%2050%2C98%202%2C50%27%2F%3E%3C%2Fsvg%3E";
+
     window.__RR_SEASON_THEMES.carnavalentin = {
       colorMap: valentinColorMap,
       rrColors: VALENTIN_RR_COLORS,
       // Sub-paletas para la mecánica San Valentín <-> Carnaval (ver rrCarnavalentinMode).
+      // Cada sub-modo trae su propia paleta, forma de ficha y fondo de partida —
+      // todo cambia de golpe al tocar el corazón con máscara.
       subThemes: {
-        valentin: { colorMap: valentinColorMap, rrColors: VALENTIN_RR_COLORS },
-        // TODO: sustituir por la paleta real de Carnaval cuando se defina.
-        carnaval: { colorMap: carnavalColorMapTodo, rrColors: CARNAVAL_RR_COLORS_TODO },
+        valentin: {
+          colorMap: valentinColorMap, rrColors: VALENTIN_RR_COLORS,
+          tileShape: 'heart', // todas las fichas en forma de corazón
+          bgGradient: 'linear-gradient(180deg, #9B1B30 0%, #D1006F 30%, #F5E8D2 58%, #F0C64A 80%, #F7C6DA 100%)',
+        },
+        carnaval: {
+          colorMap: carnavalColorMap, rrColors: CARNAVAL_RR_COLORS,
+          tileShape: 'diamond', // las 5 fichas de color pasan a diamante...
+          tileShapeExceptions: { white: 'heart' }, // ...excepto la Alba, que conserva el corazón
+          // Fondo oscuro tipo "noche de carnaval" para que resalten las banderillas
+          // de colores y el confeti que caen encima (ver módulo de ambientación).
+          bgGradient: 'linear-gradient(180deg, #2b2624 0%, #3E3735 45%, #241f1e 100%)',
+        },
       },
       gradient: 'linear-gradient(90deg,#9B1B30,#D1006F,#F5E8D2,#F0C64A,#F7C6DA)', // sin el chocolate
       // Fondo real de la PARTIDA (no solo del lobby) — antes faltaba esta propiedad,
       // por eso no se veía el degradado una vez empezada la partida, solo en el lobby.
+      // Se sobreescribe dinámicamente según el sub-modo (ver getSeasonBgGradient).
       bgGradient: 'linear-gradient(180deg, #9B1B30 0%, #D1006F 30%, #F5E8D2 58%, #F0C64A 80%, #F7C6DA 100%)',
       hideStars: true,
       tileShape: 'heart', // fichas recortadas con silueta de corazón + brillo tipo phong
@@ -5684,7 +5723,7 @@
     window.rrSetCarnavalentinMode = rrSetCarnavalentinMode;
 
     (function () {
-      let petalTimer = null, heartTimer = null, layer = null, spiralRAF = null;
+      let petalTimer = null, heartTimer = null, confettiTimer = null, layer = null, spiralRAF = null;
 
       function ensureLayer() {
         if (layer && layer.isConnected) return layer;
@@ -5698,11 +5737,12 @@
         return !!(window.__seasonAltMode && window.__rrActiveSeason === 'carnavalentin');
       }
 
-      // Fondo ambiental: un pétalo de rosa cada 10-20s, cayendo en 7-8s mientras
-      // se balancea de lado a lado como una pluma, entrando desde un punto
-      // horizontal aleatorio de la parte superior.
+      // Fondo ambiental de Valentín: un pétalo de rosa cada 10-20s, cayendo en
+      // 7-8s mientras se balancea de lado a lado como una pluma, entrando desde
+      // un punto horizontal aleatorio de la parte superior. Solo en sub-modo
+      // 'valentin' — en 'carnaval' el fondo son las banderillas + el confeti.
       function spawnAmbientPetal() {
-        if (!active()) return;
+        if (!active() || window.__rrCarnavalentinMode !== 'valentin') return;
         const el = ensureLayer();
         const vw = window.innerWidth, vh = window.innerHeight;
         const startX = Math.random() * vw;
@@ -5877,16 +5917,120 @@
         }, 1100);
       }
 
-      function startAll() { scheduleAmbientPetal(); scheduleFlyingHeart(); }
+      // ── Fondo de Carnaval: banderillas + confeti en puñados ──────────────
+      // Banderillas: 4 filas de la guirnalda dada por el usuario (5 triángulos
+      // de colores colgados de un pin, con balanceo tipo "viento" vía skewX).
+      // El <style> con las clases/keyframes se inyecta UNA sola vez en <head>
+      // (si se repitiera dentro de cada <svg> —había docenas repetidos por
+      // fila— sería redundante); cada fila es un <div> con varias copias del
+      // mismo bloque SVG en fila hasta cubrir el ancho de la pantalla.
+      function ensureBuntingStyle() {
+        if (document.getElementById('rr-carnaval-bunting-style')) return;
+        const style = document.createElement('style');
+        style.id = 'rr-carnaval-bunting-style';
+        style.textContent =
+          '.rr-cv-bandera{transform-box:fill-box;transform-origin:top center;}' +
+          '.rr-cv-doblez{transform-box:fill-box;transform-origin:top center;animation:rrCvDoblar 2.2s ease-in-out infinite alternate;}' +
+          '.rr-cv-f1{fill:#ff595e;animation-delay:0s;}' +
+          '.rr-cv-f2{fill:#ffca3a;animation-delay:.25s;}' +
+          '.rr-cv-f3{fill:#8ac926;animation-delay:.5s;}' +
+          '.rr-cv-f4{fill:#1982c4;animation-delay:.75s;}' +
+          '.rr-cv-f5{fill:#6a4c93;animation-delay:1s;}' +
+          '@keyframes rrCvDoblar{0%{transform:skewX(-18deg) scaleX(.94);}50%{transform:skewX(4deg) scaleX(1.03);}100%{transform:skewX(22deg) scaleX(.9);}}' +
+          '.rr-cv-pin{fill:#444;}';
+        document.head.appendChild(style);
+      }
+      const BUNTING_UNIT_INNER =
+        '<g class="rr-cv-bandera"><circle class="rr-cv-pin" cx="98" cy="45" r="3"/><polygon class="rr-cv-doblez rr-cv-f1" points="98,45 133,50 113,112"/></g>' +
+        '<g class="rr-cv-bandera"><circle class="rr-cv-pin" cx="193" cy="60" r="3"/><polygon class="rr-cv-doblez rr-cv-f2" points="193,60 228,63 213,121"/></g>' +
+        '<g class="rr-cv-bandera"><circle class="rr-cv-pin" cx="298" cy="42" r="3"/><polygon class="rr-cv-doblez rr-cv-f3" points="298,42 334,42 316,105"/></g>' +
+        '<g class="rr-cv-bandera"><circle class="rr-cv-pin" cx="403" cy="60" r="3"/><polygon class="rr-cv-doblez rr-cv-f4" points="403,60 438,63 423,121"/></g>' +
+        '<g class="rr-cv-bandera"><circle class="rr-cv-pin" cx="498" cy="45" r="3"/><polygon class="rr-cv-doblez rr-cv-f5" points="498,45 533,50 515,112"/></g>';
+      let buntingWrap = null;
+      function showBunting() {
+        if (buntingWrap && buntingWrap.isConnected) return;
+        ensureBuntingStyle();
+        const el = ensureLayer();
+        const vw = window.innerWidth;
+        const unitPx = 150; // ancho en pantalla de cada bloque de 5 banderillas
+        const rowH = 58;
+        const repeats = Math.ceil(vw / unitPx) + 2;
+        buntingWrap = document.createElement('div');
+        buntingWrap.id = 'rr-carnaval-bunting';
+        buntingWrap.style.cssText = 'position:absolute;top:0;left:0;width:100%;';
+        for (let row = 0; row < 4; row++) {
+          const rowDiv = document.createElement('div');
+          const xOffset = (row % 2 === 1) ? -unitPx / 2 : 0; // filas alternas desplazadas, más natural
+          rowDiv.style.cssText = `position:absolute;top:${row * (rowH - 8)}px;left:${xOffset}px;` +
+            `width:${repeats * unitPx}px;height:${rowH}px;display:flex;opacity:${0.5 + row * 0.13};`;
+          for (let i = 0; i < repeats; i++) {
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('viewBox', '0 0 600 200');
+            svg.style.cssText = `width:${unitPx}px;height:100%;flex:none;`;
+            svg.innerHTML = BUNTING_UNIT_INNER;
+            rowDiv.appendChild(svg);
+          }
+          buntingWrap.appendChild(rowDiv);
+        }
+        el.appendChild(buntingWrap);
+      }
+      function hideBunting() {
+        if (buntingWrap) { buntingWrap.remove(); buntingWrap = null; }
+      }
+      function syncBunting() {
+        if (active() && window.__rrCarnavalentinMode === 'carnaval') showBunting(); else hideBunting();
+      }
+
+      // Confeti pequeño que cae en puñados, lanzados aleatoriamente desde el
+      // borde izquierdo o el derecho (nunca desde arriba, para diferenciarlo
+      // del pétalo de Valentín). Cada puñado son varios trocitos con un pequeño
+      // retraso entre ellos, para que no caigan todos exactamente a la vez.
+      const CONFETTI_COLORS = ['#ff595e', '#ffca3a', '#8ac926', '#1982c4', '#6a4c93'];
+      function spawnConfettiHandful() {
+        if (!active() || window.__rrCarnavalentinMode !== 'carnaval') return;
+        const el = ensureLayer();
+        const vw = window.innerWidth, vh = window.innerHeight;
+        const fromLeft = Math.random() < 0.5;
+        const count = 10 + Math.floor(Math.random() * 8);
+        for (let i = 0; i < count; i++) {
+          setTimeout(() => {
+            if (!active() || window.__rrCarnavalentinMode !== 'carnaval') return;
+            const size = 5 + Math.random() * 5;
+            const y0 = vh * (0.08 + Math.random() * 0.5);
+            const x0 = fromLeft ? -14 : vw + 14;
+            const piece = document.createElement('div');
+            const color = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+            const dx = (fromLeft ? 1 : -1) * (vw * (0.35 + Math.random() * 0.5));
+            const dy = vh * (0.5 + Math.random() * 0.5);
+            const rot = (360 + Math.random() * 720) * (Math.random() < 0.5 ? 1 : -1);
+            const dur = 2600 + Math.random() * 1600;
+            piece.style.cssText = `position:absolute;left:${x0}px;top:${y0}px;` +
+              `width:${size}px;height:${(size * (0.5 + Math.random() * 0.6)).toFixed(1)}px;background:${color};` +
+              `border-radius:1px;opacity:.95;` +
+              `animation:rrConfettiFall ${(dur / 1000).toFixed(2)}s cubic-bezier(.15,.6,.4,1) forwards;` +
+              `--rr-conf-dx:${dx}px; --rr-conf-vh:${dy}px; --rr-conf-rot:${rot}deg;`;
+            el.appendChild(piece);
+            setTimeout(() => piece.remove(), dur + 150);
+          }, i * (20 + Math.random() * 60));
+        }
+      }
+      function scheduleConfetti() {
+        if (confettiTimer) clearTimeout(confettiTimer);
+        confettiTimer = setTimeout(() => { spawnConfettiHandful(); scheduleConfetti(); }, (2.5 + Math.random() * 2.5) * 1000);
+      }
+
+      function startAll() { scheduleAmbientPetal(); scheduleFlyingHeart(); scheduleConfetti(); syncBunting(); }
       function stopAll() {
-        [petalTimer, heartTimer].forEach(t => t && clearTimeout(t));
-        petalTimer = heartTimer = null;
+        [petalTimer, heartTimer, confettiTimer].forEach(t => t && clearTimeout(t));
+        petalTimer = heartTimer = confettiTimer = null;
         if (spiralRAF) { cancelAnimationFrame(spiralRAF); spiralRAF = null; }
+        hideBunting();
         if (layer) { layer.remove(); layer = null; }
       }
       function sync() { if (active()) startAll(); else stopAll(); }
       window.addEventListener('seasonAltModeChange', sync);
       window.addEventListener('rrSeasonChange', sync);
+      window.addEventListener('carnavalentinModeChange', syncBunting); // banderillas on/off al cambiar de sub-modo
       sync();
     })();
 
@@ -5918,6 +6062,18 @@
         };
       }, []);
       return v;
+    }
+    // Sub-modo de Carnavalentín ('valentin' | 'carnaval') como estado de React —
+    // sin esto, tocar el corazón con máscara cambiaba window.__rrCarnavalentinMode
+    // pero la partida en pantalla nunca se enteraba (nada forzaba un re-render).
+    function useCarnavalentinMode() {
+      const [m, setM] = useState(window.__rrCarnavalentinMode || 'valentin');
+      useEffect(() => {
+        const h = (e) => setM(e.detail);
+        window.addEventListener('carnavalentinModeChange', h);
+        return () => window.removeEventListener('carnavalentinModeChange', h);
+      }, []);
+      return m;
     }
 
     function useActiveSeason() {
@@ -6050,6 +6206,35 @@
       else if (seasonAlt && theme) base = theme.colorMap;
       else base = pride ? prideColorMap : colorMap;
       return colorblind ? applyColorblindToMap(base) : base;
+    }
+    // Sub-tema activo de Carnavalentín (paleta/forma/fondo según el sub-modo San
+    // Valentín <-> Carnaval). Devuelve null si no aplica (otra temporada, o modo
+    // temporada desactivado).
+    function rrCarnavalentinSubTheme(seasonAlt) {
+      const theme = rrCurrentSeasonTheme();
+      if (!(seasonAlt && theme && theme.subThemes && window.__rrActiveSeason === 'carnavalentin')) return null;
+      return theme.subThemes[window.__rrCarnavalentinMode] || theme.subThemes.valentin;
+    }
+    // Fondo de partida efectivo: en Carnavalentín depende del sub-modo (cambia al
+    // tocar el corazón con máscara); en el resto de temporadas es theme.bgGradient.
+    function getSeasonBgGradient(seasonAlt) {
+      const sub = rrCarnavalentinSubTheme(seasonAlt);
+      if (sub && sub.bgGradient) return sub.bgGradient;
+      const theme = rrCurrentSeasonTheme();
+      return (seasonAlt && theme && theme.bgGradient) || null;
+    }
+    // Forma efectiva de una ficha según su colorId — en Carnavalentín, cada
+    // sub-modo puede fijar una forma por defecto (tileShape) con excepciones por
+    // color (tileShapeExceptions), p.ej. la ficha Alba conserva el corazón en
+    // modo Carnaval mientras las demás pasan a diamante.
+    function getTileShape(seasonAlt, colorId) {
+      const sub = rrCarnavalentinSubTheme(seasonAlt);
+      if (sub) {
+        if (sub.tileShapeExceptions && sub.tileShapeExceptions[colorId]) return sub.tileShapeExceptions[colorId];
+        return sub.tileShape || null;
+      }
+      const theme = rrCurrentSeasonTheme();
+      return (seasonAlt && theme && theme.tileShape) || null;
     }
     const RR_IDS=['white','green','yellow','blue','red','orange'];
     // Probabilidad de que se dispare el power-up de remontada al cumplirse la condición
@@ -9041,6 +9226,7 @@
       const colorblind = useColorblindMode();
       const seasonAlt = useSeasonAltMode();
       const activeSeason = useActiveSeason();
+      const carnavalentinMode = useCarnavalentinMode(); // fuerza re-render al tocar el corazón con máscara
       const seasonTheme = window.__RR_SEASON_THEMES[activeSeason] || null;
       const darkText = seasonAlt && seasonTheme?.darkText;
       const metallicMode = seasonAlt && seasonTheme?.tileTexture === 'metal';
@@ -10704,7 +10890,7 @@
           height:'100vh', height:'100dvh',
           background: (seasonAlt && activeSeason === 'dia_muertos' && dmRingsBg)
             ? '#060412'
-            : (seasonAlt && seasonTheme && seasonTheme.bgGradient) || 'radial-gradient(ellipse at 30% 20%,#1a1035 0%,#0a0818 60%,#000508 100%)',
+            : getSeasonBgGradient(seasonAlt) || 'radial-gradient(ellipse at 30% 20%,#1a1035 0%,#0a0818 60%,#000508 100%)',
           display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'flex-start',
           fontFamily:"'Trebuchet MS','Segoe UI',sans-serif",paddingTop:'6px',paddingBottom:'8px',paddingLeft:'14px',paddingRight:'14px',position:'relative',overflow:'hidden',
         }}>
@@ -11254,10 +11440,16 @@
                 const festPlastic = seasonAlt && activeSeason === 'festividades' && !metallicMode;
                 const scribbleMode = seasonAlt && seasonTheme?.tileShape === 'scribble';
                 const mapleMode = seasonAlt && seasonTheme?.tileShape === 'maple-leaf';
-                // Carnavalentín: fichas recortadas con silueta de corazón. Cada una lleva
-                // un ligero balanceo aleatorio (estable por ficha) para que no se vean
-                // todas alineadas, igual que las hojas de otoño.
-                const heartMode = seasonAlt && seasonTheme?.tileShape === 'heart';
+                // Carnavalentín: forma de ficha por color/sub-modo (ver getTileShape). En
+                // San Valentín todas son corazón; en Carnaval son diamante salvo la Alba,
+                // que conserva el corazón. Cada corazón lleva un ligero balanceo aleatorio
+                // (estable por ficha) para que no se vean todas alineadas, igual que las
+                // hojas de otoño; el diamante se queda recto (sin balanceo).
+                const effTileShape = (activeSeason === 'carnavalentin')
+                  ? getTileShape(seasonAlt, tile.colorId)
+                  : (seasonAlt ? seasonTheme?.tileShape : null);
+                const heartMode = effTileShape === 'heart';
+                const diamondMode = effTileShape === 'diamond';
                 const heartRotDeg = heartMode ? (stableRotationFor(`${tile.colorId}-${tile.num}`, 16) - 8) : 0;
                 const tileCharcoalUrl = crayonMode ? schoolCharcoalFor(`${tile.colorId}-${tile.num}`) : null;
                 const mapleRotDeg = mapleMode ? stableRotationFor(`${tile.colorId}-${tile.num}`, 360) : 0;
@@ -11270,7 +11462,7 @@
                           style={{
                     width:'var(--tile)',height:'var(--tile)',borderRadius:'8px',border:'none',
                     cursor:iceFrozen ? 'not-allowed' : (colorSwitchArmed ? 'pointer' : (isAdj?'pointer':'default')),
-                    background: (scribbleMode || mapleMode || heartMode) ? 'transparent' : (crayonMode
+                    background: (scribbleMode || mapleMode || heartMode || diamondMode) ? 'transparent' : (crayonMode
                       ? `url(${tileCharcoalUrl}),`+
                         `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`
                       : metallicMode
@@ -11295,7 +11487,7 @@
                       ? `0 4px 0 ${c.shadow},0 0 0 3px rgba(236,72,153,.9),0 0 22px rgba(168,85,247,.8),inset 0 1px 0 rgba(255,255,255,.25)`
                       : idx===hintMove
                       ? `0 4px 0 ${c.shadow},0 0 0 3px rgba(0,220,255,.9),0 0 18px rgba(0,220,255,.7),inset 0 1px 0 rgba(255,255,255,.25)`
-                      : (scribbleMode || mapleMode || heartMode) ? 'none'
+                      : (scribbleMode || mapleMode || heartMode || diamondMode) ? 'none'
                       : `0 4px 0 ${c.shadow},0 6px 16px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.25)${newYearGlow ? `,0 0 12px 2px ${c.bg},0 0 26px 7px ${c.bg}99` : ''}`,
                     transition:'transform .1s,filter .1s,box-shadow .2s',
                     transform:isAdj?'scale(1.02) translateZ(0)':'translateZ(0)',
@@ -11329,6 +11521,34 @@
                             // hoja de arce en vez del cuadrado redondeado habitual.
                             background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 55%,${c.shadow} 100%)`,
                           }}/>
+                        </div>
+                      </>
+                    ) : diamondMode ? (
+                      <>
+                        {/* Ficha de Carnaval recortada en forma de diamante — mismo mecanismo
+                            que el corazón (sombra en div exterior, máscara + brillo Phong en
+                            el interior), pero sin balanceo: el diamante se queda recto. */}
+                        <div style={{
+                          position:'absolute', inset:'-4%',
+                          filter:`drop-shadow(0 3px 4px rgba(0,0,0,.4))`,
+                          pointerEvents:'none',
+                        }}>
+                          <div style={{
+                            position:'absolute', inset:0,
+                            WebkitMaskImage:`url('${DIAMOND_MASK_URL}')`, maskImage:`url('${DIAMOND_MASK_URL}')`,
+                            WebkitMaskSize:'100% 100%', maskSize:'100% 100%',
+                            WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
+                            WebkitMaskPosition:'center', maskPosition:'center',
+                            background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 55%,${c.shadow} 100%)`,
+                          }}>
+                            <div style={{
+                              position:'absolute', inset:0,
+                              background:
+                                `radial-gradient(circle 16% at 30% 22%, rgba(255,255,255,1) 0%, rgba(255,255,255,.95) 40%, rgba(255,255,255,0) 75%),` +
+                                `radial-gradient(circle 42% at 34% 28%, rgba(255,255,255,.85) 0%, rgba(255,255,255,.35) 50%, rgba(255,255,255,0) 80%)`,
+                              pointerEvents:'none',
+                            }}/>
+                          </div>
                         </div>
                       </>
                     ) : heartMode ? (
