@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v193'; // ← v193: máscara veneciana real sobre el corazón volador (San Valentín)
+const CACHE_NAME = 'mosaicchamp-v197'; // ← v197: fix fondo degradado en partida (faltaba bgGradient), white=Alba, green=rosa claro
 
 
 // Recursos que se precachean en la instalación
