@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v203'; // ← v203: mask heart rosa+máscara 20% mayor, botón level up por sub-modo, brillo clarito en corazones
+const CACHE_NAME = 'mosaicchamp-v204'; // ← v204: ocultar fichas reales bajo Cascada/Salto/SpinRound mientras animan (huecos transparentes en fichas recortadas)
 
 
 // Recursos que se precachean en la instalación

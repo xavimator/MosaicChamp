@@ -11565,6 +11565,18 @@
                 const heartRotDeg = heartMode ? (stableRotationFor(`${tile.colorId}-${tile.num}`, 16) - 8) : 0;
                 const tileCharcoalUrl = crayonMode ? schoolCharcoalFor(`${tile.colorId}-${tile.num}`) : null;
                 const mapleRotDeg = mapleMode ? stableRotationFor(`${tile.colorId}-${tile.num}`, 360) : 0;
+                // Con fichas recortadas (corazón/diamante/hoja) quedan huecos
+                // transparentes en las esquinas del cuadrado — sin esto, mientras un
+                // power-up (Cascada/Salto/SpinRound) anima fichas "fantasma" por
+                // encima, se veían las fichas reales de debajo asomando por esos
+                // huecos. Ocultamos la ficha real de la zona que está animando el
+                // power-up correspondiente (columna en Salto, fila en SpinRound,
+                // todo el tablero en Cascada) mientras dura la animación.
+                const hiddenByPowerupAnim = !!(
+                  cascadeAnim ||
+                  (jumpAnim && jumpAnim.col === idx % boardSize) ||
+                  (spinRoundAnim && spinRoundAnim.row === Math.floor(idx / boardSize))
+                );
                 return (
                   <button key={`${tile.colorId}-${tile.num}`} className="tile-btn"
                           data-tut={isCenter?'center':undefined}
@@ -11573,6 +11585,7 @@
                           draggable={false}
                           style={{
                     width:'var(--tile)',height:'var(--tile)',borderRadius:'8px',border:'none',
+                    opacity: hiddenByPowerupAnim ? 0 : 1,
                     cursor:iceFrozen ? 'not-allowed' : (colorSwitchArmed ? 'pointer' : (isAdj?'pointer':'default')),
                     background: (scribbleMode || mapleMode || heartMode || diamondMode) ? 'transparent' : (crayonMode
                       ? `url(${tileCharcoalUrl}),`+
