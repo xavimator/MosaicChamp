@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v202'; // ← v202: power-ups (cascada/salto/spinround) conservan la forma de ficha en Otoño, Valentín y Carnaval
+const CACHE_NAME = 'mosaicchamp-v203'; // ← v203: mask heart rosa+máscara 20% mayor, botón level up por sub-modo, brillo clarito en corazones
 
 
 // Recursos que se precachean en la instalación

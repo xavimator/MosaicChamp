@@ -5415,6 +5415,12 @@
     // dibujar corazones sueltos con JS vanilla: corazón-con-máscara volador y
     // corazón palpitante de la mecánica de Carnavalentín).
     const ROSE_HEART_D = 'M50,92 C18,68 4,46 4,28 C4,12 16,2 30,2 C40,2 47,8 50,16 C53,8 60,2 70,2 C84,2 96,12 96,28 C96,46 82,68 50,92 Z';
+    // Brillo "clarito" (mismo estilo que la mancha blanca del carnival_heart: una
+    // sola forma curva blanca al 60% de opacidad, sin manchas radiales) — mismas
+    // proporciones que esa mancha pero reescaladas al viewBox 0 0 100 100 que usan
+    // HEART_MASK_URL / ROSE_HEART_D. Se usa en las fichas-corazón, en el corazón
+    // palpitante de Carnaval y en las animaciones de power-up con forma de corazón.
+    const HEART_SHINE_D = 'M34,14.3 C41,14.3 46,18.7 48.5,24.75 C45,20.9 40,18.7 34,18.7 C29,18.7 24.5,22 21.5,26.4 C23.5,19.25 28,14.3 34,14.3 Z';
     // Silueta de pétalo de rosa (vector propio) — se usa tanto en el fondo
     // ambiental (pétalos cayendo) como en el confeti de fin de partida.
     const ROSE_PETAL_D = 'M50,6 C30,10 16,28 16,48 C16,70 32,88 50,96 C68,88 84,70 84,48 C84,28 70,10 50,6 Z';
@@ -5822,14 +5828,15 @@
       // centro. Al tocarlo mientras gira, cambia de estilo.
       const CARNIVAL_HEART_SVG =
         `<svg viewBox="0 0 200 180" width="100%" height="100%" style="position:absolute;inset:0;">` +
-          `<path d="M100,147 C100,147 33,101 33,55 C33,34 50,17 73,17 C87,17 96,26 100,40 C104,26 113,17 127,17 C150,17 167,34 167,55 C167,101 100,147 100,147 Z" fill="#9B1B30"/>` +
+          `<path d="M100,147 C100,147 33,101 33,55 C33,34 50,17 73,17 C87,17 96,26 100,40 C104,26 113,17 127,17 C150,17 167,34 167,55 C167,101 100,147 100,147 Z" fill="#F7C6DA"/>` +
           `<path d="M68,26 C82,26 92,34 97,45 C90,38 80,34 68,34 C58,34 49,40 43,48 C47,35 56,26 68,26 Z" fill="#ffffff" opacity="0.6"/>` +
         `</svg>`;
-      // Máscara veneciana de carnaval que aparece encima del corazón. IDs de
-      // degradado/filtro sufijados con `uid` para que varias instancias en pantalla
-      // a la vez no compartan (ni pisen) los mismos <defs>.
+      // Máscara veneciana de carnaval que aparece encima del corazón, un 20% más
+      // grande que antes (a petición: debe sobresalir de la forma del corazón).
+      // IDs de degradado/filtro sufijados con `uid` para que varias instancias en
+      // pantalla a la vez no compartan (ni pisen) los mismos <defs>.
       function carnivalMaskSVG(uid) {
-        return `<svg viewBox="0 0 800 500" style="position:absolute;left:6%;top:14%;width:88%;height:56%;">` +
+        return `<svg viewBox="0 0 800 500" style="position:absolute;left:-2.8%;top:8.4%;width:105.6%;height:67.2%;">` +
           `<defs>` +
             `<linearGradient id="gb-${uid}" x1="0%" y1="0%" x2="100%" y2="100%">` +
               `<stop offset="0%" stop-color="#2a0005"/><stop offset="30%" stop-color="#540b14"/>` +
@@ -5929,6 +5936,13 @@
         path.setAttribute('stroke', '#5C0E1C');
         path.setAttribute('stroke-width', '3');
         svg.appendChild(path);
+        // Brillo "clarito" — misma mancha curva blanca al 60% que el carnival_heart
+        // y que las fichas-corazón (antes este corazón no tenía brillo).
+        const shine = document.createElementNS(svgNS, 'path');
+        shine.setAttribute('d', HEART_SHINE_D);
+        shine.setAttribute('fill', '#ffffff');
+        shine.setAttribute('opacity', '0.6');
+        svg.appendChild(shine);
         wrap.appendChild(svg);
         let touched = false;
         wrap.addEventListener('click', () => { touched = true; rrSetCarnavalentinMode('valentin'); wrap.remove(); });
@@ -8680,20 +8694,27 @@
             ? `drop-shadow(0 3px 4px rgba(0,0,0,.4)) drop-shadow(0 0 8px ${glowColor})`
             : `drop-shadow(0 3px 4px rgba(0,0,0,.4))`,
         }}>
-          <div style={{
-            position:'absolute', inset:0,
-            WebkitMaskImage:`url('${maskUrl}')`, maskImage:`url('${maskUrl}')`,
-            WebkitMaskSize:'100% 100%', maskSize:'100% 100%',
-            WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
-            WebkitMaskPosition:'center', maskPosition:'center',
-            background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 55%,${c.shadow} 100%)`,
-          }}>
             <div style={{
               position:'absolute', inset:0,
-              background:
-                `radial-gradient(circle 16% at 30% 22%, rgba(255,255,255,1) 0%, rgba(255,255,255,.95) 40%, rgba(255,255,255,0) 75%),` +
-                `radial-gradient(circle 42% at 34% 28%, rgba(255,255,255,.85) 0%, rgba(255,255,255,.35) 50%, rgba(255,255,255,0) 80%)`,
-            }}/>
+              WebkitMaskImage:`url('${maskUrl}')`, maskImage:`url('${maskUrl}')`,
+              WebkitMaskSize:'100% 100%', maskSize:'100% 100%',
+              WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
+              WebkitMaskPosition:'center', maskPosition:'center',
+              background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 55%,${c.shadow} 100%)`,
+            }}>
+            {shape === 'heart' ? (
+              // Brillo "clarito" (mismo que el tile-corazón y el carnival_heart)
+              <svg viewBox="0 0 100 100" style={{position:'absolute', inset:0}}>
+                <path d={HEART_SHINE_D} fill="#ffffff" opacity="0.6"/>
+              </svg>
+            ) : (
+              <div style={{
+                position:'absolute', inset:0,
+                background:
+                  `radial-gradient(circle 16% at 30% 22%, rgba(255,255,255,1) 0%, rgba(255,255,255,.95) 40%, rgba(255,255,255,0) 75%),` +
+                  `radial-gradient(circle 42% at 34% 28%, rgba(255,255,255,.85) 0%, rgba(255,255,255,.35) 50%, rgba(255,255,255,0) 80%)`,
+              }}/>
+            )}
           </div>
         </div>
       );
@@ -11662,18 +11683,12 @@
                             WebkitMaskPosition:'center', maskPosition:'center',
                             background:`linear-gradient(145deg,${c.shine} 0%,${c.bg} 55%,${c.shadow} 100%)`,
                           }}>
-                            {/* Brillo especular tipo Phong MÁS DESTACADO en los corazones de
-                                Valentín: punto caliente blanco puro más grande y nítido, mancha
-                                ovalada amplia más intensa, y un tercer reflejo secundario tenue
-                                abajo-derecha para reforzar el efecto "plástico glaseado". */}
-                            <div style={{
-                              position:'absolute', inset:0,
-                              background:
-                                `radial-gradient(circle 20% at 30% 22%, rgba(255,255,255,1) 0%, rgba(255,255,255,1) 35%, rgba(255,255,255,0) 72%),` +
-                                `radial-gradient(circle 50% at 34% 26%, rgba(255,255,255,.92) 0%, rgba(255,255,255,.45) 48%, rgba(255,255,255,0) 82%),` +
-                                `radial-gradient(circle 22% at 68% 72%, rgba(255,255,255,.35) 0%, rgba(255,255,255,0) 75%)`,
-                              pointerEvents:'none',
-                            }}/>
+                            {/* Brillo "clarito" — misma mancha curva blanca al 60% que la del
+                                carnival_heart, en vez del brillo Phong con puntos calientes de
+                                antes. */}
+                            <svg viewBox="0 0 100 100" style={{position:'absolute', inset:0, pointerEvents:'none'}}>
+                              <path d={HEART_SHINE_D} fill="#ffffff" opacity="0.6"/>
+                            </svg>
                           </div>
                         </div>
                       </>
@@ -11834,22 +11849,28 @@
                 const schoolMode = seasonAlt && activeSeason === 'vuelta_colegio';
                 const summerMode = seasonAlt && activeSeason === 'verano';
                 const festMode   = seasonAlt && activeSeason === 'festividades';
+                const valentinMode = seasonAlt && activeSeason === 'carnavalentin' && carnavalentinMode === 'valentin';
+                const carnavalMode = seasonAlt && activeSeason === 'carnavalentin' && carnavalentinMode === 'carnaval';
                 return (
                 <button onClick={handleLevelUpClick} disabled={levelUpWaiting}
                   style={{padding:'11px 20px',borderRadius:'10px',cursor:levelUpWaiting?'default':'pointer',fontSize:'13px',
                           fontWeight:800,letterSpacing:'.08em',textTransform:'uppercase',
                           display:'flex',alignItems:'center',gap:'8px',opacity:levelUpWaiting?.65:1,
-                          border: schoolMode ? '1px solid rgba(13,148,136,.55)' : summerMode ? '1px solid rgba(30,58,138,.65)' : festMode ? '1px solid rgba(202,220,236,.65)' : '1px solid rgba(255,215,0,.6)',
+                          border: schoolMode ? '1px solid rgba(13,148,136,.55)' : summerMode ? '1px solid rgba(30,58,138,.65)' : festMode ? '1px solid rgba(202,220,236,.65)' : valentinMode ? '1px solid rgba(155,27,48,.65)' : carnavalMode ? '1px solid rgba(251,239,96,.65)' : '1px solid rgba(255,215,0,.6)',
                           background: schoolMode
                             ? 'linear-gradient(135deg,rgba(45,212,191,.22),rgba(13,148,136,.16))'
                             : summerMode
                               ? 'linear-gradient(135deg,rgba(59,130,246,.24),rgba(30,58,138,.2))'
                               : festMode
                                 ? 'linear-gradient(135deg,rgba(202,220,236,.24),rgba(122,140,156,.16))'
-                                : 'linear-gradient(135deg,rgba(255,215,0,.2),rgba(255,150,0,.15))',
-                          color: schoolMode ? '#0d9488' : summerMode ? '#1e3a8a' : festMode ? '#CADCEC' : '#FFD700',
-                          boxShadow: schoolMode ? '0 0 18px rgba(45,212,191,.35)' : summerMode ? '0 0 18px rgba(30,58,138,.4)' : festMode ? '0 0 18px rgba(202,220,236,.4)' : '0 0 18px rgba(255,215,0,.35)',
-                          '--rr-levelup-glow': schoolMode ? '45,212,191' : summerMode ? '59,130,246' : festMode ? '202,220,236' : '255,215,0',
+                                : valentinMode
+                                  ? 'linear-gradient(135deg,rgba(155,27,48,.24),rgba(90,15,27,.18))'
+                                  : carnavalMode
+                                    ? 'linear-gradient(135deg,rgba(251,239,96,.24),rgba(199,186,48,.16))'
+                                    : 'linear-gradient(135deg,rgba(255,215,0,.2),rgba(255,150,0,.15))',
+                          color: schoolMode ? '#0d9488' : summerMode ? '#1e3a8a' : festMode ? '#CADCEC' : valentinMode ? '#9B1B30' : carnavalMode ? '#FBEF60' : '#FFD700',
+                          boxShadow: schoolMode ? '0 0 18px rgba(45,212,191,.35)' : summerMode ? '0 0 18px rgba(30,58,138,.4)' : festMode ? '0 0 18px rgba(202,220,236,.4)' : valentinMode ? '0 0 18px rgba(155,27,48,.4)' : carnavalMode ? '0 0 18px rgba(251,239,96,.4)' : '0 0 18px rgba(255,215,0,.35)',
+                          '--rr-levelup-glow': schoolMode ? '45,212,191' : summerMode ? '59,130,246' : festMode ? '202,220,236' : valentinMode ? '155,27,48' : carnavalMode ? '251,239,96' : '255,215,0',
                           animation: levelUpWaiting ? 'none' : 'levelUpPulse 1.4s ease-in-out infinite'}}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0,animation:levelUpWaiting?'syncPulse 1s ease-in-out infinite':'none'}}>
                     <path d="M12 19V5"/><path d="M5 12l7-7 7 7"/>
