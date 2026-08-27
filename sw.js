@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v204'; // ← v204: ocultar fichas reales bajo Cascada/Salto/SpinRound mientras animan (huecos transparentes en fichas recortadas)
+const CACHE_NAME = 'mosaicchamp-v205'; // ← v205: brillo corazón más grande y arriba-izq; Carnaval fin de partida = confeti clásico x3 (no pétalos)
 
 
 // Recursos que se precachean en la instalación
