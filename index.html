@@ -3862,15 +3862,22 @@
       const oy = rect.top + rect.height / 2;
 
       const theme = (window.__RR_SEASON_THEMES || {})[window.__rrActiveSeason] || null;
-      const useWater    = !!(window.__seasonAltMode && theme && theme.particleStyle === 'water');
-      const useShavings = !!(window.__seasonAltMode && theme && theme.particleStyle === 'shavings');
-      const useLeaves   = !!(window.__seasonAltMode && theme && theme.particleStyle === 'leaves');
-      const usePapel    = !!(window.__seasonAltMode && theme && theme.particleStyle === 'papel');
-      const useStars    = !!(window.__seasonAltMode && theme && theme.particleStyle === 'stars');
-      const useGifts    = !!(window.__seasonAltMode && theme && theme.particleStyle === 'gifts');
-      const usePetals   = !!(window.__seasonAltMode && theme && theme.particleStyle === 'petals');
+      // Carnavalentín: el estilo de partícula depende del sub-modo — pétalos en
+      // San Valentín, confeti clásico (no pétalos) en Carnaval, con el TRIPLE de
+      // piezas de lo normal en Carnaval.
+      const isCarnavalMode = !!(window.__seasonAltMode && window.__rrActiveSeason === 'carnavalentin' && window.__rrCarnavalentinMode === 'carnaval');
+      const effectiveParticleStyle = (window.__seasonAltMode && window.__rrActiveSeason === 'carnavalentin')
+        ? (isCarnavalMode ? null : 'petals')
+        : (theme && theme.particleStyle);
+      const useWater    = !!(window.__seasonAltMode && effectiveParticleStyle === 'water');
+      const useShavings = !!(window.__seasonAltMode && effectiveParticleStyle === 'shavings');
+      const useLeaves   = !!(window.__seasonAltMode && effectiveParticleStyle === 'leaves');
+      const usePapel    = !!(window.__seasonAltMode && effectiveParticleStyle === 'papel');
+      const useStars    = !!(window.__seasonAltMode && effectiveParticleStyle === 'stars');
+      const useGifts    = !!(window.__seasonAltMode && effectiveParticleStyle === 'gifts');
+      const usePetals   = !!(window.__seasonAltMode && effectiveParticleStyle === 'petals');
 
-      const N = count || 54;
+      const N = (count || 54) * (isCarnavalMode ? 3 : 1);
 
       const layer = document.createElement('div');
       layer.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:9600;overflow:visible;';
@@ -5420,7 +5427,7 @@
     // proporciones que esa mancha pero reescaladas al viewBox 0 0 100 100 que usan
     // HEART_MASK_URL / ROSE_HEART_D. Se usa en las fichas-corazón, en el corazón
     // palpitante de Carnaval y en las animaciones de power-up con forma de corazón.
-    const HEART_SHINE_D = 'M34,14.3 C41,14.3 46,18.7 48.5,24.75 C45,20.9 40,18.7 34,18.7 C29,18.7 24.5,22 21.5,26.4 C23.5,19.25 28,14.3 34,14.3 Z';
+    const HEART_SHINE_D = 'M25.6,6 C35.4,6 42.4,12.2 45.9,20.7 C41,15.3 34,12.2 25.6,12.2 C18.6,12.2 12.3,16.8 8.1,23 C10.9,13 17.2,6 25.6,6 Z';
     // Silueta de pétalo de rosa (vector propio) — se usa tanto en el fondo
     // ambiental (pétalos cayendo) como en el confeti de fin de partida.
     const ROSE_PETAL_D = 'M50,6 C30,10 16,28 16,48 C16,70 32,88 50,96 C68,88 84,70 84,48 C84,28 70,10 50,6 Z';
@@ -5831,12 +5838,13 @@
           `<path d="M100,147 C100,147 33,101 33,55 C33,34 50,17 73,17 C87,17 96,26 100,40 C104,26 113,17 127,17 C150,17 167,34 167,55 C167,101 100,147 100,147 Z" fill="#F7C6DA"/>` +
           `<path d="M68,26 C82,26 92,34 97,45 C90,38 80,34 68,34 C58,34 49,40 43,48 C47,35 56,26 68,26 Z" fill="#ffffff" opacity="0.6"/>` +
         `</svg>`;
-      // Máscara veneciana de carnaval que aparece encima del corazón, un 20% más
-      // grande que antes (a petición: debe sobresalir de la forma del corazón).
+      // Máscara veneciana de carnaval que aparece encima del corazón, un 10% más
+      // grande todavía sobre el anterior 20% (a petición: debe sobresalir de la
+      // forma del corazón), y con los ojos en rosa claro (antes #121212).
       // IDs de degradado/filtro sufijados con `uid` para que varias instancias en
       // pantalla a la vez no compartan (ni pisen) los mismos <defs>.
       function carnivalMaskSVG(uid) {
-        return `<svg viewBox="0 0 800 500" style="position:absolute;left:-2.8%;top:8.4%;width:105.6%;height:67.2%;">` +
+        return `<svg viewBox="0 0 800 500" style="position:absolute;left:-8.1%;top:5%;width:116.2%;height:73.9%;">` +
           `<defs>` +
             `<linearGradient id="gb-${uid}" x1="0%" y1="0%" x2="100%" y2="100%">` +
               `<stop offset="0%" stop-color="#2a0005"/><stop offset="30%" stop-color="#540b14"/>` +
@@ -5854,8 +5862,8 @@
           `<g>` +
             `<path fill="url(#gb-${uid})" filter="url(#sh-${uid})" d="M 400,380 C 330,380 230,390 170,330 C 120,280 110,180 140,120 C 160,80  240,110 310,140 C 350,155 380,140 400,120 C 420,140 450,155 490,140 C 560,110 640,80  660,120 C 690,180 680,280 630,330 C 570,390 470,380 400,380 Z"/>` +
             `<path fill="#0d0103" d="M 400,135 C 360,165 290,140 210,120 C 170,110 150,125 155,140 C 165,160 210,165 260,155 C 320,145 370,180 400,200 C 430,180 480,145 540,155 C 590,165 635,160 645,140 C 650,125 630,110 590,120 C 510,140 440,165 400,135 Z"/>` +
-            `<path fill="#121212" d="M 230,220 C 200,200 170,220 180,250 C 195,290 260,280 290,240 C 270,230 250,230 230,220 Z"/>` +
-            `<path fill="#121212" d="M 570,220 C 600,200 630,220 620,250 C 605,290 540,280 510,240 C 530,230 550,230 570,220 Z"/>` +
+            `<path fill="#F7C6DA" d="M 230,220 C 200,200 170,220 180,250 C 195,290 260,280 290,240 C 270,230 250,230 230,220 Z"/>` +
+            `<path fill="#F7C6DA" d="M 570,220 C 600,200 630,220 620,250 C 605,290 540,280 510,240 C 530,230 550,230 570,220 Z"/>` +
             `<path fill="url(#go-${uid})" d="M 180,300 C 220,350 310,340 340,300 C 290,310 230,300 180,300 Z"/>` +
             `<path fill="url(#go-${uid})" d="M 620,300 C 580,350 490,340 460,300 C 510,310 570,300 620,300 Z"/>` +
             `<path fill="url(#go-${uid})" d="M 400,190 L 380,280 L 400,340 L 420,280 Z"/>` +

@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v205'; // ← v205: brillo corazón más grande y arriba-izq; Carnaval fin de partida = confeti clásico x3 (no pétalos)
+const CACHE_NAME = 'mosaicchamp-v206'; // ← v206: máscara veneciana +10% (ya iba +20%) y ojos en rosa claro
 
 
 // Recursos que se precachean en la instalación
