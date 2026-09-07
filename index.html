@@ -8689,33 +8689,45 @@
     // Salto / SpinRound), que hasta ahora siempre pintaban un cuadrado liso sin
     // importar la temporada activa. glowColor tiñe el resplandor de la ficha que
     // "entra" al final de la animación (distinto color por power-up).
-    function powerupShapedTile(c, shape, glowing, glowColor) {
+    function powerupShapedTile(c, shape, glowing, glowColor, tileKey) {
       const maskUrl = shape === 'heart' ? HEART_MASK_URL
         : shape === 'diamond' ? DIAMOND_MASK_URL
         : shape === 'maple-leaf' ? MAPLE_LEAF_MASK_URL
         : shape === 'scribble' ? SCRIBBLE_MASK_URL
         : null;
       if (!maskUrl) return null;
-      // Vuelta al Colegio: en el tablero real la ficha "scribble" es una silueta
-      // recortada con textura de relieve (SCRIBBLE_EMBOSS_URL) — más simple que la
-      // variante "crayon" con grano de carboncillo único por ficha, que no tiene
-      // sentido replicar aquí. Antes esta forma no tenía caso en esta función, así
-      // que estas fichas fantasma directamente desaparecían durante el power-up.
+      // Vuelta al Colegio: igual que en el tablero real — silueta scribble +
+      // grano de carboncillo ÚNICO por ficha (misma semilla que en el tablero,
+      // vía schoolCharcoalFor con la identidad colorId-num de la ficha), no la
+      // textura genérica de relieve. Así las fichas fantasma de los power-ups
+      // se ven exactamente igual que las del tablero.
       if (shape === 'scribble') {
+        const charcoalUrl = tileKey ? schoolCharcoalFor(tileKey) : null;
         return (
           <div style={{
             position:'absolute', inset:0,
-            WebkitMaskImage:`url(${maskUrl})`, maskImage:`url(${maskUrl})`,
+            WebkitMaskImage:`url(${SCRIBBLE_MASK_URL})`, maskImage:`url(${SCRIBBLE_MASK_URL})`,
             WebkitMaskSize:'100% 100%', maskSize:'100% 100%',
             WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
             WebkitMaskPosition:'center', maskPosition:'center',
-            background:`${c.bg} url(${SCRIBBLE_EMBOSS_URL})`,
-            backgroundSize:'100% 100%',
-            backgroundBlendMode:'overlay',
+            background: charcoalUrl ? 'transparent' : `${c.bg} url(${SCRIBBLE_EMBOSS_URL})`,
+            backgroundSize: charcoalUrl ? undefined : '100% 100%',
+            backgroundBlendMode: charcoalUrl ? undefined : 'overlay',
             filter: glowing
-              ? `drop-shadow(2px 4px 0 ${c.shadow}) drop-shadow(0 0 8px ${glowColor})`
-              : `drop-shadow(2px 4px 0 ${c.shadow})`,
-          }}/>
+              ? `drop-shadow(2px 4px 0 ${c.shadow}) drop-shadow(0 4px 8px rgba(0,0,0,.35)) drop-shadow(0 0 8px ${glowColor})`
+              : `drop-shadow(2px 4px 0 ${c.shadow}) drop-shadow(0 4px 8px rgba(0,0,0,.35))`,
+          }}>
+            {charcoalUrl && (
+              <div style={{
+                position:'absolute', inset:0,
+                WebkitMaskImage:`url(${charcoalUrl})`, maskImage:`url(${charcoalUrl})`,
+                WebkitMaskSize:'169% 169%', maskSize:'169% 169%',
+                WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
+                WebkitMaskPosition:'center', maskPosition:'center',
+                background: c.shadow,
+              }}/>
+            )}
+          </div>
         );
       }
       return (
@@ -8780,7 +8792,7 @@
         if (shape) {
           return (
             <div key={key} style={{ position:'absolute', width:cellPx, height:cellPx }}>
-              {powerupShapedTile(c, shape, glowing, 'rgba(56,189,248,.9)')}
+              {powerupShapedTile(c, shape, glowing, 'rgba(56,189,248,.9)', `${tile.colorId}-${tile.num}`)}
             </div>
           );
         }
@@ -8858,7 +8870,7 @@
         if (shape) {
           return (
             <div key={key} style={{ position:'absolute', width:cellPx, height:cellPx }}>
-              {powerupShapedTile(c, shape, glowing, 'rgba(251,191,36,.9)')}
+              {powerupShapedTile(c, shape, glowing, 'rgba(251,191,36,.9)', `${tile.colorId}-${tile.num}`)}
             </div>
           );
         }
@@ -9043,7 +9055,7 @@
         if (shape) {
           return (
             <div key={key} style={{ position:'absolute', width:cellPx, height:cellPx }}>
-              {powerupShapedTile(c, shape, glowing, 'rgba(45,212,191,.9)')}
+              {powerupShapedTile(c, shape, glowing, 'rgba(45,212,191,.9)', `${tile.colorId}-${tile.num}`)}
             </div>
           );
         }
