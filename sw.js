@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v206'; // ← v206: máscara veneciana +10% (ya iba +20%) y ojos en rosa claro
+const CACHE_NAME = 'mosaicchamp-v207'; // ← v207: fix Vuelta al Colegio — fichas scribble ya no desaparecen en power-ups (Cascada/Salto/SpinRound)
 
 
 // Recursos que se precachean en la instalación

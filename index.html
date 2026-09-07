@@ -8693,8 +8693,31 @@
       const maskUrl = shape === 'heart' ? HEART_MASK_URL
         : shape === 'diamond' ? DIAMOND_MASK_URL
         : shape === 'maple-leaf' ? MAPLE_LEAF_MASK_URL
+        : shape === 'scribble' ? SCRIBBLE_MASK_URL
         : null;
       if (!maskUrl) return null;
+      // Vuelta al Colegio: en el tablero real la ficha "scribble" es una silueta
+      // recortada con textura de relieve (SCRIBBLE_EMBOSS_URL) — más simple que la
+      // variante "crayon" con grano de carboncillo único por ficha, que no tiene
+      // sentido replicar aquí. Antes esta forma no tenía caso en esta función, así
+      // que estas fichas fantasma directamente desaparecían durante el power-up.
+      if (shape === 'scribble') {
+        return (
+          <div style={{
+            position:'absolute', inset:0,
+            WebkitMaskImage:`url(${maskUrl})`, maskImage:`url(${maskUrl})`,
+            WebkitMaskSize:'100% 100%', maskSize:'100% 100%',
+            WebkitMaskRepeat:'no-repeat', maskRepeat:'no-repeat',
+            WebkitMaskPosition:'center', maskPosition:'center',
+            background:`${c.bg} url(${SCRIBBLE_EMBOSS_URL})`,
+            backgroundSize:'100% 100%',
+            backgroundBlendMode:'overlay',
+            filter: glowing
+              ? `drop-shadow(2px 4px 0 ${c.shadow}) drop-shadow(0 0 8px ${glowColor})`
+              : `drop-shadow(2px 4px 0 ${c.shadow})`,
+          }}/>
+        );
+      }
       return (
         <div style={{
           position:'absolute', inset:'-4%',
