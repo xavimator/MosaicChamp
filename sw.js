@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v208'; // ← v208: power-ups Vuelta al Colegio con el mismo grano de carboncillo único por ficha que el tablero real
+const CACHE_NAME = 'mosaicchamp-v209'; // ← v209: fix - las fichas ya no pierden su color real (fallback a gris) si el mapa de colores de la temporada activa no trae la entrada; aplica al tablero y a las animaciones de power-up (Cascada, Salto, SpinRound)
 
 
 // Recursos que se precachean en la instalación

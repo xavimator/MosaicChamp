@@ -8787,7 +8787,7 @@
             background:'rgba(0,0,0,.3)', border:'2px dashed rgba(255,255,255,.08)',
           }}/>;
         }
-        const c = colorMap[tile.colorId] || { bg:'#888', shine:'#aaa', shadow:'#444' };
+        const c = colorMap[tile.colorId] || window.RR_COLORS.find(x => x.puzzleId === tile.colorId) || { bg:'#888', shine:'#aaa', shadow:'#444' };
         const shape = tileShapeFor ? tileShapeFor(tile.colorId) : null;
         if (shape) {
           return (
@@ -8865,7 +8865,7 @@
             background:'rgba(0,0,0,.3)', border:'2px dashed rgba(255,255,255,.08)',
           }}/>;
         }
-        const c = colorMap[tile.colorId] || { bg:'#888', shine:'#aaa', shadow:'#444' };
+        const c = colorMap[tile.colorId] || window.RR_COLORS.find(x => x.puzzleId === tile.colorId) || { bg:'#888', shine:'#aaa', shadow:'#444' };
         const shape = tileShapeFor ? tileShapeFor(tile.colorId) : null;
         if (shape) {
           return (
@@ -9050,7 +9050,7 @@
             background:'rgba(0,0,0,.3)', border:'2px dashed rgba(255,255,255,.08)',
           }}/>;
         }
-        const c = colorMap[tile.colorId] || { bg:'#888', shine:'#aaa', shadow:'#444' };
+        const c = colorMap[tile.colorId] || window.RR_COLORS.find(x => x.puzzleId === tile.colorId) || { bg:'#888', shine:'#aaa', shadow:'#444' };
         const shape = tileShapeFor ? tileShapeFor(tile.colorId) : null;
         if (shape) {
           return (
@@ -11572,7 +11572,7 @@
                     )}
                   </div>;
                 }
-                const c=getColorMap(effectivePride, colorblind, seasonAlt)[tile.colorId], isAdj=canMove(idx,ei,boardSize,mask);
+                const c=getColorMap(effectivePride, colorblind, seasonAlt)[tile.colorId] || colorMap[tile.colorId] || { bg:'#888', shine:'#aaa', shadow:'#444' }, isAdj=canMove(idx,ei,boardSize,mask);
                 // Año Nuevo: además de la paleta propia, cada ficha lleva un halo de
                 // su propio color (glow), activo mientras la temporada esté vigente.
                 const newYearGlow = seasonAlt && activeSeason === 'new_year';
