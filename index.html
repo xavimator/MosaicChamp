@@ -11476,7 +11476,7 @@
                                        color:darkText?'rgba(20,20,22,.94)':'rgba(255,255,255,.87)'}}>{n}</div>
                 ))}
               </div>
-              <div ref={gridBoxRef} style={{position:'relative',display:'grid',gridTemplateColumns:`repeat(${boardSize},var(--tile))`,gap:'5px',padding:'12px',background:'rgba(255,255,255,.04)',borderRadius:'16px',border:'1px solid rgba(255,255,255,.08)',boxShadow:'0 20px 60px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.1)',WebkitTransform:'translateZ(0)',transform:'translateZ(0)',isolation:'isolate'}}>
+              <div ref={gridBoxRef} key={`board-${seasonAlt}-${colorblind}-${effectivePride}`} style={{position:'relative',display:'grid',gridTemplateColumns:`repeat(${boardSize},var(--tile))`,gap:'5px',padding:'12px',background:'rgba(255,255,255,.04)',borderRadius:'16px',border:'1px solid rgba(255,255,255,.08)',boxShadow:'0 20px 60px rgba(0,0,0,.6),inset 0 1px 0 rgba(255,255,255,.1)',WebkitTransform:'translateZ(0)',transform:'translateZ(0)',isolation:'isolate'}}>
               {/* Marco de pulso sobre el grupo central */}
               {(() => {
                 if (!patternSize) return null; // nivel cross: forma irregular, sin marco
