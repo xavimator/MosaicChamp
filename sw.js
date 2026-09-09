@@ -1,108 +1,91 @@
-// ─────────────────────────────────────────────────────────
-//  MosaicChamp — Service Worker
-//  Coloca este archivo en la raíz del servidor (junto a index.html)
-//  El registro se hace automáticamente desde index.html
-// ─────────────────────────────────────────────────────────
+/* ============================================================
+   SERVICE WORKER
+   1708 · Sostenibilidad aplicada a los sectores productivos
+   ============================================================
+   Estrategia:
+   - El documento principal (index.html) usa "network-first": si hay
+     internet, siempre se sirve la versión más reciente y se actualiza
+     la caché; si no hay conexión, se sirve la última copia guardada.
+   - Los recursos externos (fuentes, librería de Supabase) usan
+     "cache-first": una vez descargados, no vuelven a pedirse por red.
+   - Las llamadas a Supabase (api/rest) NUNCA se cachean: necesitan
+     red real siempre, así que se dejan pasar directamente.
+*/
 
-const CACHE_NAME = 'mosaicchamp-v211'; // ← v211: fix - añadido backgroundColor de respaldo en las fichas para que, si el degradado de dos capas (brillo plástico + color) no llega a pintarse al montar el tablero de cero (nuevo reto, reiniciar, o volver del lobby), no se vea el blanco por defecto del botón
+const CACHE_VERSION = 'v1';
+const CACHE_NAME = `sasp-1708-${CACHE_VERSION}`;
 
-
-// Recursos que se precachean en la instalación
-// NOTA: rutas relativas (sin "/" inicial) para funcionar tanto si la app
-// está en la raíz del dominio como en una subcarpeta (p.ej. GitHub Pages
-// tipo usuario.github.io/MosaicChamp/). Con "/" absoluto, cache.add()
-// resuelve contra la raíz del dominio y no contra la carpeta real de la app.
-const PRECACHE = [
+// Se precachea el propio documento para que la primera visita
+// ya deje una copia utilizable sin conexión.
+const APP_SHELL = [
   './',
   './index.html',
-
-  // React + ReactDOM
-  'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js',
-
-  // Babel (necesario para JSX en runtime)
-  'https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js',
-
-  // Google Fonts — solo el CSS; los ficheros de fuente los gestiona el browser
-  'https://fonts.googleapis.com/css2?family=Pacifico&display=swap',
-
-  // EmailJS (envío de emails de recuperación de contraseña desde el cliente)
-  'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png',
+  './icon-512-maskable.png',
 ];
 
-// Dominios que van siempre a red (Firebase, tiempo real)
-const NETWORK_ONLY_ORIGINS = [
-  'firebasedatabase.app',
-  'firebaseio.com',
-  'googleapis.com',
-  'identitytoolkit.googleapis.com',
-];
-
-// ── Install ───────────────────────────────────────────────
-self.addEventListener('install', event => {
-  self.skipWaiting();
+self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache =>
-      // addAll falla si algún recurso no carga; usamos add individual para ser resilientes
-      Promise.allSettled(PRECACHE.map(url => cache.add(url)))
-    )
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
   );
+  self.skipWaiting();
 });
 
-// ── Activate ──────────────────────────────────────────────
-self.addEventListener('activate', event => {
+self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then(keys =>
+    caches.keys().then((keys) =>
       Promise.all(
         keys
-          .filter(key => key !== CACHE_NAME)
-          .map(key => caches.delete(key))
+          .filter((key) => key.startsWith('sasp-1708-') && key !== CACHE_NAME)
+          .map((key) => caches.delete(key))
       )
-    ).then(() => self.clients.claim())
+    )
   );
+  self.clients.claim();
 });
 
-// ── Fetch ─────────────────────────────────────────────────
-self.addEventListener('fetch', event => {
-  const { request } = event;
-  if (request.method !== 'GET') return;
+function isSupabaseRequest(url) {
+  return url.hostname.endsWith('.supabase.co');
+}
 
-  const url = new URL(request.url);
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET') return; // no cachear POST/PATCH (los inserts/updates de Supabase)
 
-  // 1. Firebase y APIs de tiempo real → siempre red, nunca caché
-  if (NETWORK_ONLY_ORIGINS.some(o => url.hostname.includes(o))) {
-    event.respondWith(fetch(request));
-    return;
-  }
+  const url = new URL(req.url);
 
-  // 2. Página principal y recursos locales → Cache-first, fallback a red
-  if (url.origin === self.location.origin) {
+  // Nunca interceptar llamadas a Supabase: deben ir siempre a la red.
+  if (isSupabaseRequest(url)) return;
+
+  // El documento HTML principal: network-first con fallback a caché.
+  if (req.mode === 'navigate' || url.pathname.endsWith('index.html') || url.pathname === '/' ) {
     event.respondWith(
-      caches.match(request).then(cached => {
-        if (cached) return cached;
-        return fetch(request).then(response => {
-          if (response.ok) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
-          }
-          return response;
-        });
-      }).catch(() => caches.match('./index.html')) // fallback offline
+      fetch(req)
+        .then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+          return res;
+        })
+        .catch(() => caches.match(req).then((res) => res || caches.match('./index.html')))
     );
     return;
   }
 
-  // 3. CDNs (React, Babel, Fonts, EmailJS) → Cache-first, fallback a red
+  // Resto de recursos externos (fuentes, CDN de Supabase JS, etc.): cache-first.
   event.respondWith(
-    caches.match(request).then(cached => {
+    caches.match(req).then((cached) => {
       if (cached) return cached;
-      return fetch(request).then(response => {
-        if (response.ok) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
-        }
-        return response;
-      });
+      return fetch(req)
+        .then((res) => {
+          if (res && res.status === 200 && (res.type === 'basic' || res.type === 'cors')) {
+            const copy = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+          }
+          return res;
+        })
+        .catch(() => cached);
     })
   );
 });
