@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v210'; // ← v210: fix real de v209 - el respaldo de color de las fichas usaba una paleta incompleta (sin shine/shadow) o la clásica no-temática, causando naranja/blanco en vez de marrón en Festividades; ahora todo pasa por rrSafeColorFor, que siempre usa el color real de la temporada activa
+const CACHE_NAME = 'mosaicchamp-v211'; // ← v211: fix - añadido backgroundColor de respaldo en las fichas para que, si el degradado de dos capas (brillo plástico + color) no llega a pintarse al montar el tablero de cero (nuevo reto, reiniciar, o volver del lobby), no se vea el blanco por defecto del botón
 
 
 // Recursos que se precachean en la instalación

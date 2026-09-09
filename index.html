@@ -11646,6 +11646,13 @@
                     width:'var(--tile)',height:'var(--tile)',borderRadius:'8px',border:'none',
                     opacity: hiddenByPowerupAnim ? 0 : 1,
                     cursor:iceFrozen ? 'not-allowed' : (colorSwitchArmed ? 'pointer' : (isAdj?'pointer':'default')),
+                    // Respaldo: si por lo que sea el degradado de abajo (background, con
+                    // varias capas) no llega a pintarse a tiempo justo cuando la ficha se
+                    // monta de cero (nuevo reto/reiniciar, o al volver del lobby y remontar
+                    // el tablero entero), el navegador NO debe caer en su blanco por
+                    // defecto de <button> — con esto, aunque eso pase, se ve el color base
+                    // real de la ficha en vez de blanco.
+                    backgroundColor: (scribbleMode || mapleMode || heartMode || diamondMode) ? 'transparent' : c.bg,
                     background: (scribbleMode || mapleMode || heartMode || diamondMode) ? 'transparent' : (crayonMode
                       ? `url(${tileCharcoalUrl}),`+
                         `linear-gradient(145deg,${c.shine} 0%,${c.bg} 50%,${c.shadow} 100%)`
