@@ -6253,6 +6253,22 @@
       else base = pride ? prideColorMap : colorMap;
       return colorblind ? applyColorblindToMap(base) : base;
     }
+    // Búsqueda segura de color para una ficha: intenta primero el mapa de
+    // colores efectivo que se le pase (ya calculado con getColorMap), luego
+    // el colorMap del tema de temporada activo (si lo hay, con seasonAlt
+    // encendido) y por último el mapa clásico — todos estos SIEMPRE traen
+    // los tres campos bg/shine/shadow completos. Solo si tile.colorId no
+    // existiera en ninguno (no debería pasar con ids válidos) cae a un gris
+    // genérico. Antes, algunos sitios usaban window.RR_COLORS como
+    // respaldo, que solo trae bg/border (sin shine/shadow) — eso generaba
+    // degradados con colores "undefined" que se veían blancos.
+    function rrSafeColorFor(effectiveMap, tile, seasonAlt) {
+      if (effectiveMap && effectiveMap[tile.colorId]) return effectiveMap[tile.colorId];
+      const theme = seasonAlt ? rrCurrentSeasonTheme() : null;
+      if (theme && theme.colorMap && theme.colorMap[tile.colorId]) return theme.colorMap[tile.colorId];
+      if (colorMap[tile.colorId]) return colorMap[tile.colorId];
+      return { bg:'#888', shine:'#aaa', shadow:'#444' };
+    }
     // Sub-tema activo de Carnavalentín (paleta/forma/fondo según el sub-modo San
     // Valentín <-> Carnaval). Devuelve null si no aplica (otra temporada, o modo
     // temporada desactivado).
@@ -8763,7 +8779,7 @@
       );
     }
 
-    function CascadeSlide({ cols, boardSize, ghostTilesByCol, snapshotTiles, colorMap, geo, metallic, metallicColors, tileShapeFor }) {
+    function CascadeSlide({ cols, boardSize, ghostTilesByCol, snapshotTiles, colorMap, geo, metallic, metallicColors, tileShapeFor, seasonAlt }) {
       const [play, setPlay] = useState(false);
       useEffect(() => {
         let raf1 = requestAnimationFrame(() => {
@@ -8787,7 +8803,7 @@
             background:'rgba(0,0,0,.3)', border:'2px dashed rgba(255,255,255,.08)',
           }}/>;
         }
-        const c = colorMap[tile.colorId] || window.RR_COLORS.find(x => x.puzzleId === tile.colorId) || { bg:'#888', shine:'#aaa', shadow:'#444' };
+        const c = rrSafeColorFor(colorMap, tile, seasonAlt);
         const shape = tileShapeFor ? tileShapeFor(tile.colorId) : null;
         if (shape) {
           return (
@@ -8841,7 +8857,7 @@
     // ── Salto: overlay animado de una sola columna subiendo entre 1 y 4 casillas,
     // con la ficha que entra al final por abajo brillando en ámbar. Misma técnica
     // de "fantasma" que la Cascada pero en una sola tira vertical y hacia arriba.
-    function JumpSlide({ col, boardSize, rows, ghostTiles, snapshotCol, colorMap, geo, metallic, metallicColors, tileShapeFor }) {
+    function JumpSlide({ col, boardSize, rows, ghostTiles, snapshotCol, colorMap, geo, metallic, metallicColors, tileShapeFor, seasonAlt }) {
       const [play, setPlay] = useState(false);
       useEffect(() => {
         let raf1 = requestAnimationFrame(() => {
@@ -8865,7 +8881,7 @@
             background:'rgba(0,0,0,.3)', border:'2px dashed rgba(255,255,255,.08)',
           }}/>;
         }
-        const c = colorMap[tile.colorId] || window.RR_COLORS.find(x => x.puzzleId === tile.colorId) || { bg:'#888', shine:'#aaa', shadow:'#444' };
+        const c = rrSafeColorFor(colorMap, tile, seasonAlt);
         const shape = tileShapeFor ? tileShapeFor(tile.colorId) : null;
         if (shape) {
           return (
@@ -9025,7 +9041,7 @@
       );
     }
 
-    function SpinRoundSlide({ row, boardSize, shift, loops, ghostTiles, snapshotRow, colorMap, geo, metallic, metallicColors, tileShapeFor }) {
+    function SpinRoundSlide({ row, boardSize, shift, loops, ghostTiles, snapshotRow, colorMap, geo, metallic, metallicColors, tileShapeFor, seasonAlt }) {
       const [play, setPlay] = useState(false);
       useEffect(() => {
         let raf1 = requestAnimationFrame(() => {
@@ -9050,7 +9066,7 @@
             background:'rgba(0,0,0,.3)', border:'2px dashed rgba(255,255,255,.08)',
           }}/>;
         }
-        const c = colorMap[tile.colorId] || window.RR_COLORS.find(x => x.puzzleId === tile.colorId) || { bg:'#888', shine:'#aaa', shadow:'#444' };
+        const c = rrSafeColorFor(colorMap, tile, seasonAlt);
         const shape = tileShapeFor ? tileShapeFor(tile.colorId) : null;
         if (shape) {
           return (
@@ -11481,14 +11497,14 @@
                 <CascadeSlide cols={cascadeAnim.cols} boardSize={boardSize}
                   ghostTilesByCol={cascadeAnim.ghostTilesByCol} snapshotTiles={cascadeAnim.snapshot}
                   colorMap={getColorMap(effectivePride, colorblind, seasonAlt)} geo={cascadeAnim.geo}
-                  metallic={metallicMode} metallicColors={metallicColors}
+                  metallic={metallicMode} metallicColors={metallicColors} seasonAlt={seasonAlt}
                   tileShapeFor={(colorId) => getTileShape(seasonAlt, colorId)}/>
               )}
               {jumpAnim && (
                 <JumpSlide col={jumpAnim.col} boardSize={boardSize} rows={jumpAnim.rows}
                   ghostTiles={jumpAnim.ghostTiles} snapshotCol={jumpAnim.snapshotCol}
                   colorMap={getColorMap(effectivePride, colorblind, seasonAlt)} geo={jumpAnim.geo}
-                  metallic={metallicMode} metallicColors={metallicColors}
+                  metallic={metallicMode} metallicColors={metallicColors} seasonAlt={seasonAlt}
                   tileShapeFor={(colorId) => getTileShape(seasonAlt, colorId)}/>
               )}
               {jumpArmed && !jumpAnim && (
@@ -11506,7 +11522,7 @@
                 <SpinRoundSlide row={spinRoundAnim.row} boardSize={boardSize} shift={spinRoundAnim.shift}
                   loops={spinRoundAnim.loops} ghostTiles={spinRoundAnim.ghostTiles} snapshotRow={spinRoundAnim.snapshotRow}
                   colorMap={getColorMap(effectivePride, colorblind, seasonAlt)} geo={spinRoundAnim.geo}
-                  metallic={metallicMode} metallicColors={metallicColors}
+                  metallic={metallicMode} metallicColors={metallicColors} seasonAlt={seasonAlt}
                   tileShapeFor={(colorId) => getTileShape(seasonAlt, colorId)}/>
               )}
               {spinRoundArmed && !spinRoundAnim && (
@@ -11572,7 +11588,7 @@
                     )}
                   </div>;
                 }
-                const c=getColorMap(effectivePride, colorblind, seasonAlt)[tile.colorId] || colorMap[tile.colorId] || { bg:'#888', shine:'#aaa', shadow:'#444' }, isAdj=canMove(idx,ei,boardSize,mask);
+                const c=rrSafeColorFor(getColorMap(effectivePride, colorblind, seasonAlt), tile, seasonAlt), isAdj=canMove(idx,ei,boardSize,mask);
                 // Año Nuevo: además de la paleta propia, cada ficha lleva un halo de
                 // su propio color (glow), activo mientras la temporada esté vigente.
                 const newYearGlow = seasonAlt && activeSeason === 'new_year';

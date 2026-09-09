@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v209'; // ← v209: fix - las fichas ya no pierden su color real (fallback a gris) si el mapa de colores de la temporada activa no trae la entrada; aplica al tablero y a las animaciones de power-up (Cascada, Salto, SpinRound)
+const CACHE_NAME = 'mosaicchamp-v210'; // ← v210: fix real de v209 - el respaldo de color de las fichas usaba una paleta incompleta (sin shine/shadow) o la clásica no-temática, causando naranja/blanco en vez de marrón en Festividades; ahora todo pasa por rrSafeColorFor, que siempre usa el color real de la temporada activa
 
 
 // Recursos que se precachean en la instalación
