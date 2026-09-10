@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v212'; // ← v212: fix - el patrón de referencia (#rr-grid) ahora refresca la paleta justo antes de pintar, para que no se quede a medio camino (algunas celdas en color de temporada y otras en clásico) al pulsar Mezclar
+const CACHE_NAME = 'mosaicchamp-v213'; // ← v213: fix - Festividades ahora aplica el fondo de temporada (cielo nocturno azul/dorado) también en el lobby, el widget de patrón, la tarjeta y el botón primario, igual que el resto de temporadas — antes solo se veía durante la partida
 
 
 // Recursos que se precachean en la instalación
