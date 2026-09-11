@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v214'; // ← v214: fix - Pride: el patrón de referencia (#rr-grid) ya no revierte a colores clásicos al activar el modo alternativo a mitad de partida (refreshRRColors ahora respeta el preview window.__prideTiles, no solo window.__prideMode)
+const CACHE_NAME = 'mosaicchamp-v215'; // ← v215: fix - Vuelta al Colegio: (1) el texto "Toca para..." bajo el título ahora solo se oscurece cuando la temporada está realmente activada, no solo por ser la temporada de la fecha; (2) --rr-icon-color negro (faltaba) para que el SVG de Reiniciar y demás iconos no se queden morados sobre el fondo claro; (3) niveles completados en verde oscuro (mismo tono que verano) para que se lean bien sobre el gris claro
 
 
 // Recursos que se precachean en la instalación

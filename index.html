@@ -2539,6 +2539,10 @@
     body.rr-season-verano .lobby-card { background:rgba(8,34,74,.4); border-color:rgba(11,46,107,.5); }
 
     /* ── Temporada de Vuelta al Colegio ── */
+    /* Vuelta al Colegio — fondo claro, así que los iconos (incl. el SVG de
+       Reiniciar, que usa var(--rr-icon-color)) pasan a negro en vez del morado
+       por defecto; era la única temporada a la que le faltaba esta variable. */
+    body.rr-season-vuelta_colegio { --rr-icon-color:#141416; --rr-finished-overlay:rgba(40,40,44,.90); }
     body.rr-season-vuelta_colegio .lobby-wrap {
       background:
         linear-gradient(rgba(70,115,175,.38) 1px,transparent 1px) 0 0/26px 26px,
@@ -6504,8 +6508,8 @@
           <div style={{
             textAlign:'center', lineHeight:1.4, marginTop:'4px',
             fontFamily:"'Pacifico',cursive", fontSize:'clamp(14px,4vw,19px)',
-            color: theme?.darkText ? 'rgba(20,20,22,.94)' : 'rgba(255,255,255,.75)',
-            textShadow: theme?.darkText ? '0 1px 3px rgba(255,255,255,.5)' : '0 1px 6px rgba(0,0,0,.9)',
+            color: (theme?.darkText && isOn) ? 'rgba(20,20,22,.94)' : 'rgba(255,255,255,.75)',
+            textShadow: (theme?.darkText && isOn) ? '0 1px 3px rgba(255,255,255,.5)' : '0 1px 6px rgba(0,0,0,.9)',
             letterSpacing:'.02em', pointerEvents:'none',
             padding:'0 12px',
           }}>
@@ -8059,11 +8063,11 @@
                         position:'relative',padding:'8px 4px',borderRadius:'9px',
                         cursor:locked?'not-allowed':'pointer',
                         opacity:locked?0.65:1,
-                        border:`1px solid ${active?'rgba(156,90,255,.8)':completed?(isVeranoActive?'rgba(21,110,60,.6)':'rgba(74,222,128,.5)'):isSpecial?'rgba(255,200,80,.55)':isVeranoActive?'rgba(120,100,150,.4)':darkText?'rgba(41,41,44,.3)':'rgba(255,255,255,.12)'}`,
-                        background:active?'rgba(156,90,255,.22)':completed?(isVeranoActive?'rgba(21,110,60,.22)':'rgba(34,197,94,.1)'):isSpecial?'rgba(255,200,80,.1)':isVeranoActive?'rgba(90,70,120,.16)':darkText?'rgba(0,0,0,.06)':'rgba(255,255,255,.04)',
-                        color:active?'#fff':completed?(isVeranoActive?'#2e8b57':'#4ade80'):isSpecial?'#FFD27A':isVeranoActive?'rgba(200,175,225,.75)':darkText?'#141416':'rgba(255,255,255,.65)',
+                        border:`1px solid ${active?'rgba(156,90,255,.8)':completed?((isVeranoActive||darkText)?'rgba(21,110,60,.6)':'rgba(74,222,128,.5)'):isSpecial?'rgba(255,200,80,.55)':isVeranoActive?'rgba(120,100,150,.4)':darkText?'rgba(41,41,44,.3)':'rgba(255,255,255,.12)'}`,
+                        background:active?'rgba(156,90,255,.22)':completed?((isVeranoActive||darkText)?'rgba(21,110,60,.22)':'rgba(34,197,94,.1)'):isSpecial?'rgba(255,200,80,.1)':isVeranoActive?'rgba(90,70,120,.16)':darkText?'rgba(0,0,0,.06)':'rgba(255,255,255,.04)',
+                        color:active?'#fff':completed?((isVeranoActive||darkText)?'#2e8b57':'#4ade80'):isSpecial?'#FFD27A':isVeranoActive?'rgba(200,175,225,.75)':darkText?'#141416':'rgba(255,255,255,.65)',
                         fontWeight:800,fontSize:'14px',transition:'all .15s',
-                        boxShadow:active?'0 0 14px rgba(156,90,255,.4)':completed?(isVeranoActive?'0 0 8px rgba(21,110,60,.35)':'0 0 8px rgba(74,222,128,.25)'):isSpecial?'0 0 10px rgba(255,200,80,.35)':'none',
+                        boxShadow:active?'0 0 14px rgba(156,90,255,.4)':completed?((isVeranoActive||darkText)?'0 0 8px rgba(21,110,60,.35)':'0 0 8px rgba(74,222,128,.25)'):isSpecial?'0 0 10px rgba(255,200,80,.35)':'none',
                         animation:isSpecial?'level8In .5s ease':'none',
                       }}>
                       {locked ? (
