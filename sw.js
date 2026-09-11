@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v213'; // ← v213: fix - Festividades ahora aplica el fondo de temporada (cielo nocturno azul/dorado) también en el lobby, el widget de patrón, la tarjeta y el botón primario, igual que el resto de temporadas — antes solo se veía durante la partida
+const CACHE_NAME = 'mosaicchamp-v214'; // ← v214: fix - Pride: el patrón de referencia (#rr-grid) ya no revierte a colores clásicos al activar el modo alternativo a mitad de partida (refreshRRColors ahora respeta el preview window.__prideTiles, no solo window.__prideMode)
 
 
 // Recursos que se precachean en la instalación

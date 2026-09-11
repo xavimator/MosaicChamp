@@ -5156,7 +5156,14 @@
         src = sub.rrColors;
       }
       else if (window.__seasonAltMode && theme) src = theme.rrColors;
-      else if (window.__prideMode) src = PRIDE_RR_COLORS;
+      // window.__prideTiles es el preview de Pride que activa el long-press del
+      // título A MITAD DE PARTIDA (evento prideTileToggle) — distinto del
+      // window.__prideMode persistente que se activa desde el lobby. Antes solo
+      // se comprobaba __prideMode aquí, así que en cuanto rrApplyPattern llamaba
+      // a refreshRRColors() (fix de Festividades) se deshacía el preview y el
+      // patrón de referencia volvía a los colores clásicos aunque Pride siguiera
+      // activo en el tablero.
+      else if (window.__prideMode || window.__prideTiles) src = PRIDE_RR_COLORS;
       else src = window._origRrColors || window.RR_COLORS;
       src.forEach((c, i) => { window.RR_COLORS[i] = { ...c }; });
       if (window.__colorblindMode) {
