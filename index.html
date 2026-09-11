@@ -8786,6 +8786,15 @@
       return (
         <div style={{
           position:'absolute', inset:'-4%',
+          // Misma rotación estable (por identidad de ficha colorId-num) que usa el
+          // tablero real — así una hoja de arce o un corazón que estaban ladeados
+          // en el tablero mantienen ese mismo ladeo mientras "vuelan" en la
+          // animación del power-up, en vez de aparecer siempre rectos.
+          transform: shape === 'maple-leaf' && tileKey
+            ? `rotate(${stableRotationFor(tileKey, 360)}deg)`
+            : shape === 'heart' && tileKey
+            ? `rotate(${stableRotationFor(tileKey, 16) - 8}deg) scale(0.96)`
+            : undefined,
           filter: glowing
             ? `drop-shadow(0 3px 4px rgba(0,0,0,.4)) drop-shadow(0 0 8px ${glowColor})`
             : `drop-shadow(0 3px 4px rgba(0,0,0,.4))`,

@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v215'; // ← v215: fix - Vuelta al Colegio: (1) el texto "Toca para..." bajo el título ahora solo se oscurece cuando la temporada está realmente activada, no solo por ser la temporada de la fecha; (2) --rr-icon-color negro (faltaba) para que el SVG de Reiniciar y demás iconos no se queden morados sobre el fondo claro; (3) niveles completados en verde oscuro (mismo tono que verano) para que se lean bien sobre el gris claro
+const CACHE_NAME = 'mosaicchamp-v216'; // ← v216: fix - Otoño: las fichas fantasma de los power-ups (Salto, SpinRound, Cascada) ahora mantienen la misma rotación de la hoja de arce (y el corazón, en Carnavalentín) que tenían en el tablero real, en vez de aparecer siempre rectas durante la animación
 
 
 // Recursos que se precachean en la instalación
