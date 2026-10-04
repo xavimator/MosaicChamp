@@ -4,7 +4,7 @@
 //  El registro se hace automáticamente desde index.html
 // ─────────────────────────────────────────────────────────
 
-const CACHE_NAME = 'mosaicchamp-v216'; // ← v216: fix - Otoño: las fichas fantasma de los power-ups (Salto, SpinRound, Cascada) ahora mantienen la misma rotación de la hoja de arce (y el corazón, en Carnavalentín) que tenían en el tablero real, en vez de aparecer siempre rectas durante la animación
+const CACHE_NAME = 'mosaicchamp-v218'; // ← v218: temporada Día de la Mujer — fondo animado de avatares teñidos de violeta (lobby y partida)
 
 
 // Recursos que se precachean en la instalación
